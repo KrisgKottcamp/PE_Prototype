@@ -1,0 +1,585 @@
+fileFormatVersion: 2
+guid: da146a5fd9dca9f47a26bbf69165a8d3
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3579209749327106729
+    second: TestMap_01_FG_0
+  - first:
+      213: -5116249487528431301
+    second: TestMap_01_FG_1
+  - first:
+      213: -4647390139270585510
+    second: TestMap_01_FG_2
+  - first:
+      213: -5399788127033485663
+    second: TestMap_01_FG_3
+  - first:
+      213: -2042402621284068958
+    second: TestMap_01_FG_4
+  - first:
+      213: 5245709458356350966
+    second: TestMap_01_FG_5
+  - first:
+      213: -3489059986419308828
+    second: TestMap_01_FG_6
+  - first:
+      213: -5715880768557730587
+    second: TestMap_01_FG_7
+  - first:
+      213: 4183319936898229108
+    second: TestMap_01_FG_8
+  - first:
+      213: -3481926362041505046
+    second: TestMap_01_FG_9
+  - first:
+      213: 8558982460503819134
+    second: TestMap_01_FG_10
+  - first:
+      213: -7419535709897890613
+    second: TestMap_01_FG_11
+  - first:
+      213: 7696604954157713997
+    second: TestMap_01_FG_12
+  - first:
+      213: 8484554252982704391
+    second: TestMap_01_FG_13
+  - first:
+      213: -7508779106241004097
+    second: TestMap_01_FG_14
+  - first:
+      213: 7048410261557421853
+    second: TestMap_01_FG_15
+  - first:
+      213: 75890079646593740
+    second: TestMap_01_FG_16
+  - first:
+      213: 6617814386517535308
+    second: TestMap_01_FG_17
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 9
+  spritePivot: {x: 0.5, y: 0}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: TestMap_01_FG_0
+      rect:
+        serializedVersion: 2
+        x: 3066
+        y: 3590
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9a2d145bd48eba130800000000000000
+      internalID: 3579209749327106729
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_1
+      rect:
+        serializedVersion: 2
+        x: 3439
+        y: 3590
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b31f799b23e6ff8b0800000000000000
+      internalID: -5116249487528431301
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_2
+      rect:
+        serializedVersion: 2
+        x: 3237
+        y: 3343
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a53af109a47218fb0800000000000000
+      internalID: -4647390139270585510
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_3
+      rect:
+        serializedVersion: 2
+        x: 3508
+        y: 3190
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1a61cc9ce491015b0800000000000000
+      internalID: -5399788127033485663
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_4
+      rect:
+        serializedVersion: 2
+        x: 3287
+        y: 3012
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a1590613ade7a3e0800000000000000
+      internalID: -2042402621284068958
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_5
+      rect:
+        serializedVersion: 2
+        x: 111
+        y: 2699
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6ffac3c95f08cc840800000000000000
+      internalID: 5245709458356350966
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_6
+      rect:
+        serializedVersion: 2
+        x: 484
+        y: 2699
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4e6a27d9d6e549fc0800000000000000
+      internalID: -3489059986419308828
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_7
+      rect:
+        serializedVersion: 2
+        x: 3458
+        y: 2752
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5e431ab99bc1da0b0800000000000000
+      internalID: -5715880768557730587
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_8
+      rect:
+        serializedVersion: 2
+        x: 282
+        y: 2452
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 473e0a481532e0a30800000000000000
+      internalID: 4183319936898229108
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_9
+      rect:
+        serializedVersion: 2
+        x: 553
+        y: 2299
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aeaa278fb66bdafc0800000000000000
+      internalID: -3481926362041505046
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_10
+      rect:
+        serializedVersion: 2
+        x: 332
+        y: 2121
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e73012d433d97c670800000000000000
+      internalID: 8558982460503819134
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_11
+      rect:
+        serializedVersion: 2
+        x: 503
+        y: 1861
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bc4e53d0593880990800000000000000
+      internalID: -7419535709897890613
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_12
+      rect:
+        serializedVersion: 2
+        x: 1975
+        y: 1567
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d4a051d6d65dfca60800000000000000
+      internalID: 7696604954157713997
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_13
+      rect:
+        serializedVersion: 2
+        x: 2348
+        y: 1567
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7095096d3213fb570800000000000000
+      internalID: 8484554252982704391
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_14
+      rect:
+        serializedVersion: 2
+        x: 2146
+        y: 1320
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fbd31a3af257bc790800000000000000
+      internalID: -7508779106241004097
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_15
+      rect:
+        serializedVersion: 2
+        x: 2417
+        y: 1167
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d17295fe9cbf0d160800000000000000
+      internalID: 7048410261557421853
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_16
+      rect:
+        serializedVersion: 2
+        x: 2196
+        y: 989
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cc2bf4710ad9d0100800000000000000
+      internalID: 75890079646593740
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: TestMap_01_FG_17
+      rect:
+        serializedVersion: 2
+        x: 2367
+        y: 729
+        width: 102
+        height: 203
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c4ae8d13f1337db50800000000000000
+      internalID: 6617814386517535308
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 1537655665
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      TestMap_01_FG_0: 3579209749327106729
+      TestMap_01_FG_1: -5116249487528431301
+      TestMap_01_FG_10: 8558982460503819134
+      TestMap_01_FG_11: -7419535709897890613
+      TestMap_01_FG_12: 7696604954157713997
+      TestMap_01_FG_13: 8484554252982704391
+      TestMap_01_FG_14: -7508779106241004097
+      TestMap_01_FG_15: 7048410261557421853
+      TestMap_01_FG_16: 75890079646593740
+      TestMap_01_FG_17: 6617814386517535308
+      TestMap_01_FG_2: -4647390139270585510
+      TestMap_01_FG_3: -5399788127033485663
+      TestMap_01_FG_4: -2042402621284068958
+      TestMap_01_FG_5: 5245709458356350966
+      TestMap_01_FG_6: -3489059986419308828
+      TestMap_01_FG_7: -5715880768557730587
+      TestMap_01_FG_8: 4183319936898229108
+      TestMap_01_FG_9: -3481926362041505046
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
