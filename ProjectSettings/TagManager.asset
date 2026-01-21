@@ -13,10 +13,10 @@ TagManager:
   - UI
   - WalkArea
   - Obstacles
-  - 
-  - 
-  - 
-  - 
+  - PlayerHurtbox
+  - Projectile
+  - EnemyHurtbox
+  - PlayerProjectile
   - 
   - 
   - 
@@ -55,6 +55,9 @@ TagManager:
     locked: 0
   - name: UI
     uniqueID: 2029660237
+    locked: 0
+  - name: VFX
+    uniqueID: 3123008401
     locked: 0
   m_RenderingLayers:
   - Default

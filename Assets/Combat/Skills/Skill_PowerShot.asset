@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d23c19d3fe40cc748b8ca6a9a8933861, type: 3}
+  m_Name: Skill_PowerShot
+  m_EditorClassIdentifier: 
+  displayName: Power Shot
+  targetType: 1
+  baseApCost: 20
+  firesProjectile: 1
+  projectilePrefab: {fileID: 7666303392692351521, guid: 730e3ffb110ccf241a827615b250e29a, type: 3}
+  projectileSpeed: 14
+  projectileLifetime: 2.5
+  projectileDamage: 8
+  projectileStunSeconds: 0.25
+  projectileHitMask:
+    serializedVersion: 2
+    m_Bits: 1152
+  damage: 30
+  heal: 0
+  impactDelay: 0.1
+  castVfxPrefab: {fileID: 0}
+  castVfxAngleOffset: 0
+  castVfxForwardOffset: 0
+  impactVfxPrefab: {fileID: 0}
+  impactVfxAngleOffset: 0
+  impactVfxForwardOffset: 0

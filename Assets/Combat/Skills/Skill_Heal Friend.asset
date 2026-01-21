@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d23c19d3fe40cc748b8ca6a9a8933861, type: 3}
+  m_Name: Skill_Heal Friend
+  m_EditorClassIdentifier: 
+  displayName: Heal Friend
+  targetType: 0
+  baseApCost: 10
+  requiresPartyTarget: 1
+  includeDownedTargets: 0
+  partyTargetMenuTitle: Choose Ally to Heal
+  meleeRange: 0.9
+  meleeRadius: 0.4
+  meleeHitMask:
+    serializedVersion: 2
+    m_Bits: 0
+  meleeMaxTargets: 1
+  firesProjectile: 0
+  projectilePrefab: {fileID: 0}
+  projectileSpeed: 14
+  projectileLifetime: 2.5
+  projectileDamage: 8
+  projectileStunSeconds: 0.25
+  projectileHitMask:
+    serializedVersion: 2
+    m_Bits: 0
+  damage: 0
+  heal: 30
+  impactDelay: 0.1
+  castVfxPrefab: {fileID: 0}
+  castVfxAngleOffset: 0
+  castVfxForwardOffset: 0
+  impactVfxPrefab: {fileID: 0}
+  impactVfxAngleOffset: 0
+  impactVfxForwardOffset: 0

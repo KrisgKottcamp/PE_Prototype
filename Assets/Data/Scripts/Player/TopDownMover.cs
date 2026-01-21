@@ -7,6 +7,12 @@ public class TopDownMover : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 5f;
+    public float MoveSpeed
+    {
+        get => moveSpeed;
+        set => moveSpeed = Mathf.Max(0f, value);
+    }
+
     [SerializeField] private float skinWidth = 0.03f;
 
     [Header("Layers")]
@@ -23,6 +29,10 @@ public class TopDownMover : MonoBehaviour
 
     private readonly RaycastHit2D[] castResults = new RaycastHit2D[8];
     private ContactFilter2D castFilter;
+
+
+    public Vector2 LastMoveDir { get; private set; } = Vector2.up;
+
 
     private void Awake()
     {
@@ -100,6 +110,9 @@ public class TopDownMover : MonoBehaviour
         float x = Input.GetAxisRaw("Horizontal");
         float y = Input.GetAxisRaw("Vertical");
         moveInput = new Vector2(x, y).normalized;
+        if (moveInput.sqrMagnitude > 0.0001f)
+            LastMoveDir = moveInput;
+
     }
 
     private void FixedUpdate()
