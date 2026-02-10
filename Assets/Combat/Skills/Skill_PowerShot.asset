@@ -15,16 +15,25 @@ MonoBehaviour:
   displayName: Power Shot
   targetType: 1
   baseApCost: 20
+  requiresPartyTarget: 0
+  includeDownedTargets: 0
+  partyTargetMenuTitle: Choose ally
+  meleeRange: 0.9
+  meleeRadius: 0.4
+  meleeHitMask:
+    serializedVersion: 2
+    m_Bits: 0
+  meleeMaxTargets: 1
   firesProjectile: 1
   projectilePrefab: {fileID: 7666303392692351521, guid: 730e3ffb110ccf241a827615b250e29a, type: 3}
   projectileSpeed: 14
   projectileLifetime: 2.5
-  projectileDamage: 8
+  projectileDamage: 30
   projectileStunSeconds: 0.25
   projectileHitMask:
     serializedVersion: 2
     m_Bits: 1152
-  damage: 30
+  damage: 50
   heal: 0
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}

@@ -127,7 +127,7 @@ GameObject:
   - component: {fileID: -2685741132705113101}
   m_Layer: 0
   m_Name: CombatPlayerPawn
-  m_TagString: Untagged
+  m_TagString: PlayerCombatPawn
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -215,6 +215,7 @@ CapsuleCollider2D:
   m_Direction: 0
 --- !u!212 &754329121951666129
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -233,6 +234,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -254,9 +257,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -1660877859
   m_SortingLayer: 3
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 6059244581636116009, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -266,7 +271,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!114 &-4474884750905616783
 MonoBehaviour:
@@ -280,7 +284,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a68c43a00343a5458d506ce23071d20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
+  moveSpeed: 3
   skinWidth: 0.03
   obstaclesMask:
     serializedVersion: 2
@@ -317,7 +321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b92c10177b9f1a4d8c025ff98a28d9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lockoutSeconds: 0.35
+  lockoutSeconds: 0.6
   disableScripts:
   - {fileID: -4474884750905616783}
 --- !u!114 &4566015598488280250

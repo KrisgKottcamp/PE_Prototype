@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 273839630491619014}
   - component: {fileID: 3265199766151690629}
   - component: {fileID: 7665401624113410786}
+  - component: {fileID: -3799086166338868606}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -41,6 +42,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &4841394590521975345
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -59,6 +61,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -80,9 +84,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -1660877859
   m_SortingLayer: 3
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: -3004258058756006179, guid: 5edfda86f2d11834d84a5b6f8e45c867, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -92,7 +98,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!70 &7823468346601279760
 CapsuleCollider2D:
@@ -184,12 +189,34 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 6088773528821479106, guid: 0a4f42c47b1fc2f4ca363dc0520e42a0, type: 3}
+  muzzle: {fileID: 0}
+  projectileSpeed: 4
+  applyVelocityToRigidbody: 0
   fireInterval: 1
-  targetPawn: {fileID: 0}
-  aimLagSeconds: 0
-  historySeconds: 1
-  recordInterval: 0.02
-  useUnscaledTime: 0
+  initialFireDelay: 0
+  enableWakeDelay: 0.02
+  useBurstFire: 1
+  shotsPerBurst: 3
+  intraBurstInterval: 0.15
+  burstCooldown: 0.6
+  losRetryDelay: 0.06
+  limitBurstsPerEnable: 1
+  burstsPerEnable: 1
+  aimLagSeconds: 0.5
+  requireLineOfSight: 1
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 128
+  maxRange: 30
+  autoFindPlayer: 1
+  playerTag: PlayerCombatPawn
+  target: {fileID: 4624380704858928614, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
+  shootingEnabled: 1
+  lastBlockReason: None
+  cooldownSetBy: None
+  nextFireIn: 0
+  burstShotsRemaining: 0
+  burstsFiredThisEnable: 0
 --- !u!114 &273839630491619014
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -221,9 +248,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d3fcc7a28bc414f84673d3cc6aecb1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  defaultStunSeconds: 0.5
+  defaultStunSeconds: 1.5
   disableScripts:
   - {fileID: 3715463728703913041}
+  - {fileID: -3799086166338868606}
   rb2d: {fileID: 0}
 --- !u!114 &7665401624113410786
 MonoBehaviour:
@@ -243,3 +271,75 @@ MonoBehaviour:
   alsoFlash: 1
   flashColor: {r: 1, g: 1, b: 1, a: 1}
   flashTime: 0.06
+--- !u!114 &-3799086166338868606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecb07fc0952304b42ab7664c24255685, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyBrain
+  isRanged: 1
+  isMelee: 0
+  enemyHealth: {fileID: 5696765117373536081}
+  shooter: {fileID: 3715463728703913041}
+  rb: {fileID: 9072718850780085983}
+  autoFindPlayerByTag: 1
+  playerTag: PlayerCombatPawn
+  playerSearchInterval: 0.2
+  moveSpeed: 3
+  retreatSpeedMultiplier: 1
+  obstacleProbeDistance: 0.35
+  stuckCheckInterval: 0.35
+  stuckMinTravel: 0.08
+  replanIntervalRange: {x: 0.2, y: 0.4}
+  minPointLockTime: 0.45
+  replanHardTimeout: 0.35
+  roleChangeReplanDelay: 0.08
+  coverWeight: 0.65
+  fireWeight: 1.9
+  flankWeight: 1.6
+  retreatWeight: 0.35
+  travelCostWeight: 0.25
+  occupiedPenalty: 1.4
+  rangeFitWeight: 1.3
+  preferredMinRange: 1.2
+  preferredMaxRange: 3.2
+  losBlockMask:
+    serializedVersion: 2
+    m_Bits: 128
+  suppressorShooter:
+    fireInterval: 0.35
+    aimLag: 0.04
+    settleWindow: {x: 0.04, y: 0.1}
+    attackWindow: {x: 2.8, y: 4.2}
+    firstShotDelay: 0
+  anchorShooter:
+    fireInterval: 0.4
+    aimLag: 0.06
+    settleWindow: {x: 0.05, y: 0.12}
+    attackWindow: {x: 2.4, y: 3.4}
+    firstShotDelay: 0
+  flankerShooter:
+    fireInterval: 0.5
+    aimLag: 0.05
+    settleWindow: {x: 0.05, y: 0.12}
+    attackWindow: {x: 2, y: 3}
+    firstShotDelay: 0.08
+  retreaterShooter:
+    fireInterval: 0.65
+    aimLag: 0.1
+    settleWindow: {x: 0.05, y: 0.1}
+    attackWindow: {x: 1.3, y: 2}
+    firstShotDelay: 0.06
+  fallbackArrivalRadius: 0.8
+  drawDebug: 0
+  debugState: 
+  currentRole: 0
+  usingFallbackChase: 0
+  sharedPlayerPos: {x: 0, y: 0}
+  currentPoint: {fileID: 0}

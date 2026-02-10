@@ -4,160 +4,366 @@ using UnityEngine;
 public class EnemyShooterDebug : MonoBehaviour
 {
     [Header("Projectile")]
-    [SerializeField] private GameObject projectilePrefab; // must have Projectile component
-    [SerializeField] private float fireInterval = 0.6f;
+    [SerializeField] private GameObject projectilePrefab;
+    [SerializeField] private Transform muzzle;
+    [SerializeField] private float projectileSpeed = 7f;
+    [SerializeField] private bool applyVelocityToRigidbody = true;
 
-    [Header("Target (leave empty to auto-find)")]
-    [SerializeField] private CombatPawn targetPawn;
+    [Header("Legacy Continuous Fire")]
+    [SerializeField] private float fireInterval = 0.30f; // used only when burst mode is OFF
+    [SerializeField] private float initialFireDelay = 0f;
+    [SerializeField] private float enableWakeDelay = 0.03f;
 
-    [Header("Aim Lag")]
-    [Tooltip("Aim at where the target was this many seconds ago.")]
-    [SerializeField] private float aimLagSeconds = 0.12f;
+    [Header("Burst Fire")]
+    [SerializeField] private bool useBurstFire = true;
+    [SerializeField] private int shotsPerBurst = 3;
+    [SerializeField] private float intraBurstInterval = 0.10f;
+    [SerializeField] private float burstCooldown = 0.90f;
+    [SerializeField] private float losRetryDelay = 0.06f;
 
-    [Tooltip("How many seconds of position history to keep. Must be >= aimLagSeconds.")]
-    [SerializeField] private float historySeconds = 1.0f;
+    [Header("Burst Quota Per Enable")]
+    [SerializeField] private bool limitBurstsPerEnable = true;
+    [SerializeField] private int burstsPerEnable = 1; // 1 = one burst each time brain enables shooting
 
-    [Tooltip("How often to record target position samples (seconds). 0.02 is a good default.")]
-    [SerializeField] private float recordInterval = 0.02f;
+    [Header("Aim")]
+    [SerializeField] private float aimLagSeconds = 0.07f;
+    [SerializeField] private bool requireLineOfSight = true;
+    [SerializeField] private LayerMask obstacleMask;
+    [SerializeField] private float maxRange = 30f;
 
-    [Tooltip("If true, history uses real time (ignores Time.timeScale). Usually keep false.")]
-    [SerializeField] private bool useUnscaledTime = false;
+    [Header("Target")]
+    [SerializeField] private bool autoFindPlayer = true;
+    [SerializeField] private string playerTag = "PlayerCombatPawn";
+    [SerializeField] private Transform target;
 
-    private float fireTimer;
-    private float nextRecordTime;
+    [Header("Runtime")]
+    [SerializeField] private bool shootingEnabled = true;
+    [SerializeField] private string lastBlockReason = "None";
+    [SerializeField] private string cooldownSetBy = "None";
+    [SerializeField] private float nextFireIn = 0f;
+    [SerializeField] private int burstShotsRemaining = 0;
+    [SerializeField] private int burstsFiredThisEnable = 0;
 
-    private Rigidbody2D targetRb;
-
-    private struct Sample
+    private struct TargetSample
     {
-        public float t;
+        public float time;
         public Vector2 pos;
-        public Sample(float t, Vector2 pos) { this.t = t; this.pos = pos; }
     }
 
-    private readonly List<Sample> samples = new();
+    private readonly List<TargetSample> samples = new List<TargetSample>(64);
 
-    private float Now => useUnscaledTime ? Time.unscaledTime : Time.time;
+    private float nextFireTime = 0f;
+    private float nextTargetSearchTime = 0f;
+
+    private const float TargetSearchInterval = 0.20f;
+    private const float MinFireInterval = 0.03f;
+
+    public float FireInterval => fireInterval;
+    public float AimLagSeconds => aimLagSeconds;
+    public bool ShootingEnabled => shootingEnabled;
+    public Transform CurrentTarget => target;
+    public string LastBlockReason => lastBlockReason;
+    public string CooldownSetBy => cooldownSetBy;
 
     private void OnEnable()
     {
         samples.Clear();
-        nextRecordTime = Now;
+        ResetBurstStateForEnable();
+        ScheduleNextFire(initialFireDelay, "OnEnable");
+        lastBlockReason = "Enabled";
     }
 
     private void Update()
     {
-        if (projectilePrefab == null) return;
+        ResolveTarget();
+        RecordTargetSample();
 
-        AcquireTarget();
-        if (targetPawn == null) return;
+        nextFireIn = Mathf.Max(0f, nextFireTime - Time.time);
 
-        RecordTargetHistory();
-
-        fireTimer += Time.deltaTime;
-        if (fireTimer < fireInterval) return;
-        fireTimer = 0f;
-
-        FireAtLaggedPosition();
-    }
-
-    private void AcquireTarget()
-    {
-        if (targetPawn == null)
+        if (!shootingEnabled)
         {
-            targetPawn = FindObjectOfType<CombatPawn>(true);
-            targetRb = null;
-            if (targetPawn != null) targetRb = targetPawn.GetComponent<Rigidbody2D>();
+            lastBlockReason = "ShootingDisabled";
+            return;
         }
-        else if (targetRb == null)
+
+        if (projectilePrefab == null)
         {
-            targetRb = targetPawn.GetComponent<Rigidbody2D>();
+            lastBlockReason = "NoProjectilePrefab";
+            return;
+        }
+
+        if (Time.time < nextFireTime)
+        {
+            lastBlockReason = $"Cooldown({cooldownSetBy})";
+            return;
+        }
+
+        if (limitBurstsPerEnable && useBurstFire && burstsPerEnable > 0 && burstsFiredThisEnable >= burstsPerEnable)
+        {
+            lastBlockReason = "BurstQuotaReached";
+            return;
+        }
+
+        if (!TryGetDelayedAimPoint(out Vector2 aimPoint))
+        {
+            lastBlockReason = "NoTargetOrAimPoint";
+            ScheduleNextFire(0.04f, "RetryNoTarget");
+            return;
+        }
+
+        Vector2 origin = muzzle != null ? (Vector2)muzzle.position : (Vector2)transform.position;
+        Vector2 toAim = aimPoint - origin;
+        float dist = toAim.magnitude;
+
+        if (dist < 0.001f)
+        {
+            lastBlockReason = "AimTooClose";
+            ScheduleNextFire(0.04f, "RetryAimTooClose");
+            return;
+        }
+
+        if (dist > maxRange)
+        {
+            lastBlockReason = "OutOfRange";
+            ScheduleNextFire(0.05f, "RetryOutOfRange");
+            return;
+        }
+
+        if (requireLineOfSight && IsLineBlocked(origin, aimPoint))
+        {
+            lastBlockReason = "LOSBlocked";
+            ScheduleNextFire(losRetryDelay, "LOSRetry");
+            return;
+        }
+
+        Vector2 dir = toAim / dist;
+
+        if (useBurstFire)
+            FireBurstStep(origin, dir);
+        else
+            FireContinuousStep(origin, dir);
+    }
+
+    private void FireContinuousStep(Vector2 origin, Vector2 dir)
+    {
+        Fire(origin, dir);
+        lastBlockReason = "FiredContinuous";
+        ScheduleNextFire(Mathf.Max(MinFireInterval, fireInterval), "ShotFiredContinuous");
+    }
+
+    private void FireBurstStep(Vector2 origin, Vector2 dir)
+    {
+        if (burstShotsRemaining <= 0)
+            burstShotsRemaining = Mathf.Max(1, shotsPerBurst);
+
+        Fire(origin, dir);
+        burstShotsRemaining--;
+
+        int total = Mathf.Max(1, shotsPerBurst);
+        int firedInCurrentBurst = total - burstShotsRemaining;
+        lastBlockReason = $"FiredBurstShot {firedInCurrentBurst}/{total}";
+
+        if (burstShotsRemaining > 0)
+        {
+            ScheduleNextFire(Mathf.Max(MinFireInterval, intraBurstInterval), "IntraBurst");
+        }
+        else
+        {
+            burstsFiredThisEnable++;
+            ScheduleNextFire(Mathf.Max(MinFireInterval, burstCooldown), "BurstCooldown");
         }
     }
 
-    private Vector2 ReadTargetPosition()
+    public void SetFireInterval(float value)
     {
-        if (targetRb != null) return targetRb.position;
-        return targetPawn.transform.position;
+        fireInterval = Mathf.Max(MinFireInterval, value);
     }
 
-    private void RecordTargetHistory()
+    public void SetAimLag(float value)
     {
-        // Sanitize values from Inspector
-        float interval = Mathf.Max(0.005f, recordInterval);
-        float keep = Mathf.Max(0.1f, historySeconds);
-
-        float t = Now;
-        if (t < nextRecordTime) return;
-
-        nextRecordTime = t + interval;
-
-        samples.Add(new Sample(t, ReadTargetPosition()));
-        PruneOldSamples(t, keep);
+        aimLagSeconds = Mathf.Max(0f, value);
     }
 
-    private void PruneOldSamples(float now, float keepSeconds)
+    public void SetShootingEnabled(bool enabled)
     {
-        float cutoff = now - keepSeconds;
+        if (enabled == shootingEnabled) return;
 
+        shootingEnabled = enabled;
+
+        if (shootingEnabled)
+        {
+            ResetBurstStateForEnable();
+            ScheduleNextFire(enableWakeDelay, "EnableRisingEdge");
+        }
+        else
+        {
+            lastBlockReason = "ShootingDisabled";
+        }
+    }
+
+    public void ForceReadyToFire(float delay = 0f)
+    {
+        ScheduleNextFire(delay, "ForceReadyToFire");
+    }
+
+    public void SetTarget(Transform newTarget)
+    {
+        if (target == newTarget) return;
+        target = newTarget;
+        samples.Clear();
+    }
+
+    public void SetBurstConfig(int newShotsPerBurst, float newIntraBurstInterval, float newBurstCooldown)
+    {
+        shotsPerBurst = Mathf.Max(1, newShotsPerBurst);
+        intraBurstInterval = Mathf.Max(MinFireInterval, newIntraBurstInterval);
+        burstCooldown = Mathf.Max(MinFireInterval, newBurstCooldown);
+    }
+
+    public void SetBurstQuotaPerEnable(bool enabled, int quota)
+    {
+        limitBurstsPerEnable = enabled;
+        burstsPerEnable = Mathf.Max(1, quota);
+    }
+
+    private void ResetBurstStateForEnable()
+    {
+        burstShotsRemaining = 0;
+        burstsFiredThisEnable = 0;
+    }
+
+    private void ScheduleNextFire(float delay, string reason)
+    {
+        nextFireTime = Time.time + Mathf.Max(0f, delay);
+        cooldownSetBy = reason;
+    }
+
+    private void ResolveTarget()
+    {
+        if (target != null) return;
+        if (!autoFindPlayer) return;
+        if (Time.time < nextTargetSearchTime) return;
+
+        nextTargetSearchTime = Time.time + TargetSearchInterval;
+
+        GameObject playerObj = null;
+        try
+        {
+            playerObj = GameObject.FindWithTag(playerTag);
+        }
+        catch (UnityException)
+        {
+            lastBlockReason = $"MissingTag:{playerTag}";
+            return;
+        }
+
+        if (playerObj != null)
+        {
+            target = playerObj.transform;
+            lastBlockReason = "TargetAcquired";
+        }
+    }
+
+    private void RecordTargetSample()
+    {
+        if (target == null) return;
+
+        samples.Add(new TargetSample
+        {
+            time = Time.time,
+            pos = target.position
+        });
+
+        float keepFrom = Time.time - Mathf.Max(aimLagSeconds + 0.75f, 1.0f);
         int removeCount = 0;
-        while (removeCount < samples.Count && samples[removeCount].t < cutoff)
-            removeCount++;
+
+        for (int i = 0; i < samples.Count; i++)
+        {
+            if (samples[i].time < keepFrom) removeCount++;
+            else break;
+        }
 
         if (removeCount > 0)
             samples.RemoveRange(0, removeCount);
     }
 
-    private void FireAtLaggedPosition()
+    private bool TryGetDelayedAimPoint(out Vector2 aimPoint)
     {
-        Vector2 targetPos = GetTargetPositionSecondsAgo(aimLagSeconds);
+        aimPoint = Vector2.zero;
+        if (target == null) return false;
 
-        Vector2 dir = (targetPos - (Vector2)transform.position);
-        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
-        dir = dir.normalized;
-
-        GameObject go = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
-
-        Projectile proj = go.GetComponent<Projectile>();
-        if (proj == null)
+        if (samples.Count == 0)
         {
-            Debug.LogError("EnemyShooterDebug: projectilePrefab has no Projectile component.");
-            Destroy(go);
-            return;
+            aimPoint = target.position;
+            return true;
         }
 
-        proj.Fire(dir);
-    }
-
-    private Vector2 GetTargetPositionSecondsAgo(float secondsAgo)
-    {
-        if (targetPawn == null) return transform.position;
-
-        float keep = Mathf.Max(0.1f, historySeconds);
-        secondsAgo = Mathf.Clamp(secondsAgo, 0f, keep);
-
-        // If no samples yet, use current
-        if (samples.Count == 0) return ReadTargetPosition();
-
-        float targetTime = Now - secondsAgo;
-
-        // Clamp to recorded range
-        if (targetTime <= samples[0].t) return samples[0].pos;
-        if (targetTime >= samples[samples.Count - 1].t) return samples[samples.Count - 1].pos;
-
-        // Interpolate between surrounding samples
-        for (int i = samples.Count - 1; i > 0; i--)
+        float t = Time.time - aimLagSeconds;
+        for (int i = samples.Count - 1; i >= 0; i--)
         {
-            Sample a = samples[i - 1];
-            Sample b = samples[i];
-
-            if (a.t <= targetTime && targetTime <= b.t)
+            if (samples[i].time <= t)
             {
-                float u = Mathf.InverseLerp(a.t, b.t, targetTime);
-                return Vector2.Lerp(a.pos, b.pos, u);
+                aimPoint = samples[i].pos;
+                return true;
             }
         }
 
-        return samples[samples.Count - 1].pos;
+        aimPoint = samples[0].pos;
+        return true;
     }
+
+    private bool IsLineBlocked(Vector2 origin, Vector2 aimPoint)
+    {
+        RaycastHit2D[] hits = Physics2D.LinecastAll(origin, aimPoint, obstacleMask);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider2D c = hits[i].collider;
+            if (c == null) continue;
+
+            // Ignore own body colliders
+            if (c.transform.root == transform.root) continue;
+
+            return true;
+        }
+        return false;
+    }
+
+    private void Fire(Vector2 origin, Vector2 dir)
+    {
+        dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
+
+        Vector2 spawnPos = origin + dir * 0.20f;
+        Quaternion rot = Quaternion.FromToRotation(Vector3.right, dir);
+
+        GameObject spawned = Instantiate(projectilePrefab, spawnPos, rot);
+
+        // Ignore owner collision
+        Collider2D[] ownerCols = GetComponentsInChildren<Collider2D>(true);
+        Collider2D[] projCols = spawned.GetComponentsInChildren<Collider2D>(true);
+        for (int i = 0; i < ownerCols.Length; i++)
+        {
+            for (int j = 0; j < projCols.Length; j++)
+            {
+                if (ownerCols[i] != null && projCols[j] != null)
+                    Physics2D.IgnoreCollision(ownerCols[i], projCols[j], true);
+            }
+        }
+
+        // IMPORTANT: initialize projectile script first (if present)
+        if (spawned.TryGetComponent<Projectile>(out Projectile p))
+        {
+            p.Initialize(dir, projectileSpeed);
+        }
+
+        // Fallback: also set Rigidbody velocity
+        if (spawned.TryGetComponent<Rigidbody2D>(out Rigidbody2D rb))
+        {
+#if UNITY_6000_0_OR_NEWER
+            rb.linearVelocity = dir * projectileSpeed;
+#else
+        rb.velocity = dir * projectileSpeed;
+#endif
+        }
+    }
+
 }

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Eri
   maxHP: 50
-  combatMoveSpeed: 6
+  combatMoveSpeed: 3
   maxAP: 100
   apRegenPerSecond: 0
   apGainOnBasicHit: 3

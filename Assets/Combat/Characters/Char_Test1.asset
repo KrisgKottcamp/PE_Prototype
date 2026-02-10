@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Audrey
   maxHP: 100
-  combatMoveSpeed: 7
+  combatMoveSpeed: 3.5
   maxAP: 100
   apRegenPerSecond: 0
   apGainOnBasicHit: 10
