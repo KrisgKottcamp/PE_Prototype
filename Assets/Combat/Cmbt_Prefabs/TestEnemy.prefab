@@ -190,13 +190,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 6088773528821479106, guid: 0a4f42c47b1fc2f4ca363dc0520e42a0, type: 3}
   muzzle: {fileID: 0}
-  projectileSpeed: 4
+  projectileSpeed: 3
   applyVelocityToRigidbody: 0
-  fireInterval: 1
-  initialFireDelay: 0
-  enableWakeDelay: 0.02
   useBurstFire: 1
-  shotsPerBurst: 5
+  shotsPerBurst: 3
   intraBurstInterval: 0.15
   burstCooldown: 0.6
   losRetryDelay: 0.06
@@ -211,12 +208,16 @@ MonoBehaviour:
   autoFindPlayer: 1
   playerTag: PlayerCombatPawn
   target: {fileID: 4624380704858928614, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
+  pattern: 1
+  fanBullets: 3
+  fanArcDegrees: 40
+  ringBullets: 12
+  angularSpeedDegPerTick: 12
+  spiralBulletsPerTick: 2
+  spiralCenteredOnAim: 1
   shootingEnabled: 1
   lastBlockReason: None
   cooldownSetBy: None
-  nextFireIn: 0
-  burstShotsRemaining: 0
-  burstsFiredThisEnable: 0
 --- !u!114 &273839630491619014
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -283,6 +284,108 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ecb07fc0952304b42ab7664c24255685, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyBrain
+  randomizePersonalityOnEnable: 1
+  personality: 0
+  wAggressive: 1.2
+  wScaredCat: 1
+  wBackstabber: 0.8
+  wAvenger: 0.6
+  aggressiveProfile:
+    personality: 0
+    openingAction: 1
+    openingDuration: 0.9
+    preferredMinRange: 0.9
+    preferredMaxRange: 2.2
+    fleeAtHealth01: 0
+    panicDistance: 0
+    coverBias: -0.2
+    flankBias: 0.2
+    fireBias: 0.3
+    mustBeInPreferredRangeToShoot: 1
+    preferFlanksAlways: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.11
+    burstCooldown: 0.75
+    burstsPerEnable: 1
+    farPattern: AimedFan
+    midPattern: AimedFan
+    closePattern: BoI_8Way
+    fanBullets: 5
+    fanArcDegrees: 28
+    ringBullets: 12
+    angularSpeedDegPerTick: 12
+  scaredCatProfile:
+    personality: 1
+    openingAction: 2
+    openingDuration: 1
+    preferredMinRange: 4.5
+    preferredMaxRange: 8
+    fleeAtHealth01: 0.45
+    panicDistance: 1.4
+    coverBias: 0.9
+    flankBias: -0.2
+    fireBias: 0.1
+    mustBeInPreferredRangeToShoot: 0
+    preferFlanksAlways: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.16
+    burstCooldown: 1.1
+    burstsPerEnable: 1
+    farPattern: AimedSingle
+    midPattern: AimedFan
+    closePattern: AimedFan
+    fanBullets: 4
+    fanArcDegrees: 50
+    ringBullets: 12
+    angularSpeedDegPerTick: 12
+  backstabberProfile:
+    personality: 2
+    openingAction: 3
+    openingDuration: 1.1
+    preferredMinRange: 2.5
+    preferredMaxRange: 6
+    fleeAtHealth01: 0.35
+    panicDistance: 1.3
+    coverBias: 0.7
+    flankBias: 1.2
+    fireBias: 0.2
+    mustBeInPreferredRangeToShoot: 0
+    preferFlanksAlways: 1
+    shotsPerBurst: 2
+    intraBurstInterval: 0.1
+    burstCooldown: 0.95
+    burstsPerEnable: 1
+    farPattern: AimedFan
+    midPattern: AimedFan
+    closePattern: AimedFan
+    fanBullets: 3
+    fanArcDegrees: 20
+    ringBullets: 12
+    angularSpeedDegPerTick: 12
+  avengerProfile:
+    personality: 3
+    openingAction: 2
+    openingDuration: 1
+    preferredMinRange: 4.5
+    preferredMaxRange: 8
+    fleeAtHealth01: 0.45
+    panicDistance: 1.4
+    coverBias: 0.9
+    flankBias: -0.2
+    fireBias: 0.1
+    mustBeInPreferredRangeToShoot: 0
+    preferFlanksAlways: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.16
+    burstCooldown: 1.1
+    burstsPerEnable: 1
+    farPattern: AimedSingle
+    midPattern: AimedFan
+    closePattern: AimedFan
+    fanBullets: 4
+    fanArcDegrees: 50
+    ringBullets: 12
+    angularSpeedDegPerTick: 12
   isRanged: 1
   isMelee: 0
   enemyHealth: {fileID: 5696765117373536081}
@@ -299,19 +402,14 @@ MonoBehaviour:
   replanIntervalRange: {x: 0.2, y: 0.4}
   minPointLockTime: 0.45
   replanHardTimeout: 0.35
-  roleChangeReplanDelay: 0.08
-  coverWeight: 0.65
-  fireWeight: 1.9
-  flankWeight: 1.6
-  retreatWeight: 0.35
-  travelCostWeight: 0.25
-  occupiedPenalty: 1.4
-  rangeFitWeight: 1.3
-  preferredMinRange: 1.2
-  preferredMaxRange: 3.2
+  fallbackArrivalRadius: 0.8
   losBlockMask:
     serializedVersion: 2
     m_Bits: 128
+  strictLosForAnchor: 1
+  strictLosForSuppressor: 1
+  strictLosForAllRanged: 0
+  maxNoLosBeforeReplan: 0.35
   suppressorShooter:
     fireInterval: 0.35
     aimLag: 0.04
@@ -336,10 +434,16 @@ MonoBehaviour:
     settleWindow: {x: 0.05, y: 0.1}
     attackWindow: {x: 1.3, y: 2}
     firstShotDelay: 0.06
-  fallbackArrivalRadius: 0.8
+  occupiedPenalty: 1.4
+  travelCostWeight: 0.25
+  rangeFitWeight: 1.3
+  flankWeight: 1.6
+  fireWeight: 1.9
+  coverWeight: 0.65
+  underFireSeconds: 1.1
   drawDebug: 0
   debugState: 
+  effectivePersonality: 0
   currentRole: 0
   usingFallbackChase: 0
-  sharedPlayerPos: {x: 0, y: 0}
   currentPoint: {fileID: 0}

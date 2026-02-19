@@ -1,0 +1,106 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a498f14f918ad448a8f9f19b11e5415, type: 3}
+  m_Name: PersonalityProfiles_Default
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPersonalityProfiles
+  aggressive:
+    personality: 0
+    openingAction: 1
+    openingDuration: 0.9
+    preferredMinRange: 0.9
+    preferredMaxRange: 2.2
+    fleeAtHealth01: 0
+    panicDistance: 0
+    coverBias: -0.2
+    flankBias: 0.2
+    fireBias: 0.3
+    mustBeInPreferredRangeToShoot: 1
+    shotsPerBurst: 2
+    intraBurstInterval: 0.11
+    burstCooldown: 0.75
+    burstsPerEnable: 1
+    farPattern: 1
+    midPattern: 1
+    closePattern: 5
+    fanBullets: 5
+    fanArc: 28
+    ringBullets: 12
+    angularSpeedPerTick: 12
+  scaredCat:
+    personality: 1
+    openingAction: 2
+    openingDuration: 1
+    preferredMinRange: 4.5
+    preferredMaxRange: 8
+    fleeAtHealth01: 0.45
+    panicDistance: 1.4
+    coverBias: 0.9
+    flankBias: -0.2
+    fireBias: 0.1
+    mustBeInPreferredRangeToShoot: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.16
+    burstCooldown: 1.1
+    burstsPerEnable: 1
+    farPattern: 0
+    midPattern: 1
+    closePattern: 1
+    fanBullets: 4
+    fanArc: 50
+    ringBullets: 12
+    angularSpeedPerTick: 12
+  backstabber:
+    personality: 2
+    openingAction: 3
+    openingDuration: 1.1
+    preferredMinRange: 2.5
+    preferredMaxRange: 6
+    fleeAtHealth01: 0.35
+    panicDistance: 1.3
+    coverBias: 0.7
+    flankBias: 1.2
+    fireBias: 0.2
+    mustBeInPreferredRangeToShoot: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.1
+    burstCooldown: 0.95
+    burstsPerEnable: 1
+    farPattern: 1
+    midPattern: 1
+    closePattern: 1
+    fanBullets: 3
+    fanArc: 20
+    ringBullets: 12
+    angularSpeedPerTick: 12
+  avenger:
+    personality: 3
+    openingAction: 2
+    openingDuration: 1
+    preferredMinRange: 4.5
+    preferredMaxRange: 8
+    fleeAtHealth01: 0.45
+    panicDistance: 1.4
+    coverBias: 0.9
+    flankBias: -0.2
+    fireBias: 0.1
+    mustBeInPreferredRangeToShoot: 0
+    shotsPerBurst: 2
+    intraBurstInterval: 0.16
+    burstCooldown: 1.1
+    burstsPerEnable: 1
+    farPattern: 0
+    midPattern: 1
+    closePattern: 1
+    fanBullets: 4
+    fanArc: 50
+    ringBullets: 12
+    angularSpeedPerTick: 12
