@@ -1,8 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-
-
 public enum TacticalPointType
 {
     Cover,
@@ -11,7 +9,6 @@ public enum TacticalPointType
     FlankRight,
     Retreat
 }
-
 
 [ExecuteAlways]
 public class CombatTacticalPoint : MonoBehaviour
@@ -26,6 +23,11 @@ public class CombatTacticalPoint : MonoBehaviour
 
     [Tooltip("Base bias used later by scoring.")]
     public float baseScoreBias = 0f;
+
+    [Header("Zone Wander")]
+    [Tooltip("Radius around this point that enemies can reposition within while shooting. " +
+             "Larger = more strafing range. Set to 0 to disable zone wander for this point.")]
+    public float wanderRadius = 1.2f;
 
     [Header("Reuse and Reservation")]
     [Min(0f)] public float reuseCooldown = 1.2f;
@@ -77,6 +79,28 @@ public class CombatTacticalPoint : MonoBehaviour
         return Physics2D.Linecast(source, Position, losBlockMask);
     }
 
+    /// <summary>
+    /// Returns a random position within the wander zone.
+    /// Validates that the path from this point's center to the candidate is not blocked.
+    /// Falls back to the point's exact position if no valid spot is found after all attempts.
+    /// </summary>
+    public Vector2 GetRandomWanderPosition(int attempts = 8)
+    {
+        if (wanderRadius <= 0f) return Position;
+
+        for (int i = 0; i < attempts; i++)
+        {
+            Vector2 candidate = Position + UnityEngine.Random.insideUnitCircle * wanderRadius;
+
+            if (losBlockMask.value != 0 && Physics2D.Linecast(Position, candidate, losBlockMask))
+                continue;
+
+            return candidate;
+        }
+
+        return Position;
+    }
+
     private void OnDrawGizmos()
     {
         Color c = pointType switch
@@ -94,6 +118,15 @@ public class CombatTacticalPoint : MonoBehaviour
         Gizmos.color = c;
         Gizmos.DrawSphere(transform.position, 0.1f);
         Gizmos.DrawWireSphere(transform.position, arrivalRadius);
+
+        // Wander zone shown as a faint outer ring
+        if (wanderRadius > arrivalRadius)
+        {
+            Color wc = c;
+            wc.a = 0.25f;
+            Gizmos.color = wc;
+            Gizmos.DrawWireSphere(transform.position, wanderRadius);
+        }
 
         if (debugTarget != null)
         {
@@ -116,13 +149,13 @@ public class CombatTacticalPoint : MonoBehaviour
         allPoints.Remove(this);
     }
 
-
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
         if (!drawLabel) return;
 
         string txt = $"{name}\n{pointType}\nLane {laneTag}";
+        if (wanderRadius > 0f) txt += $"\nWander r={wanderRadius:F1}";
         if (IsReserved) txt += "\n[RESERVED]";
         UnityEditor.Handles.Label(transform.position + Vector3.up * 0.2f, txt);
     }

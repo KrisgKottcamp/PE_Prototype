@@ -13,4 +13,7 @@ public interface IEnemySquadAgent
 
     // Optional debug hook
     void SetSharedPlayerPosition(Vector2 pos);
+
+    // Squad pressure: 0 = passive, 1 = full advance. Called every coordinator tick.
+    void NotifySquadPressure(float pressure01);
 }

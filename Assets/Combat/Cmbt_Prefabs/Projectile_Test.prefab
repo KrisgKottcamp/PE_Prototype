@@ -114,7 +114,7 @@ MonoBehaviour:
   speed: 4
   lifetime: 6
   armDelay: 0.03
-  damage: 16
+  damage: 35
   team: 0
   damageAnyNonOwner: 0
   validTargetTags:

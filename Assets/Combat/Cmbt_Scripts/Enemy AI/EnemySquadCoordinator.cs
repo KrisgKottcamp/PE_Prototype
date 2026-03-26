@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class EnemySquadCoordinator : MonoBehaviour
@@ -24,15 +24,33 @@ public class EnemySquadCoordinator : MonoBehaviour
     [Header("LOS")]
     [SerializeField] private LayerMask losBlockMask; // reuse Obstacles layer
 
+    [Header("Stalemate / Pressure Escalation")]
+    [Tooltip("Seconds the player must remain stationary and hidden before pressure starts building.")]
+    [SerializeField] private float stalemateGracePeriod = 3.5f;
+    [Tooltip("Seconds it takes to ramp from zero pressure to full pressure (1.0) after the grace period ends.")]
+    [SerializeField] private float pressureRampDuration = 4.0f;
+    [Tooltip("How far the player must move (world units) to be considered 'active' and reset the stalemate timer.")]
+    [SerializeField] private float playerMoveResetThreshold = 0.6f;
+    [Tooltip("How quickly pressure bleeds off when the player becomes active again. 1 = instant reset, 0.1 = slow bleed.")]
+    [SerializeField] private float pressureDecayRate = 0.4f;
+
     [Header("Debug")]
     [SerializeField] private bool debugLogs = false;
     [SerializeField] private bool drawGizmos = true;
+    [SerializeField] private float debugCurrentPressure = 0f;
 
     private readonly List<IEnemySquadAgent> agents = new();
     private float nextTickTime;
     private Vector2 sharedLastSeenPlayerPos;
 
+    // Stalemate tracking
+    private float stalemateTimer = 0f;
+    private float currentPressure01 = 0f;
+    private Vector2 lastPlayerPosForStalemate;
+    private bool stalematePlayerPosInitialized = false;
+
     public Vector2 SharedLastSeenPlayerPos => sharedLastSeenPlayerPos;
+    public float CurrentPressure01 => currentPressure01;
 
     private float Now => useUnscaledTime ? Time.unscaledTime : Time.time;
 
@@ -87,6 +105,13 @@ public class EnemySquadCoordinator : MonoBehaviour
 
         if (alive.Count == 0) return;
 
+        // --- Stalemate / Pressure Escalation ---
+        UpdatePressure(alive);
+
+        // Push pressure to all alive agents
+        for (int i = 0; i < alive.Count; i++)
+            alive[i].NotifySquadPressure(currentPressure01);
+
         // Compute squad context
         Vector2 squadCenter = ComputeSquadCenter(alive);
         bool playerIsAggressive = IsPlayerAggressive(alive);
@@ -125,8 +150,11 @@ public class EnemySquadCoordinator : MonoBehaviour
             }
         }
 
-        // 3) Assign flankers when player cover-camps, or occasionally in balanced mode
-        bool shouldFlank = playerIsCoverCamping || (!playerIsAggressive && alive.Count >= 3);
+        // 3) Assign flankers when player cover-camps, or occasionally in balanced mode,
+        //    or when pressure is high (force flanking to break stalemate)
+        bool shouldFlank = playerIsCoverCamping
+            || (!playerIsAggressive && alive.Count >= 3)
+            || currentPressure01 >= 0.5f;
 
         if (shouldFlank && maxFlankers > 0)
         {
@@ -180,9 +208,65 @@ public class EnemySquadCoordinator : MonoBehaviour
 
         if (debugLogs)
         {
-            Debug.Log($"[Squad] Alive={alive.Count} Aggro={playerIsAggressive} CoverCamp={playerIsCoverCamping} Roles S:{suppressors} F:{flankers} A:{anchors}");
+            Debug.Log($"[Squad] Alive={alive.Count} Aggro={playerIsAggressive} CoverCamp={playerIsCoverCamping} " +
+                      $"Pressure={currentPressure01:F2} Stalemate={stalemateTimer:F1}s Roles S:{suppressors} F:{flankers} A:{anchors}");
         }
     }
+
+    // ------------------------------------
+    // Pressure / Stalemate
+    // ------------------------------------
+
+    private void UpdatePressure(List<IEnemySquadAgent> alive)
+    {
+        Vector2 playerPos = player.position;
+
+        if (!stalematePlayerPosInitialized)
+        {
+            lastPlayerPosForStalemate = playerPos;
+            stalematePlayerPosInitialized = true;
+        }
+
+        float playerMoveDelta = Vector2.Distance(playerPos, lastPlayerPosForStalemate);
+        bool playerIsMoving = playerMoveDelta >= playerMoveResetThreshold;
+
+        // The squad is in stalemate if the player is hiding (cover-camping) and not moving.
+        // We also only build pressure when there are living enemies that are actually passive.
+        bool squadIsPassive = IsPlayerCoverCamping(alive);
+        bool stalemateCondition = !playerIsMoving && squadIsPassive;
+
+        if (playerIsMoving)
+        {
+            // Player moved — decay pressure, reset stalemate timer
+            lastPlayerPosForStalemate = playerPos;
+            stalemateTimer = 0f;
+            currentPressure01 = Mathf.MoveTowards(currentPressure01, 0f, pressureDecayRate * coordinatorTick);
+        }
+        else if (stalemateCondition)
+        {
+            stalemateTimer += coordinatorTick;
+
+            float excess = stalemateTimer - stalemateGracePeriod;
+            if (excess > 0f)
+            {
+                float targetPressure = Mathf.Clamp01(excess / Mathf.Max(0.01f, pressureRampDuration));
+                // Pressure only ever increases during a stalemate
+                currentPressure01 = Mathf.Max(currentPressure01, targetPressure);
+            }
+        }
+        else
+        {
+            // Player is stationary but enemies have LOS — slow decay
+            stalemateTimer = Mathf.Max(0f, stalemateTimer - coordinatorTick * 0.5f);
+            currentPressure01 = Mathf.MoveTowards(currentPressure01, 0f, pressureDecayRate * 0.5f * coordinatorTick);
+        }
+
+        debugCurrentPressure = currentPressure01;
+    }
+
+    // ------------------------------------
+    // Player / squad helpers
+    // ------------------------------------
 
     private void TryFindPlayer()
     {
@@ -213,7 +297,6 @@ public class EnemySquadCoordinator : MonoBehaviour
 
     private bool IsPlayerAggressive(List<IEnemySquadAgent> alive)
     {
-        // Proxy signal: if player is close to most enemies, treat as aggressive
         int closeCount = 0;
         Vector2 p = player.position;
 
@@ -228,7 +311,6 @@ public class EnemySquadCoordinator : MonoBehaviour
 
     private bool IsPlayerCoverCamping(List<IEnemySquadAgent> alive)
     {
-        // Proxy: if LOS to player is blocked for many enemies while player remains in combat distance
         int blockedLos = 0;
         int inRange = 0;
         Vector2 p = player.position;
@@ -254,30 +336,24 @@ public class EnemySquadCoordinator : MonoBehaviour
     {
         IEnemySquadAgent best = null;
         float bestScore = float.NegativeInfinity;
-
         Vector2 p = player.position;
 
         for (int i = 0; i < alive.Count; i++)
         {
             var a = alive[i];
             if (!a.IsAlive || a.CurrentRole != EnemySquadRole.None) continue;
-            if (!a.IsRanged) continue; // suppressor should usually be ranged
+            if (!a.IsRanged) continue;
 
             float dist = Vector2.Distance(a.Transform.position, p);
             bool hasLos = !Physics2D.Linecast(a.Transform.position, p, losBlockMask);
 
             float score = 0f;
             score += hasLos ? 2.0f : -1.0f;
-            score += Mathf.Clamp01(1f - Mathf.Abs(dist - 4.0f) / 4.0f); // prefers medium range
+            score += Mathf.Clamp01(1f - Mathf.Abs(dist - 4.0f) / 4.0f);
             score += a.Health01;
 
-            if (score > bestScore)
-            {
-                bestScore = score;
-                best = a;
-            }
+            if (score > bestScore) { bestScore = score; best = a; }
         }
-
         return best;
     }
 
@@ -285,7 +361,6 @@ public class EnemySquadCoordinator : MonoBehaviour
     {
         IEnemySquadAgent best = null;
         float bestScore = float.NegativeInfinity;
-
         Vector2 p = player.position;
 
         for (int i = 0; i < alive.Count; i++)
@@ -295,19 +370,13 @@ public class EnemySquadCoordinator : MonoBehaviour
             if (a == exclude) continue;
 
             float dist = Vector2.Distance(a.Transform.position, p);
-
             float score = 0f;
-            score += 1.0f - Mathf.Clamp01(dist / 10f); // closer can flank quicker
-            score += a.IsMelee ? 0.6f : 0.2f;          // melee tends to flank naturally
+            score += 1.0f - Mathf.Clamp01(dist / 10f);
+            score += a.IsMelee ? 0.6f : 0.2f;
             score += a.Health01;
 
-            if (score > bestScore)
-            {
-                bestScore = score;
-                best = a;
-            }
+            if (score > bestScore) { bestScore = score; best = a; }
         }
-
         return best;
     }
 
@@ -315,25 +384,16 @@ public class EnemySquadCoordinator : MonoBehaviour
     {
         IEnemySquadAgent best = null;
         float bestScore = float.NegativeInfinity;
-
         Vector2 p = player.position;
+
         for (int i = 0; i < alive.Count; i++)
         {
             var a = alive[i];
             if (!a.IsAlive) continue;
             float dist = Vector2.Distance(a.Transform.position, p);
-
-            float score = 0f;
-            score += a.Health01;
-            score += Mathf.Clamp01(dist / 8f); // slightly safer distance
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                best = a;
-            }
+            float score = a.Health01 + Mathf.Clamp01(dist / 8f);
+            if (score > bestScore) { bestScore = score; best = a; }
         }
-
         return best;
     }
 
@@ -342,10 +402,8 @@ public class EnemySquadCoordinator : MonoBehaviour
         Vector2 forward = (playerPos - squadCenter).normalized;
         if (forward.sqrMagnitude < 0.0001f) forward = Vector2.right;
         Vector2 right = new Vector2(forward.y, -forward.x);
-
         Vector2 v = agentPos - playerPos;
         float sideDot = Vector2.Dot(v, right);
-
         return sideDot >= 0f ? EnemySquadRole.FlankerRight : EnemySquadRole.FlankerLeft;
     }
 
@@ -362,6 +420,13 @@ public class EnemySquadCoordinator : MonoBehaviour
 
         Gizmos.color = Color.white;
         Gizmos.DrawSphere(sharedLastSeenPlayerPos, 0.08f);
+
+        // Pressure indicator: draw a pulsing red sphere around player when pressure is high
+        if (currentPressure01 > 0.05f)
+        {
+            Gizmos.color = new Color(1f, 0f, 0f, currentPressure01 * 0.5f);
+            Gizmos.DrawWireSphere(player.position, 0.3f + currentPressure01 * 0.4f);
+        }
     }
 #endif
 }

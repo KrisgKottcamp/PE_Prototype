@@ -22,9 +22,9 @@ public class EnemyShooterDebug : MonoBehaviour
 
     [Header("Burst Fire")]
     [SerializeField] private bool useBurstFire = true;
-    [SerializeField] private int shotsPerBurst = 3;              // number of pattern "ticks" per burst
-    [SerializeField] private float intraBurstInterval = 0.10f;   // time between pattern ticks
-    [SerializeField] private float burstCooldown = 0.90f;        // time between bursts
+    [SerializeField] private int shotsPerBurst = 3;
+    [SerializeField] private float intraBurstInterval = 0.10f;
+    [SerializeField] private float burstCooldown = 0.90f;
     [SerializeField] private float losRetryDelay = 0.06f;
 
     [Header("Burst Quota Per Enable")]
@@ -36,6 +36,9 @@ public class EnemyShooterDebug : MonoBehaviour
     [SerializeField] private bool requireLineOfSight = true;
     [SerializeField] private LayerMask obstacleMask;
     [SerializeField] private float maxRange = 30f;
+    [Tooltip("When firing a fan pattern, always include one extra bullet aimed directly at the " +
+             "target's current real position (bypasses aim lag). Eliminates gaps in fan dead zones.")]
+    [SerializeField] private bool guaranteeCenterBullet = true;
 
     [Header("Target")]
     [SerializeField] private bool autoFindPlayer = true;
@@ -73,10 +76,8 @@ public class EnemyShooterDebug : MonoBehaviour
 
     private float nextFireTime = 0f;
     private float nextTargetSearchTime = 0f;
-
     private int burstShotsRemaining = 0;
     private int burstsFiredThisEnable = 0;
-
     private float spiralAngleDeg = 0f;
     private float sweepAngleDeg = 0f;
     private int sweepDir = 1;
@@ -128,7 +129,6 @@ public class EnemyShooterDebug : MonoBehaviour
         if (dist < 0.001f) { lastBlockReason = "AimTooClose"; ScheduleNextFire(0.04f, "RetryAimTooClose"); return; }
         if (dist > maxRange) { lastBlockReason = "OutOfRange"; ScheduleNextFire(0.06f, "RetryOutOfRange"); return; }
 
-        // LOS check should be against current target position, not lagged aim
         if (requireLineOfSight && target != null)
         {
             if (IsLineBlocked(origin, target.position))
@@ -145,7 +145,6 @@ public class EnemyShooterDebug : MonoBehaviour
         else FireSingleTick(origin, baseDir);
     }
 
-    // Called by EnemyBrain
     public void SetShootingEnabled(bool enabled)
     {
         if (enabled == shootingEnabled) return;
@@ -162,10 +161,8 @@ public class EnemyShooterDebug : MonoBehaviour
         }
     }
 
-    // Kept for compatibility with your brain tuning
     public void SetFireInterval(float value)
     {
-        // We map this to intraBurstInterval for burst mode, otherwise itÅfs unused here.
         intraBurstInterval = Mathf.Max(MinInterval, value);
     }
 
@@ -186,7 +183,6 @@ public class EnemyShooterDebug : MonoBehaviour
         samples.Clear();
     }
 
-    // Optional: allow AI or EnemyDefinition to set pattern
     public void SetPattern(PatternType newPattern)
     {
         pattern = newPattern;
@@ -207,9 +203,7 @@ public class EnemyShooterDebug : MonoBehaviour
         burstShotsRemaining--;
 
         if (burstShotsRemaining > 0)
-        {
             ScheduleNextFire(Mathf.Max(MinInterval, intraBurstInterval), "IntraBurst");
-        }
         else
         {
             burstsFiredThisEnable++;
@@ -226,27 +220,21 @@ public class EnemyShooterDebug : MonoBehaviour
             case PatternType.AimedSingle:
                 SpawnProjectile(origin, baseDir);
                 break;
-
             case PatternType.AimedFan:
                 EmitFan(origin, baseDir, Mathf.Max(1, fanBullets), fanArcDegrees);
                 break;
-
             case PatternType.Ring:
                 EmitRing(origin, Mathf.Max(3, ringBullets), baseDir);
                 break;
-
             case PatternType.Spiral:
                 EmitSpiral(origin, baseDir);
                 break;
-
             case PatternType.BoI_4Way:
                 EmitFixedWays(origin, 4);
                 break;
-
             case PatternType.BoI_8Way:
                 EmitFixedWays(origin, 8);
                 break;
-
             case PatternType.SweepFan:
                 EmitSweepFan(origin, baseDir);
                 break;
@@ -264,22 +252,29 @@ public class EnemyShooterDebug : MonoBehaviour
         float half = arcDeg * 0.5f;
         for (int i = 0; i < count; i++)
         {
-            float t = (count == 1) ? 0.5f : (float)i / (count - 1);
+            float t = (float)i / (count - 1);
             float ang = Mathf.Lerp(-half, half, t);
-            Vector2 dir = Rotate(baseDir, ang);
-            SpawnProjectile(origin, dir);
+            SpawnProjectile(origin, Rotate(baseDir, ang));
+        }
+
+        // Guarantee one bullet aimed at the target's CURRENT real position,
+        // bypassing aim lag. This closes the dead zone that opens up when fan
+        // gaps align with a stationary player, regardless of spread angle.
+        if (guaranteeCenterBullet && target != null)
+        {
+            Vector2 toTarget = (Vector2)target.position - origin;
+            if (toTarget.sqrMagnitude > 0.0001f)
+                SpawnProjectile(origin, toTarget.normalized);
         }
     }
 
     private void EmitRing(Vector2 origin, int count, Vector2 baseDir)
     {
-        // baseDir used to offset ring so patterns can ÅgfaceÅh the player
         float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
         for (int i = 0; i < count; i++)
         {
             float ang = baseAngle + (360f * i / count);
-            Vector2 dir = AngleToDir(ang);
-            SpawnProjectile(origin, dir);
+            SpawnProjectile(origin, AngleToDir(ang));
         }
     }
 
@@ -309,7 +304,6 @@ public class EnemyShooterDebug : MonoBehaviour
 
     private void EmitSweepFan(Vector2 origin, Vector2 baseDir)
     {
-        // Sweep angle bounces back and forth
         sweepAngleDeg += angularSpeedDegPerTick * sweepDir;
 
         float maxSweep = Mathf.Max(5f, fanArcDegrees);
@@ -329,23 +323,16 @@ public class EnemyShooterDebug : MonoBehaviour
 
         GameObject spawned = Instantiate(projectilePrefab, spawnPos, rot);
 
-        // Ignore owner collision
         Collider2D[] ownerCols = GetComponentsInChildren<Collider2D>(true);
         Collider2D[] projCols = spawned.GetComponentsInChildren<Collider2D>(true);
         for (int i = 0; i < ownerCols.Length; i++)
-        {
             for (int j = 0; j < projCols.Length; j++)
-            {
                 if (ownerCols[i] != null && projCols[j] != null)
                     Physics2D.IgnoreCollision(ownerCols[i], projCols[j], true);
-            }
-        }
 
-        // Initialize projectile movement if your Projectile supports it
         if (spawned.TryGetComponent<Projectile>(out Projectile p))
             p.Initialize(dir, projectileSpeed);
 
-        // Always also set RB velocity as fallback
         if (applyVelocityToRigidbody && spawned.TryGetComponent<Rigidbody2D>(out Rigidbody2D prb))
         {
 #if UNITY_6000_0_OR_NEWER
