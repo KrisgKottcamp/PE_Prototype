@@ -8,17 +8,35 @@ public class KnockbackReceiver2D : MonoBehaviour
     [Tooltip("For Kinematic bodies, treat force as units/second push speed.")]
     [SerializeField] private float kinematicSpeedMultiplier = 1f;
 
+    [Tooltip("Layer mask for obstacles the kinematic knockback should stop at. " +
+             "Set this to the same Obstacles layer your other movers use.")]
+    [SerializeField] private LayerMask obstaclesMask;
+
+    [Tooltip("Skin width used when casting against obstacles. Keeps the enemy from " +
+             "sinking into walls before stopping.")]
+    [SerializeField] private float skinWidth = 0.05f;
+
     [Header("Dynamic Knockback")]
     [SerializeField] private float dragDuringKnockback = 8f;
 
     private Rigidbody2D rb;
     private Coroutine routine;
 
+    private readonly RaycastHit2D[] castResults = new RaycastHit2D[4];
+    private ContactFilter2D castFilter;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
+
+        castFilter = new ContactFilter2D
+        {
+            useLayerMask = true,
+            layerMask = obstaclesMask,
+            useTriggers = false
+        };
     }
 
     public void ApplyKnockback(Vector2 direction, float force, float duration)
@@ -57,13 +75,35 @@ public class KnockbackReceiver2D : MonoBehaviour
         float t = 0f;
         float speed = forceAsSpeed * kinematicSpeedMultiplier;
 
-        // Optional: cancel any existing kinematic velocity feel by not relying on rb.velocity
         while (t < duration)
         {
             t += Time.fixedDeltaTime;
 
-            Vector2 next = rb.position + dir * speed * Time.fixedDeltaTime;
-            rb.MovePosition(next);
+            float wantedDistance = speed * Time.fixedDeltaTime;
+
+            // Cast ahead along the knockback direction.
+            // If an obstacle is closer than wantedDistance + skinWidth, stop there instead.
+            float allowedDistance = wantedDistance;
+
+            if (obstaclesMask.value != 0)
+            {
+                int hitCount = rb.Cast(dir, castFilter, castResults, wantedDistance + skinWidth);
+                for (int i = 0; i < hitCount; i++)
+                {
+                    float d = castResults[i].distance - skinWidth;
+                    if (d < allowedDistance) allowedDistance = d;
+                }
+                if (allowedDistance < 0f) allowedDistance = 0f;
+            }
+
+            // If completely blocked, stop the knockback early
+            if (allowedDistance <= 0f)
+            {
+                routine = null;
+                yield break;
+            }
+
+            rb.MovePosition(rb.position + dir * allowedDistance);
 
             yield return new WaitForFixedUpdate();
         }

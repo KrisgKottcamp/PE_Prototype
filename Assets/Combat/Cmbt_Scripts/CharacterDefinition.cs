@@ -6,7 +6,7 @@ using UnityEngine;
 public class CharacterDefinition : ScriptableObject
 {
     public string displayName;
-    public enum BasicAttackType { Melee, Projectile }
+    public enum BasicAttackType { Melee, Projectile, HeavyCombo }
 
 
     [Header("Base Stats")]

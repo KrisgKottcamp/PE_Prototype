@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44f1f4cfeba211c449c82a05edec4b29, type: 3}
+  m_Name: Char_Test3
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterDefinition
+  displayName: Imogen
+  maxHP: 100
+  combatMoveSpeed: 3.25
+  maxAP: 100
+  apRegenPerSecond: 0
+  apGainOnBasicHit: 20
+  basicAttackType: 2
+  basicAttackProjectilePrefab: {fileID: 0}
+  startingSkills:
+  - {fileID: 11400000, guid: d607b1a150ef239429333485c3da7918, type: 2}
+  skillCostIncreaseMultiplier: 1.25
+  unlocks: []
+  combatSprite: {fileID: 6059244581636116009, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
+  portraitSprite: {fileID: -8563271677356080694, guid: 96842285eba745c4b82738eac8d16033, type: 3}

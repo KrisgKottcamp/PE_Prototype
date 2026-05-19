@@ -194,6 +194,20 @@ public class CombatSkillSystem : MonoBehaviour
         Vector2 dir = pending.aimDirAtCommit.sqrMagnitude > 0.0001f ? pending.aimDirAtCommit : Vector2.up;
         dir = dir.normalized;
 
+        // 0) Custom execution types
+        if (skill.executionType == SkillExecutionType.PushBack)
+        {
+            var pushBack = GetComponent<PushBack>();
+            if (pushBack != null)
+                pushBack.Execute();
+            else
+                Debug.LogWarning($"Skill '{skill.name}' is PushBack type but no PushBack component found on pawn.");
+
+            ApplySkillCostMultiplier(pending.ownerIndex);
+            isCasting = false;
+            yield break;
+        }
+
         // 1) Projectile skill: spawn projectile at impact time, no direct damage
         if (skill.firesProjectile)
         {

@@ -185,6 +185,8 @@ GameObject:
   - component: {fileID: 5471647765637961015}
   - component: {fileID: -2685741132705113101}
   - component: {fileID: 7425956223361028359}
+  - component: {fileID: 4034515412725252725}
+  - component: {fileID: -4198285968471152950}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -524,6 +526,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   meleeAttack: {fileID: 191217448221442475}
   projectileAttack: {fileID: 5701958380578643245}
+  heavyComboAttack: {fileID: 0}
 --- !u!114 &7843633549860200545
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -583,3 +586,64 @@ MonoBehaviour:
   hurtboxRenderer: {fileID: 3705944021928285339}
   hurtboxCollider: {fileID: 0}
   autoScaleVisualToColliderOnStart: 1
+--- !u!114 &4034515412725252725
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8dcf4ce5ab2e644da12eb0434937111, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HeavyComboAttack
+  attackKey: 323
+  allowKeyboardKey: 1
+  keyboardAttackKey: 106
+  comboPunchDelay: 0.4
+  comboCooldown: 0.1
+  hit1Damage: 1
+  hit1StunSeconds: 0
+  hit2Damage: 2
+  hit2StunSeconds: 0
+  knockbackForce: 10
+  knockbackDuration: 0.25
+  hitOrigin: {fileID: 4624380704858928614}
+  hitRange: 0.8
+  hitRadius: 0.45
+  enemyMask:
+    serializedVersion: 2
+    m_Bits: 1024
+  projectileMask:
+    serializedVersion: 2
+    m_Bits: 512
+  hit1VfxPrefab: {fileID: 2055744915509529528, guid: 76c08226e6716d24e81adeccf16b4425, type: 3}
+  hit2VfxPrefab: {fileID: 6400882652763300098, guid: 2d933487017735743a887f7ea2af8348, type: 3}
+  vfxAngleOffset: 0
+  drawGizmos: 1
+--- !u!114 &-4198285968471152950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6069c335199e654a884aac87d580ae2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PushBack
+  radius: 3
+  enemyMask:
+    serializedVersion: 2
+    m_Bits: 1024
+  knockbackForce: 12
+  knockbackDuration: 0.3
+  reflectedProjectileLayer:
+    serializedVersion: 2
+    m_Bits: 2048
+  reflectedDamageBase: 10
+  bubblePrefab: {fileID: 7666303392692351521, guid: 730e3ffb110ccf241a827615b250e29a, type: 3}
+  bubbleFadeDuration: 0.2
+  drawGizmos: 1

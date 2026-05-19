@@ -597,6 +597,7 @@ MonoBehaviour:
   partyDefinitions:
   - {fileID: 11400000, guid: 008b459bb5200ed4fb94ac96889000bd, type: 2}
   - {fileID: 11400000, guid: 2d3fe1934edf4904b98aada3e0a1df4a, type: 2}
+  - {fileID: 11400000, guid: eadbf17f9462591438c445031484af1d, type: 2}
   activeIndex: 0
   party: []
 --- !u!1 &1241856879

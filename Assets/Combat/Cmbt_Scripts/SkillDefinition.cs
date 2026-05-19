@@ -2,12 +2,21 @@ using UnityEngine;
 
 public enum SkillTargetType { Self, Enemy, Area }
 
+public enum SkillExecutionType
+{
+    Default,   // existing logic: auto-detects from firesProjectile / heal / damage
+    PushBack   // AoE knockback + projectile reflect (delegated to PushBack component)
+}
+
 [CreateAssetMenu(menuName = "Game/Skills/Skill Definition")]
 public class SkillDefinition : ScriptableObject
 {
     [Header("Info")]
     public string displayName;
     public SkillTargetType targetType = SkillTargetType.Enemy;
+
+    [Header("Execution")]
+    public SkillExecutionType executionType = SkillExecutionType.Default;
 
     [Header("AP")]
     public int baseApCost = 10;

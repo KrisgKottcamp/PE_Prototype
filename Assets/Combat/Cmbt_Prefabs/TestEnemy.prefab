@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 3265199766151690629}
   - component: {fileID: 7665401624113410786}
   - component: {fileID: -3799086166338868606}
+  - component: {fileID: -7750794609725175976}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -205,6 +206,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   maxRange: 30
+  guaranteeCenterBullet: 1
   autoFindPlayer: 1
   playerTag: PlayerCombatPawn
   target: {fileID: 4624380704858928614, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
@@ -441,9 +443,44 @@ MonoBehaviour:
   fireWeight: 1.9
   coverWeight: 0.65
   underFireSeconds: 1.1
+  advancePressureThreshold: 0.65
+  pressureCoverPenalty: 3
+  pressureFireBonus: 2.5
+  advanceStuckEscapeThreshold: 2
+  escapeWaypointSearchRadius: 3.5
+  escapeWaypointTimeout: 2
+  wanderIntervalRange: {x: 0.9, y: 1.8}
+  wanderSpeedMultiplier: 0.45
+  idleWanderSpeedMultiplier: 0.22
+  missTimeThreshold: 2.2
+  playerStationaryThreshold: 0.5
+  maxRepositionsPerWindow: 2
+  closeRangeOverrideDistance: 2.5
   drawDebug: 0
   debugState: 
   effectivePersonality: 0
   currentRole: 0
   usingFallbackChase: 0
   currentPoint: {fileID: 0}
+  squadPressure01: 0
+  debugInWindowTime: 0
+  debugRepositionsThisWindow: 0
+  debugAdvanceStuck: 
+--- !u!114 &-7750794609725175976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 939e2a49af14664448b1ac27b1ab53c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KnockbackReceiver2D
+  kinematicSpeedMultiplier: 1
+  obstaclesMask:
+    serializedVersion: 2
+    m_Bits: 192
+  skinWidth: 0.05
+  dragDuringKnockback: 8

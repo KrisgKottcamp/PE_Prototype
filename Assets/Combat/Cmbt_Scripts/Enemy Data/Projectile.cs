@@ -1,4 +1,37 @@
+﻿using System.Collections.Generic;
 using UnityEngine;
+
+/// <summary>
+/// Shared tracker for reflected projectile damage. Created once per PushBack activation,
+/// referenced by every reflected projectile. Halves damage per successive hit on the
+/// same enemy (floor division, minimum 1).
+/// </summary>
+public class ReflectDamageTracker
+{
+    private readonly int baseDamage;
+    private readonly Dictionary<EnemyHealth, int> hitCounts = new();
+
+    public ReflectDamageTracker(int baseDamage)
+    {
+        this.baseDamage = Mathf.Max(1, baseDamage);
+    }
+
+    /// <summary>
+    /// Returns the damage for the next hit on this enemy and increments the counter.
+    /// First hit = baseDamage, then halved each time (integer division), minimum 1.
+    /// </summary>
+    public int GetDamageFor(EnemyHealth enemy)
+    {
+        if (!hitCounts.TryGetValue(enemy, out int hits))
+            hits = 0;
+        hitCounts[enemy] = hits + 1;
+
+        int dmg = baseDamage;
+        for (int i = 0; i < hits; i++)
+            dmg /= 2;
+        return Mathf.Max(1, dmg);
+    }
+}
 
 public class Projectile : MonoBehaviour
 {
@@ -28,7 +61,12 @@ public class Projectile : MonoBehaviour
     private Vector2 direction = Vector2.right;
     private bool initialized = false;
     private float armedAt = 0f;
+    private float destroyAt = float.MaxValue;
     private Transform ownerRoot;
+    private ReflectDamageTracker reflectTracker;
+
+    /// <summary>Current team. Use Reflect() to flip.</summary>
+    public ProjectileTeam Team => team;
 
     private void Awake()
     {
@@ -38,7 +76,7 @@ public class Projectile : MonoBehaviour
     private void OnEnable()
     {
         armedAt = Time.time + Mathf.Max(0f, armDelay);
-        Destroy(gameObject, Mathf.Max(0.05f, lifetime));
+        destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
     }
 
     // Backward-compatible initialize
@@ -60,6 +98,8 @@ public class Projectile : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (Time.time >= destroyAt) { Destroy(gameObject); return; }
+
         if (!initialized) return;
 
         if (rb != null)
@@ -86,6 +126,76 @@ public class Projectile : MonoBehaviour
 #endif
     }
 
+    /// <summary>
+    /// Flips this projectile's team, reverses its direction, sets the new owner
+    /// so it won't damage them, and enables damageAnyNonOwner so it hits enemies.
+    /// Optionally changes the layer so the projectile can physically collide with enemies.
+    /// Clears all IgnoreCollision pairs with enemies so reflected bullets can hit
+    /// even the enemy that originally fired them.
+    /// Called by PushBack to turn enemy bullets against them.
+    /// </summary>
+    public void Reflect(Transform newOwner, int newLayer = -1, ReflectDamageTracker tracker = null)
+    {
+        // Flip team
+        team = (team == ProjectileTeam.Enemy) ? ProjectileTeam.Player : ProjectileTeam.Enemy;
+
+        // Reverse direction
+        direction = -direction;
+
+        // Rotate to face the new direction
+        transform.rotation = Quaternion.FromToRotation(Vector3.right, direction);
+
+        // Set new owner so the reflected projectile won't damage the player
+        ownerRoot = newOwner != null ? newOwner.root : null;
+
+        // Hit anything that isn't the new owner (i.e. enemies)
+        damageAnyNonOwner = true;
+
+        // Shared diminishing-damage tracker (null = use projectile's own damage)
+        reflectTracker = tracker;
+
+        // Change layer so Physics2D generates collisions with enemy hurtboxes
+        if (newLayer >= 0)
+            SetLayerRecursive(gameObject, newLayer);
+
+        // Clear IgnoreCollision pairs that EnemyShooterDebug set at spawn time.
+        // Without this, reflected projectiles pass through the enemy that fired them.
+        ResetEnemyCollisionIgnores();
+
+        // Brief arm delay so it doesn't collide with nearby objects at the instant of reflection
+        armedAt = Time.time + Mathf.Max(0f, armDelay);
+
+        // Reset lifetime so the reflected projectile has full flight time
+        destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
+
+        // Apply reversed velocity immediately
+        ApplyVelocity();
+    }
+
+    private void ResetEnemyCollisionIgnores()
+    {
+        Collider2D[] myCols = GetComponentsInChildren<Collider2D>(true);
+        if (myCols.Length == 0) return;
+
+        var enemies = FindObjectsOfType<EnemyHealth>(false);
+        for (int e = 0; e < enemies.Length; e++)
+        {
+            if (enemies[e] == null) continue;
+            Collider2D[] enemyCols = enemies[e].GetComponentsInChildren<Collider2D>(true);
+            for (int i = 0; i < myCols.Length; i++)
+                for (int j = 0; j < enemyCols.Length; j++)
+                    if (myCols[i] != null && enemyCols[j] != null)
+                        Physics2D.IgnoreCollision(myCols[i], enemyCols[j], false);
+        }
+    }
+
+    private static void SetLayerRecursive(GameObject go, int layer)
+    {
+        go.layer = layer;
+        foreach (Transform child in go.transform)
+            SetLayerRecursive(child.gameObject, layer);
+    }
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         HandleHit(other);
@@ -110,7 +220,10 @@ public class Projectile : MonoBehaviour
 
         if (isValidTarget)
         {
-            ApplyDamage(other);
+            if (reflectTracker != null)
+                ApplyReflectedDamage(other);
+            else
+                ApplyDamage(other);
             Destroy(gameObject);
             return;
         }
@@ -157,5 +270,19 @@ public class Projectile : MonoBehaviour
         selfObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
         if (rootObj != selfObj)
             rootObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
+    }
+
+    private void ApplyReflectedDamage(Collider2D other)
+    {
+        var enemy = other.GetComponentInParent<EnemyHealth>();
+        if (enemy != null)
+        {
+            int dmg = reflectTracker.GetDamageFor(enemy);
+            enemy.TakeDamage(dmg);
+            return;
+        }
+
+        // Hit something without EnemyHealth (cover, etc.) — fall back to normal
+        ApplyDamage(other);
     }
 }
