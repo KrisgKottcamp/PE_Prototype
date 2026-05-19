@@ -5,7 +5,8 @@ public enum SkillTargetType { Self, Enemy, Area }
 public enum SkillExecutionType
 {
     Default,   // existing logic: auto-detects from firesProjectile / heal / damage
-    PushBack   // AoE knockback + projectile reflect (delegated to PushBack component)
+    PushBack,  // AoE knockback + projectile reflect (delegated to PushBack component)
+    AoE        // generic AoE zone: projectile delivery or instant, applies AoEEffect list
 }
 
 [CreateAssetMenu(menuName = "Game/Skills/Skill Definition")]
@@ -59,4 +60,19 @@ public class SkillDefinition : ScriptableObject
     public GameObject impactVfxPrefab;
     public float impactVfxAngleOffset = 0f;
     public float impactVfxForwardOffset = 0f;
+
+    [Header("AoE Zone (executionType = AoE)")]
+    [Tooltip("Prefab with AoEZone component, CircleCollider2D (trigger), and SpriteRenderer.")]
+    public GameObject aoeZonePrefab;
+    public System.Collections.Generic.List<AoEEffect> aoeEffects = new();
+    public float aoeRadius = 2.5f;
+    public float aoeDuration = 4f;
+
+    [Header("AoE Delivery")]
+    [Tooltip("If true, zone flies as a projectile before activating. If false, spawns instantly at the player.")]
+    public bool aoeUsesProjectile = true;
+    public float aoeProjectileSpeed = 12f;
+    public float aoeProjectileTravelTime = 0.4f;
+    [Tooltip("Obstacles that make the projectile burst early.")]
+    public LayerMask aoeObstacleMask;
 }

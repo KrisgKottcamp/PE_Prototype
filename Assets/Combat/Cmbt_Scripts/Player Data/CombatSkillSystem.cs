@@ -208,6 +208,15 @@ public class CombatSkillSystem : MonoBehaviour
             yield break;
         }
 
+        if (skill.executionType == SkillExecutionType.AoE)
+        {
+            SpawnAoEZone(skill, dir);
+
+            ApplySkillCostMultiplier(pending.ownerIndex);
+            isCasting = false;
+            yield break;
+        }
+
         // 1) Projectile skill: spawn projectile at impact time, no direct damage
         if (skill.firesProjectile)
         {
@@ -335,6 +344,36 @@ public class CombatSkillSystem : MonoBehaviour
             skill.projectileLifetime,
             mask,
             awardApOnHit: false
+        );
+    }
+
+    private void SpawnAoEZone(SkillDefinition skill, Vector2 dir)
+    {
+        if (skill.aoeZonePrefab == null)
+        {
+            Debug.LogWarning($"Skill '{skill.name}' is AoE type but aoeZonePrefab is null.");
+            return;
+        }
+
+        Vector2 spawnPos = (Vector2)vfxOrigin.position;
+        var zoneObj = Instantiate(skill.aoeZonePrefab, spawnPos, Quaternion.identity);
+        var zone = zoneObj.GetComponent<AoEZone>();
+
+        if (zone == null)
+        {
+            Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab missing AoEZone component.");
+            Destroy(zoneObj);
+            return;
+        }
+
+        zone.Initialize(
+            skill.aoeRadius,
+            skill.aoeDuration,
+            skill.aoeEffects,
+            skill.aoeUsesProjectile ? dir : Vector2.zero,
+            skill.aoeUsesProjectile ? skill.aoeProjectileSpeed : 0f,
+            skill.aoeUsesProjectile ? skill.aoeProjectileTravelTime : 0f,
+            skill.aoeObstacleMask
         );
     }
 

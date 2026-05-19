@@ -483,10 +483,13 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             return;
         }
 
+        var speedMod = GetComponent<SpeedModifier>();
+        float speedMult = speedMod != null ? speedMod.Multiplier : 1f;
+
         if (rb != null)
-            rb.MovePosition(rb.position + desiredVelocity * Time.fixedDeltaTime);
+            rb.MovePosition(rb.position + desiredVelocity * speedMult * Time.fixedDeltaTime);
         else
-            transform.position += (Vector3)(desiredVelocity * Time.fixedDeltaTime);
+            transform.position += (Vector3)(desiredVelocity * speedMult * Time.fixedDeltaTime);
     }
 
     // ----------------------------
