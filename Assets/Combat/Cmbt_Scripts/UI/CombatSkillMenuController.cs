@@ -30,11 +30,15 @@ public class CombatSkillMenuController : MonoBehaviour
     [Header("Party Target Menu (generic)")]
     [SerializeField] private PartyTargetMenu partyTargetMenu; // Your generic party picker
 
+    [Header("Placement Controller")]
+    [SerializeField] private PlacementController placement;
+
     [Header("Optional")]
     [SerializeField] private bool closeMenuAfterCast = true;  // If false, menu stays open after casting non-target skills
 
     private bool isOpen;
     private bool selectingPartyTarget;
+    private bool selectingPlacement;
 
     private int selectedIndex;
 
@@ -68,6 +72,22 @@ public class CombatSkillMenuController : MonoBehaviour
         if (selectingPartyTarget)
             return;
 
+        // When placing an AoE zone, cancel closes everything.
+        // Confirm (click) is handled by PlacementController.
+        if (selectingPlacement)
+        {
+            if (Input.GetKeyDown(cancelKey))
+            {
+                if (placement != null) placement.EndPlacement();
+                if (skillSystem != null && pendingCast != null)
+                    skillSystem.CancelCast(pendingCast);
+                pendingCast = null;
+                selectingPlacement = false;
+                CloseSkillMenu();
+            }
+            return;
+        }
+
         if (Input.GetKeyDown(cancelKey))
         {
             CloseAll();
@@ -99,6 +119,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
         isOpen = true;
         selectingPartyTarget = false;
+        selectingPlacement = false;
         selectedIndex = 0;
 
         CachePawnRefs();
@@ -135,6 +156,17 @@ public class CombatSkillMenuController : MonoBehaviour
                 skillPanelRoot.SetActive(false);
         }
 
+        // If we were placing an AoE zone, refund and clean up
+        if (selectingPlacement)
+        {
+            if (placement != null) placement.EndPlacement();
+            if (skillSystem != null && pendingCast != null)
+                skillSystem.CancelCast(pendingCast);
+
+            pendingCast = null;
+            selectingPlacement = false;
+        }
+
         CloseSkillMenu();
     }
 
@@ -144,6 +176,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
         isOpen = false;
         selectingPartyTarget = false;
+        selectingPlacement = false;
 
         if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
 
@@ -298,6 +331,60 @@ public class CombatSkillMenuController : MonoBehaviour
 
                     if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
                     RefreshSkillText();
+                }
+            );
+
+            return;
+        }
+
+        // Placement skill flow (any execution type with usesPlacement)
+        if (skill.usesPlacement)
+        {
+            if (placement == null)
+            {
+                Debug.LogWarning("CombatSkillMenuController: placement not assigned.");
+                return;
+            }
+
+            if (!skillSystem.BeginCast(skill, out pendingCast))
+            {
+                RefreshSkillText();
+                return;
+            }
+
+            selectingPlacement = true;
+
+            // Hide skill panel during placement
+            if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
+
+            // Get player transform for range clamping
+            Transform playerTf = skillSystem != null ? skillSystem.transform : null;
+
+            // AoE skills use zone radius for preview; other types use placementPreviewRadius
+            float previewRadius = skill.executionType == SkillExecutionType.AoE
+                ? skill.aoeRadius
+                : skill.placementPreviewRadius;
+
+            placement.BeginPlacement(
+                previewRadius,
+                skill.placementRange,
+                skill.placementBlockMask,
+                playerTf,
+                confirm: (worldPos) =>
+                {
+                    skillSystem.ResolveCastAtPosition(pendingCast, worldPos);
+                    pendingCast = null;
+                    selectingPlacement = false;
+
+                    if (closeMenuAfterCast)
+                    {
+                        CloseSkillMenu();
+                    }
+                    else
+                    {
+                        if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
+                        RefreshSkillText();
+                    }
                 }
             );
 

@@ -17,6 +17,8 @@ public class CombatPawnMover : MonoBehaviour
 
     private void FixedUpdate()
     {
-        rb.MovePosition(rb.position + input * moveSpeed * Time.fixedDeltaTime);
+        var mod = GetComponent<SpeedModifier>();
+        float speedMult = mod != null ? mod.Multiplier : 1f;
+        rb.MovePosition(rb.position + input * moveSpeed * speedMult * Time.fixedDeltaTime);
     }
 }

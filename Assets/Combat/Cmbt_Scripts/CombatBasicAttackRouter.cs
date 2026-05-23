@@ -5,6 +5,7 @@ public class CombatBasicAttackRouter : MonoBehaviour
 {
     [SerializeField] private BasicAttack meleeAttack;
     [SerializeField] private ProjectileBasicAttack projectileAttack;
+    [SerializeField] private HeavyComboAttack heavyComboAttack;
 
     private int lastIndex = -1;
 
@@ -12,6 +13,7 @@ public class CombatBasicAttackRouter : MonoBehaviour
     {
         if (meleeAttack == null) meleeAttack = GetComponent<BasicAttack>();
         if (projectileAttack == null) projectileAttack = GetComponent<ProjectileBasicAttack>();
+        if (heavyComboAttack == null) heavyComboAttack = GetComponent<HeavyComboAttack>();
     }
 
     private void OnEnable()
@@ -35,9 +37,10 @@ public class CombatBasicAttackRouter : MonoBehaviour
 
         lastIndex = pm.activeIndex;
 
-        bool useProjectile = pm.Active.def.basicAttackType == BasicAttackType.Projectile;
+        BasicAttackType type = pm.Active.def.basicAttackType;
 
-        if (meleeAttack != null) meleeAttack.enabled = !useProjectile;
-        if (projectileAttack != null) projectileAttack.enabled = useProjectile;
+        if (meleeAttack != null) meleeAttack.enabled = type == BasicAttackType.Melee;
+        if (projectileAttack != null) projectileAttack.enabled = type == BasicAttackType.Projectile;
+        if (heavyComboAttack != null) heavyComboAttack.enabled = type == BasicAttackType.HeavyCombo;
     }
 }

@@ -46,8 +46,8 @@ MonoBehaviour:
   aoeZonePrefab: {fileID: 5383851324545408664, guid: 1046b37da9fef5c4db7521b9ca5c9edf, type: 3}
   aoeEffects:
   - {fileID: 11400000, guid: 2171235443324e049a6ba1d86742188e, type: 2}
-  aoeRadius: 1.5
-  aoeDuration: 6
+  aoeRadius: 2.5
+  aoeDuration: 4
   aoeUsesProjectile: 1
   aoeProjectileSpeed: 12
   aoeProjectileTravelTime: 0.4

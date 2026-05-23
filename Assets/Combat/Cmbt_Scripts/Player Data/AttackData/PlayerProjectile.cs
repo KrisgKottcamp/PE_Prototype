@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerProjectile : MonoBehaviour
@@ -9,6 +9,12 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private LayerMask hitMask;
     [SerializeField] private int damage = 3;
     [SerializeField] private float stunSeconds = 0.15f;
+
+    [Header("Projectile Breaking")]
+    [Tooltip("If true, destroys enemy projectiles on contact and keeps flying. " +
+             "Enable on power shot prefab. Requires the enemy projectile layer to " +
+             "collide with this projectile's layer in Physics2D settings.")]
+    [SerializeField] private bool breaksEnemyProjectiles = false;
 
     private Rigidbody2D rb;
     private Vector2 dir;
@@ -53,6 +59,17 @@ public class PlayerProjectile : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
+        // Destroy enemy projectiles on contact — player projectile pierces through
+        if (breaksEnemyProjectiles)
+        {
+            var enemyProj = other.GetComponentInParent<Projectile>();
+            if (enemyProj != null && enemyProj.Team == Projectile.ProjectileTeam.Enemy)
+            {
+                Destroy(enemyProj.gameObject);
+                return;
+            }
+        }
+
         if (((1 << other.gameObject.layer) & hitMask.value) == 0) return;
 
         var enemyHealth = other.GetComponentInParent<EnemyHealth>();
