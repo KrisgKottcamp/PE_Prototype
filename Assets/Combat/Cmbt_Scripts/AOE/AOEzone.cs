@@ -166,7 +166,9 @@ public class AoEZone : MonoBehaviour
         if (zoneTrigger != null)
         {
             zoneTrigger.isTrigger = true;
-            zoneTrigger.radius = radius;
+            // Compensate for any transform scale (visual scaling on same GO inflates the collider)
+            float worldScale = Mathf.Max(0.001f, zoneTrigger.transform.lossyScale.x);
+            zoneTrigger.radius = radius / worldScale;
             zoneTrigger.enabled = true;
         }
 

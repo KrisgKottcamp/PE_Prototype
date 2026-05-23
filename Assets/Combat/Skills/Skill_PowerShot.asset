@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Power Shot
   targetType: 1
+  executionType: 0
   baseApCost: 20
   requiresPartyTarget: 0
   includeDownedTargets: 0
@@ -42,3 +43,19 @@ MonoBehaviour:
   impactVfxPrefab: {fileID: 0}
   impactVfxAngleOffset: 0
   impactVfxForwardOffset: 0
+  aoeZonePrefab: {fileID: 0}
+  aoeEffects: []
+  aoeRadius: 2.5
+  aoeDuration: 4
+  aoeUsesProjectile: 1
+  aoeProjectileSpeed: 12
+  aoeProjectileTravelTime: 0.4
+  aoeObstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  usesPlacement: 0
+  placementRange: 8
+  placementBlockMask:
+    serializedVersion: 2
+    m_Bits: 128
+  placementPreviewRadius: 0.5

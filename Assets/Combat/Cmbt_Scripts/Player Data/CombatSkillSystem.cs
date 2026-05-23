@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -374,6 +374,61 @@ public class CombatSkillSystem : MonoBehaviour
             skill.aoeUsesProjectile ? skill.aoeProjectileSpeed : 0f,
             skill.aoeUsesProjectile ? skill.aoeProjectileTravelTime : 0f,
             skill.aoeObstacleMask
+        );
+    }
+
+    /// <summary>
+    /// Resolves a pending cast at a specific world position.
+    /// Called by CombatSkillMenuController after the player confirms placement.
+    /// Routes to the correct handler based on execution type.
+    /// AP was already spent by BeginCast; this applies the cost multiplier.
+    /// </summary>
+    public void ResolveCastAtPosition(PendingCast pending, Vector2 worldPos)
+    {
+        if (pending == null || pending.skill == null) return;
+
+        switch (pending.skill.executionType)
+        {
+            case SkillExecutionType.AoE:
+                SpawnAoEZoneAtPosition(pending.skill, worldPos);
+                break;
+
+            // Future placement-based types go here:
+            // case SkillExecutionType.Teleport: ...
+            // case SkillExecutionType.Summon: ...
+
+            default:
+                Debug.LogWarning($"Skill '{pending.skill.name}': placement not implemented for execution type {pending.skill.executionType}.");
+                break;
+        }
+
+        ApplySkillCostMultiplier(pending.ownerIndex);
+    }
+
+    private void SpawnAoEZoneAtPosition(SkillDefinition skill, Vector2 worldPos)
+    {
+        if (skill.aoeZonePrefab == null)
+        {
+            Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab is null.");
+            return;
+        }
+
+        var zoneObj = Instantiate(skill.aoeZonePrefab, worldPos, Quaternion.identity);
+        var zone = zoneObj.GetComponent<AoEZone>();
+
+        if (zone == null)
+        {
+            Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab missing AoEZone component.");
+            Destroy(zoneObj);
+            return;
+        }
+
+        // Spawn directly at position — no travel
+        zone.Initialize(
+            skill.aoeRadius,
+            skill.aoeDuration,
+            skill.aoeEffects,
+            Vector2.zero, 0f, 0f, default
         );
     }
 

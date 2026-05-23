@@ -69,10 +69,21 @@ public class SkillDefinition : ScriptableObject
     public float aoeDuration = 4f;
 
     [Header("AoE Delivery")]
-    [Tooltip("If true, zone flies as a projectile before activating. If false, spawns instantly at the player.")]
+    [Tooltip("If true, zone flies as a projectile before activating. If false, spawns at player. Ignored when usesPlacement is true.")]
     public bool aoeUsesProjectile = true;
     public float aoeProjectileSpeed = 12f;
     public float aoeProjectileTravelTime = 0.4f;
     [Tooltip("Obstacles that make the projectile burst early.")]
     public LayerMask aoeObstacleMask;
+
+    [Header("Placement (click-to-place, works with any execution type)")]
+    [Tooltip("If true, player clicks to place within range. Works with any execution type.")]
+    public bool usesPlacement = false;
+    [Tooltip("Max distance from the player.")]
+    public float placementRange = 8f;
+    [Tooltip("Layers that block placement. Preview turns red when overlapping these.")]
+    public LayerMask placementBlockMask;
+    [Tooltip("Radius of the placement preview circle. For AoE skills this is auto-set to aoeRadius; " +
+             "set this for non-AoE placement skills (teleport, summon, etc.).")]
+    public float placementPreviewRadius = 0.5f;
 }
