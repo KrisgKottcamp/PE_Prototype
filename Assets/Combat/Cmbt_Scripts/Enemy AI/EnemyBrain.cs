@@ -414,7 +414,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         lastStuckPos = transform.position;
         ResetAdvanceStuck();
         ResetRepositionState();
-        SetShooterGate(false);
+        SetShooterGate(false, force: true);
         ClearMoveIntent();
         EnterReplan(true);
     }
@@ -423,7 +423,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     {
         if (squad != null) squad.Unregister(this);
         ReleaseCurrentPoint();
-        SetShooterGate(false);
+        SetShooterGate(false, force: true);
         ClearMoveIntent();
     }
 
@@ -1316,12 +1316,17 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     // ----------------------------
     // Shooter integration
     // ----------------------------
-    private void SetShooterGate(bool enabled)
+    private void SetShooterGate(bool enabled, bool force = false)
     {
         if (shooter == null) return;
-        if (shooterGateEnabled == enabled) return;
-        shooterGateEnabled = enabled;
-        TryCall(shooter, "SetShootingEnabled", new object[] { enabled && isRanged });
+
+        bool finalEnabled = enabled && isRanged;
+
+        if (!force && shooterGateEnabled == finalEnabled)
+            return;
+
+        shooterGateEnabled = finalEnabled;
+        TryCall(shooter, "SetShootingEnabled", new object[] { finalEnabled });
     }
 
     private void SyncShooterTarget()

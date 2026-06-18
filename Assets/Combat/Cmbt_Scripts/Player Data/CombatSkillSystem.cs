@@ -34,6 +34,10 @@ public class CombatSkillSystem : MonoBehaviour
     [SerializeField] private float defaultMeleeRadius = 0.4f;
     [SerializeField] private int defaultMeleeMaxTargets = 1;
 
+    [Header("Timing")]
+    [SerializeField] private bool useUnscaledImpactDelay = false;
+
+
     private bool isCasting;
 
     private readonly Collider2D[] hitCols = new Collider2D[16];
@@ -188,8 +192,14 @@ public class CombatSkillSystem : MonoBehaviour
 
         // Delay to match skill timing
         float delay = Mathf.Max(0f, skill.impactDelay);
+
         if (delay > 0f)
-            yield return new WaitForSeconds(delay);
+        {
+            if (useUnscaledImpactDelay)
+                yield return new WaitForSecondsRealtime(delay);
+            else
+                yield return new WaitForSeconds(delay);
+        }
 
         Vector2 dir = pending.aimDirAtCommit.sqrMagnitude > 0.0001f ? pending.aimDirAtCommit : Vector2.up;
         dir = dir.normalized;

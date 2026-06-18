@@ -6,8 +6,13 @@ using UnityEngine;
 public class CharacterDefinition : ScriptableObject
 {
     public string displayName;
-    public enum BasicAttackType { Melee, Projectile, HeavyCombo }
-
+    public enum BasicAttackType
+    {
+        Melee,
+        Projectile,
+        HeavyCombo,
+        Whip
+    }
 
     [Header("Base Stats")]
     public int maxHP = 100;

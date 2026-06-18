@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6088773528821479106
+--- !u!1 &8170228569374706463
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,68 +8,90 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1804993104603001988}
-  - component: {fileID: 9000629432750736177}
-  - component: {fileID: 7171066054237546101}
-  - component: {fileID: 3325805672753053021}
-  - component: {fileID: -1518053620354522506}
-  m_Layer: 9
-  m_Name: Projectile_Test
+  - component: {fileID: 3372234193669432514}
+  - component: {fileID: 4560943845545969030}
+  - component: {fileID: 8100421510096482569}
+  - component: {fileID: 8268829846365215364}
+  - component: {fileID: 5126580216421500895}
+  m_Layer: 13
+  m_Name: OilSpillZone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1804993104603001988
+--- !u!4 &3372234193669432514
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6088773528821479106}
+  m_GameObject: {fileID: 8170228569374706463}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -5.78607, y: -4.86744, z: 0}
+  m_LocalPosition: {x: -0.73004, y: -2.72869, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!50 &9000629432750736177
-Rigidbody2D:
-  serializedVersion: 5
+--- !u!114 &4560943845545969030
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6088773528821479106}
-  m_BodyType: 0
-  m_Simulated: 1
-  m_UseFullKinematicContacts: 0
-  m_UseAutoMass: 0
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_GravityScale: 0
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
+  m_GameObject: {fileID: 8170228569374706463}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a28aa31c36796e64c9929af0d3894558, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AoEZone
+  zoneVisual: {fileID: 5126580216421500895}
+  fadeOutTime: 20
+  travelVisual: {fileID: 0}
+  zoneTrigger: {fileID: 8268829846365215364}
+  occupantRecheckInterval: 0.05
+  overlapBufferSize: 96
+--- !u!114 &8100421510096482569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8170228569374706463}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8ed4dc7a8d20224d89cbd69a0e7769d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OilSpillDetonator
+  damagePerTick: 12
+  burnDuration: 3
+  tickInterval: 0.5
+  refreshExistingBurn: 1
+  tickImmediately: 1
+  explosionRadius: 2.5
+  enemyMask:
     serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_Interpolate: 0
-  m_SleepingMode: 1
-  m_CollisionDetection: 0
-  m_Constraints: 0
---- !u!58 &7171066054237546101
+    m_Bits: 1024
+  maxTargets: 32
+  destroyIgnitingProjectile: 1
+  zoneCollider: {fileID: 8268829846365215364}
+  hideOilAfterDetonation: 1
+  oilRenderersToHide: []
+  oilCollidersToDisable: []
+  explosionVfxPrefab: {fileID: 0}
+  explosionVfxZ: 0
+  logDetonation: 1
+  drawGizmos: 1
+--- !u!58 &8268829846365215364
 CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6088773528821479106}
-  m_Enabled: 1
+  m_GameObject: {fileID: 8170228569374706463}
+  m_Enabled: 0
   serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
@@ -97,46 +119,15 @@ CircleCollider2D:
   m_CompositeOperation: 0
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
-  m_Radius: 0.07
---- !u!114 &3325805672753053021
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6088773528821479106}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41c77c91c0207484a9f6a3cef82d5b96, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rb: {fileID: 9000629432750736177}
-  speed: 4
-  lifetime: 50
-  armDelay: 0.03
-  damage: 35
-  team: 0
-  damageAnyNonOwner: 0
-  validTargetTags:
-  - Player
-  - PlayerCombatPawn
-  destroyOnSolidHit: 1
-  solidMask:
-    serializedVersion: 2
-    m_Bits: 128
-  reflectedProjectilesIgnoreLifetime: 1
-  reflectedTint: {r: 0, g: 0.8396226, b: 0, a: 1}
-  tintSpriteRenderersOnReflect: 1
-  tintTrailRenderersOnReflect: 1
-  tintLineRenderersOnReflect: 1
---- !u!212 &-1518053620354522506
+  m_Radius: 1
+--- !u!212 &5126580216421500895
 SpriteRenderer:
   serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6088773528821479106}
+  m_GameObject: {fileID: 8170228569374706463}
   m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0
@@ -174,16 +165,16 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: -1660877859
-  m_SortingLayer: 3
-  m_SortingOrder: 1
+  m_SortingLayerID: -1887347445
+  m_SortingLayer: 2
+  m_SortingOrder: 3
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
-  m_Color: {r: 0.5943396, g: 0.17809619, b: 0.16540584, a: 1}
+  m_Sprite: {fileID: 21300000, guid: b79691ab09fe0704ba799bdc1f0e47c8, type: 3}
+  m_Color: {r: 1, g: 0, b: 0.8229265, a: 0.2784314}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 0.2, y: 0.2}
+  m_Size: {x: 7.36, y: 7.36}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1

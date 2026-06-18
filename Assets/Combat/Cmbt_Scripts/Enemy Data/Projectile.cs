@@ -2,9 +2,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Shared tracker for reflected projectile damage. Created once per PushBack activation,
-/// referenced by every reflected projectile. Halves damage per successive hit on the
-/// same enemy (floor division, minimum 1).
+/// Shared tracker for reflected projectile damage.
+/// Created once per PushBack activation and referenced by every reflected projectile.
+/// 
+/// First hit on an enemy = baseDamage.
+/// Later reflected hits on the same enemy during the same PushBack activation are reduced.
 /// </summary>
 public class ReflectDamageTracker
 {
@@ -16,19 +18,18 @@ public class ReflectDamageTracker
         this.baseDamage = Mathf.Max(1, baseDamage);
     }
 
-    /// <summary>
-    /// Returns the damage for the next hit on this enemy and increments the counter.
-    /// First hit = baseDamage, then halved each time (integer division), minimum 1.
-    /// </summary>
     public int GetDamageFor(EnemyHealth enemy)
     {
         if (!hitCounts.TryGetValue(enemy, out int hits))
             hits = 0;
+
         hitCounts[enemy] = hits + 1;
 
         int dmg = baseDamage;
+
         for (int i = 0; i < hits; i++)
             dmg /= 2;
+
         return Mathf.Max(1, dmg);
     }
 }
@@ -58,6 +59,16 @@ public class Projectile : MonoBehaviour
     [SerializeField] private bool destroyOnSolidHit = true;
     [SerializeField] private LayerMask solidMask;
 
+    [Header("Reflection Behavior")]
+    [SerializeField] private bool reflectedProjectilesIgnoreLifetime = true;
+
+    [Tooltip("Color applied when this projectile gets reflected by Push Back.")]
+    [SerializeField] private Color reflectedTint = new Color(0.25f, 0.85f, 1f, 1f);
+
+    [SerializeField] private bool tintSpriteRenderersOnReflect = true;
+    [SerializeField] private bool tintTrailRenderersOnReflect = true;
+    [SerializeField] private bool tintLineRenderersOnReflect = true;
+
     private Vector2 direction = Vector2.right;
     private bool initialized = false;
     private float armedAt = 0f;
@@ -65,157 +76,197 @@ public class Projectile : MonoBehaviour
     private Transform ownerRoot;
     private ReflectDamageTracker reflectTracker;
 
-    /// <summary>Current team. Use Reflect() to flip.</summary>
+    private bool hasBeenReflected = false;
+    private SpeedModifier speedModifier;
+
     public ProjectileTeam Team => team;
 
     private void Awake()
     {
-        if (rb == null) rb = GetComponent<Rigidbody2D>();
+        if (rb == null)
+            rb = GetComponent<Rigidbody2D>();
+
+        speedModifier = GetComponent<SpeedModifier>();
     }
 
     private void OnEnable()
     {
         armedAt = Time.time + Mathf.Max(0f, armDelay);
         destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
+
+        hasBeenReflected = false;
+        reflectTracker = null;
     }
 
-    // Backward-compatible initialize
     public void Initialize(Vector2 dir, float newSpeed)
     {
         Initialize(dir, newSpeed, null, team);
     }
 
-    // Preferred initialize from shooter
     public void Initialize(Vector2 dir, float newSpeed, GameObject ownerObj, ProjectileTeam projectileTeam)
     {
-        direction = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
+        direction = dir.sqrMagnitude > 0.0001f
+            ? dir.normalized
+            : Vector2.right;
+
         speed = Mathf.Max(0.01f, newSpeed);
         team = projectileTeam;
         ownerRoot = ownerObj != null ? ownerObj.transform.root : null;
         initialized = true;
+
         ApplyVelocity();
     }
 
     private void FixedUpdate()
     {
-        if (Time.time >= destroyAt) { Destroy(gameObject); return; }
+        bool shouldUseLifetime = !hasBeenReflected || !reflectedProjectilesIgnoreLifetime;
+
+        if (shouldUseLifetime && Time.time >= destroyAt)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
         if (!initialized) return;
+
+        float moveSpeed = speed * GetSpeedMultiplier();
 
         if (rb != null)
         {
 #if UNITY_6000_0_OR_NEWER
-            rb.linearVelocity = direction * speed;
+            rb.linearVelocity = direction * moveSpeed;
 #else
-            rb.velocity = direction * speed;
+            rb.velocity = direction * moveSpeed;
 #endif
         }
         else
         {
-            transform.position += (Vector3)(direction * speed * Time.fixedDeltaTime);
+            transform.position += (Vector3)(direction * moveSpeed * Time.fixedDeltaTime);
         }
+    }
+
+    private float GetSpeedMultiplier()
+    {
+        if (speedModifier == null)
+            speedModifier = GetComponent<SpeedModifier>();
+
+        return speedModifier != null ? speedModifier.Multiplier : 1f;
     }
 
     private void ApplyVelocity()
     {
         if (rb == null) return;
+
+        float moveSpeed = speed * GetSpeedMultiplier();
+
 #if UNITY_6000_0_OR_NEWER
-        rb.linearVelocity = direction * speed;
+        rb.linearVelocity = direction * moveSpeed;
 #else
-        rb.velocity = direction * speed;
+        rb.velocity = direction * moveSpeed;
 #endif
     }
 
     /// <summary>
-    /// Flips this projectile's team, reverses its direction, sets the new owner
-    /// so it won't damage them, and enables damageAnyNonOwner so it hits enemies.
-    /// Optionally changes the layer so the projectile can physically collide with enemies.
-    /// Clears all IgnoreCollision pairs with enemies so reflected bullets can hit
-    /// even the enemy that originally fired them.
-    /// Called by PushBack to turn enemy bullets against them.
+    /// Called by PushBack.
+    /// Reverses direction, changes ownership, changes layer, clears enemy collision ignores,
+    /// tints the projectile, and optionally disables lifetime despawn.
     /// </summary>
     public void Reflect(Transform newOwner, int newLayer = -1, ReflectDamageTracker tracker = null)
     {
-        // Flip team
-        team = (team == ProjectileTeam.Enemy) ? ProjectileTeam.Player : ProjectileTeam.Enemy;
+        hasBeenReflected = true;
 
-        // Reverse direction
+        team = team == ProjectileTeam.Enemy
+            ? ProjectileTeam.Player
+            : ProjectileTeam.Enemy;
+
+        // Push Back sends the projectile back along its original path.
         direction = -direction;
 
-        // Rotate to face the new direction
         transform.rotation = Quaternion.FromToRotation(Vector3.right, direction);
 
-        // Set new owner so the reflected projectile won't damage the player
         ownerRoot = newOwner != null ? newOwner.root : null;
 
-        // Hit anything that isn't the new owner (i.e. enemies)
+        // Reflected projectiles should be able to hit enemies.
         damageAnyNonOwner = true;
-
-        // Shared diminishing-damage tracker (null = use projectile's own damage)
         reflectTracker = tracker;
 
-        // Change layer so Physics2D generates collisions with enemy hurtboxes
         if (newLayer >= 0)
             SetLayerRecursive(gameObject, newLayer);
 
-        // Clear IgnoreCollision pairs that EnemyShooterDebug set at spawn time.
-        // Without this, reflected projectiles pass through the enemy that fired them.
         ResetEnemyCollisionIgnores();
+        ApplyReflectedVisualTint();
 
-        // Brief arm delay so it doesn't collide with nearby objects at the instant of reflection
         armedAt = Time.time + Mathf.Max(0f, armDelay);
 
-        // Reset lifetime so the reflected projectile has full flight time
-        destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
+        if (reflectedProjectilesIgnoreLifetime)
+            destroyAt = float.MaxValue;
+        else
+            destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
 
-        // Apply reversed velocity immediately
         ApplyVelocity();
-    }
-
-    private void ResetEnemyCollisionIgnores()
-    {
-        Collider2D[] myCols = GetComponentsInChildren<Collider2D>(true);
-        if (myCols.Length == 0) return;
-
-        var enemies = FindObjectsOfType<EnemyHealth>(false);
-        for (int e = 0; e < enemies.Length; e++)
-        {
-            if (enemies[e] == null) continue;
-            Collider2D[] enemyCols = enemies[e].GetComponentsInChildren<Collider2D>(true);
-            for (int i = 0; i < myCols.Length; i++)
-                for (int j = 0; j < enemyCols.Length; j++)
-                    if (myCols[i] != null && enemyCols[j] != null)
-                        Physics2D.IgnoreCollision(myCols[i], enemyCols[j], false);
-        }
-    }
-
-    private static void SetLayerRecursive(GameObject go, int layer)
-    {
-        go.layer = layer;
-        foreach (Transform child in go.transform)
-            SetLayerRecursive(child.gameObject, layer);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        HandleHit(other);
+        ProcessProjectileHit(other);
     }
 
     private void OnCollisionEnter2D(Collision2D other)
     {
-        HandleHit(other.collider);
+        ProcessProjectileHit(other.collider);
     }
 
-    private void HandleHit(Collider2D other)
+    private void ProcessProjectileHit(Collider2D other)
     {
         if (other == null) return;
         if (Time.time < armedAt) return;
 
         Transform hitRoot = other.transform.root;
 
-        // Ignore owner
-        if (ownerRoot != null && hitRoot == ownerRoot) return;
+        if (ownerRoot != null && hitRoot == ownerRoot)
+            return;
 
+        if (hasBeenReflected)
+        {
+            ProcessReflectedHit(other);
+            return;
+        }
+
+        ProcessNormalHit(other);
+    }
+
+    private void ProcessReflectedHit(Collider2D other)
+    {
+        EnemyHealth enemy = other.GetComponentInParent<EnemyHealth>();
+
+        if (enemy != null)
+        {
+            if (reflectTracker != null)
+            {
+                int reflectedDamage = reflectTracker.GetDamageFor(enemy);
+                enemy.TakeDamage(reflectedDamage);
+            }
+            else
+            {
+                enemy.TakeDamage(damage);
+            }
+
+            Destroy(gameObject);
+            return;
+        }
+
+        if (destroyOnSolidHit && IsSolid(other))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // Reflected projectiles ignore random triggers.
+        // They only despawn on enemy hit or wall/cover hit.
+    }
+
+    private void ProcessNormalHit(Collider2D other)
+    {
         bool isValidTarget = damageAnyNonOwner || IsValidTargetTag(other);
 
         if (isValidTarget)
@@ -224,19 +275,24 @@ public class Projectile : MonoBehaviour
                 ApplyReflectedDamage(other);
             else
                 ApplyDamage(other);
+
             Destroy(gameObject);
             return;
         }
 
-        if (destroyOnSolidHit && ((solidMask.value & (1 << other.gameObject.layer)) != 0))
-        {
+        if (destroyOnSolidHit && IsSolid(other))
             Destroy(gameObject);
-        }
+    }
+
+    private bool IsSolid(Collider2D other)
+    {
+        return (solidMask.value & (1 << other.gameObject.layer)) != 0;
     }
 
     private bool IsValidTargetTag(Collider2D other)
     {
-        if (validTargetTags == null || validTargetTags.Length == 0) return false;
+        if (validTargetTags == null || validTargetTags.Length == 0)
+            return false;
 
         string tagSelf = other.tag;
         string tagRoot = other.transform.root.tag;
@@ -244,6 +300,7 @@ public class Projectile : MonoBehaviour
         for (int i = 0; i < validTargetTags.Length; i++)
         {
             string t = validTargetTags[i];
+
             if (string.IsNullOrEmpty(t)) continue;
 
             if (tagSelf == t || tagRoot == t)
@@ -258,31 +315,124 @@ public class Projectile : MonoBehaviour
         GameObject selfObj = other.gameObject;
         GameObject rootObj = other.transform.root.gameObject;
 
-        // Try common damage entry points
         selfObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
-        if (rootObj != selfObj)
-            rootObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
-
         selfObj.SendMessage("ApplyDamage", damage, SendMessageOptions.DontRequireReceiver);
-        if (rootObj != selfObj)
-            rootObj.SendMessage("ApplyDamage", damage, SendMessageOptions.DontRequireReceiver);
-
         selfObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
+
         if (rootObj != selfObj)
+        {
+            rootObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
+            rootObj.SendMessage("ApplyDamage", damage, SendMessageOptions.DontRequireReceiver);
             rootObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
+        }
     }
 
     private void ApplyReflectedDamage(Collider2D other)
     {
-        var enemy = other.GetComponentInParent<EnemyHealth>();
+        EnemyHealth enemy = other.GetComponentInParent<EnemyHealth>();
+
         if (enemy != null)
         {
-            int dmg = reflectTracker.GetDamageFor(enemy);
-            enemy.TakeDamage(dmg);
+            int reflectedDamage = reflectTracker != null
+                ? reflectTracker.GetDamageFor(enemy)
+                : damage;
+
+            enemy.TakeDamage(reflectedDamage);
             return;
         }
 
-        // Hit something without EnemyHealth (cover, etc.) — fall back to normal
         ApplyDamage(other);
+    }
+
+    private void ResetEnemyCollisionIgnores()
+    {
+        Collider2D[] myCols = GetComponentsInChildren<Collider2D>(true);
+
+        if (myCols.Length == 0)
+            return;
+
+        EnemyHealth[] enemies = FindObjectsOfType<EnemyHealth>(false);
+
+        for (int e = 0; e < enemies.Length; e++)
+        {
+            if (enemies[e] == null) continue;
+
+            Collider2D[] enemyCols = enemies[e].GetComponentsInChildren<Collider2D>(true);
+
+            for (int i = 0; i < myCols.Length; i++)
+            {
+                if (myCols[i] == null) continue;
+
+                for (int j = 0; j < enemyCols.Length; j++)
+                {
+                    if (enemyCols[j] == null) continue;
+
+                    Physics2D.IgnoreCollision(myCols[i], enemyCols[j], false);
+                }
+            }
+        }
+    }
+
+    private void ApplyReflectedVisualTint()
+    {
+        if (tintSpriteRenderersOnReflect)
+        {
+            SpriteRenderer[] sprites = GetComponentsInChildren<SpriteRenderer>(true);
+
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i] == null) continue;
+
+                Color c = reflectedTint;
+                c.a = sprites[i].color.a;
+                sprites[i].color = c;
+            }
+        }
+
+        if (tintTrailRenderersOnReflect)
+        {
+            TrailRenderer[] trails = GetComponentsInChildren<TrailRenderer>(true);
+
+            for (int i = 0; i < trails.Length; i++)
+            {
+                if (trails[i] == null) continue;
+
+                Color start = reflectedTint;
+                Color end = reflectedTint;
+
+                start.a = trails[i].startColor.a;
+                end.a = trails[i].endColor.a;
+
+                trails[i].startColor = start;
+                trails[i].endColor = end;
+            }
+        }
+
+        if (tintLineRenderersOnReflect)
+        {
+            LineRenderer[] lines = GetComponentsInChildren<LineRenderer>(true);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i] == null) continue;
+
+                Color start = reflectedTint;
+                Color end = reflectedTint;
+
+                start.a = lines[i].startColor.a;
+                end.a = lines[i].endColor.a;
+
+                lines[i].startColor = start;
+                lines[i].endColor = end;
+            }
+        }
+    }
+
+    private static void SetLayerRecursive(GameObject go, int layer)
+    {
+        go.layer = layer;
+
+        foreach (Transform child in go.transform)
+            SetLayerRecursive(child.gameObject, layer);
     }
 }

@@ -5,19 +5,13 @@ using UnityEngine;
 /// <summary>
 /// Generic AoE zone. Handles the full lifecycle:
 ///
-///   Travel (optional) → Active → Fade Out → Destroy
+///   Travel optional → Active → Fade during final lifetime → Destroy
 ///
-/// Travel phase:  Moves in a straight line. Bursts on obstacle (raycast) or timer.
-/// Active phase:  Stationary. Applies AoEEffects to occupants via trigger.
-/// Fade phase:    Removes all effects, fades visual, self-destructs.
-///
-/// Replaces the need for separate projectile and zone scripts.
-/// Spawned and configured by CombatSkillSystem.
-///
-/// Prefab setup:
-///   - CircleCollider2D (trigger, starts disabled — enabled on activate)
-///   - SpriteRenderer for the zone visual
-///   - Optional: a child SpriteRenderer for the travel/orb visual
+/// Fixes:
+/// - Existing occupants caught on spawn no longer get stuck slowed.
+/// - Multi-collider entities are tracked by root object instead of fragile enter/exit counts.
+/// - Zone periodically verifies who is still inside.
+/// - Fade preserves prefab alpha and finishes exactly when duration ends.
 /// </summary>
 public class AoEZone : MonoBehaviour
 {
@@ -27,13 +21,20 @@ public class AoEZone : MonoBehaviour
     [SerializeField] private SpriteRenderer zoneVisual;
     [SerializeField] private float fadeOutTime = 0.3f;
 
-    [Header("Travel Visual (optional)")]
+    [Header("Travel Visual Optional")]
     [SerializeField] private SpriteRenderer travelVisual;
 
     [Header("Trigger")]
     [SerializeField] private CircleCollider2D zoneTrigger;
 
-    // -- Set by Initialize --
+    [Header("Occupant Tracking")]
+    [Tooltip("How often the zone verifies who is actually still inside. Fixes stuck slows from spawn-overlap edge cases.")]
+    [SerializeField] private float occupantRecheckInterval = 0.05f;
+
+    [Tooltip("Bigger buffer if you expect tons of colliders inside one zone.")]
+    [SerializeField] private int overlapBufferSize = 96;
+
+    // Set by Initialize
     private Phase phase = Phase.Done;
     private float radius;
     private float duration;
@@ -48,20 +49,17 @@ public class AoEZone : MonoBehaviour
 
     // Active
     private float activeEndTime;
+    private float fadeStartTime;
+    private bool fadeStarted;
+    private Coroutine fadeRoutine;
 
-    // Occupant tracking (handles multi-collider entities)
-    private readonly Dictionary<GameObject, int> occupantCounts = new();
+    // Occupants
     private readonly HashSet<GameObject> trackedRoots = new();
-    private readonly Collider2D[] overlapBuffer = new Collider2D[32];
+    private readonly HashSet<GameObject> scanRoots = new();
+    private readonly List<GameObject> rootsToRemove = new();
+    private Collider2D[] overlapBuffer;
+    private float nextOccupantRecheckTime;
 
-    // --------------------------------------------------
-    // Initialization
-    // --------------------------------------------------
-
-    /// <summary>
-    /// Full initialization. If travelSpeed and travelTime are > 0, the zone
-    /// starts in travel mode. Otherwise it activates immediately.
-    /// </summary>
     public void Initialize(
         float radius,
         float duration,
@@ -71,16 +69,23 @@ public class AoEZone : MonoBehaviour
         float travelTime,
         LayerMask obstacleMask)
     {
-        this.radius = radius;
-        this.duration = duration;
-        this.effects = effects != null ? new List<AoEEffect>(effects) : new();
+        this.radius = Mathf.Max(0.01f, radius);
+        this.duration = Mathf.Max(0.01f, duration);
+        this.effects = effects != null ? new List<AoEEffect>(effects) : new List<AoEEffect>();
+
         this.travelDir = travelDir.sqrMagnitude > 0.0001f ? travelDir.normalized : Vector2.zero;
-        this.travelSpeed = travelSpeed;
+        this.travelSpeed = Mathf.Max(0f, travelSpeed);
         this.obstacleMask = obstacleMask;
 
         sourceId = SpeedModifier.GenerateSourceId();
 
-        bool hasTravel = travelSpeed > 0f && travelTime > 0f;
+        if (overlapBuffer == null || overlapBuffer.Length != Mathf.Max(8, overlapBufferSize))
+            overlapBuffer = new Collider2D[Mathf.Max(8, overlapBufferSize)];
+
+        fadeStarted = false;
+        fadeRoutine = null;
+
+        bool hasTravel = this.travelSpeed > 0f && travelTime > 0f;
 
         if (hasTravel)
         {
@@ -97,14 +102,15 @@ public class AoEZone : MonoBehaviour
             ActivateZone();
         }
 
-        // Safety net
-        float maxLife = (hasTravel ? travelTime : 0f) + duration + fadeOutTime + 1f;
+        float maxLife = (hasTravel ? travelTime : 0f) + this.duration + Mathf.Max(0f, fadeOutTime) + 1f;
         Destroy(gameObject, maxLife);
     }
 
-    // --------------------------------------------------
-    // Update
-    // --------------------------------------------------
+    private void Awake()
+    {
+        if (overlapBuffer == null)
+            overlapBuffer = new Collider2D[Mathf.Max(8, overlapBufferSize)];
+    }
 
     private void Update()
     {
@@ -115,8 +121,18 @@ public class AoEZone : MonoBehaviour
                 break;
 
             case Phase.Active:
+                if (Time.time >= nextOccupantRecheckTime)
+                {
+                    nextOccupantRecheckTime = Time.time + Mathf.Max(0.01f, occupantRecheckInterval);
+                    ReconcileOccupants();
+                }
+
+                if (!fadeStarted && fadeOutTime > 0f && Time.time >= fadeStartTime)
+                    BeginVisualFade();
+
                 if (Time.time >= activeEndTime)
-                    BeginFadeOut();
+                    EndZone();
+
                 break;
         }
     }
@@ -124,15 +140,14 @@ public class AoEZone : MonoBehaviour
     private void TickTravel()
     {
         float dist = travelSpeed * Time.deltaTime;
-        Vector2 pos = (Vector2)transform.position;
+        Vector2 pos = transform.position;
 
-        // Raycast ahead for obstacles
         if (obstacleMask.value != 0)
         {
-            var hit = Physics2D.Raycast(pos, travelDir, dist + 0.05f, obstacleMask);
+            RaycastHit2D hit = Physics2D.Raycast(pos, travelDir, dist + 0.05f, obstacleMask);
             if (hit.collider != null)
             {
-                transform.position = (Vector3)hit.point;
+                transform.position = hit.point;
                 ActivateZone();
                 return;
             }
@@ -144,21 +159,24 @@ public class AoEZone : MonoBehaviour
             ActivateZone();
     }
 
-    // --------------------------------------------------
-    // Zone activation
-    // --------------------------------------------------
-
     private void ActivateZone()
     {
         phase = Phase.Active;
         activeEndTime = Time.time + duration;
 
-        if (travelVisual != null) travelVisual.enabled = false;
+        float actualFadeTime = Mathf.Min(Mathf.Max(0f, fadeOutTime), duration);
+        fadeStartTime = activeEndTime - actualFadeTime;
+        fadeStarted = false;
+
+        nextOccupantRecheckTime = Time.time;
+
+        if (travelVisual != null)
+            travelVisual.enabled = false;
 
         if (zoneVisual != null)
         {
             zoneVisual.enabled = true;
-            // Scale visual to match radius (assumes 1-unit sprite at scale 1)
+
             float diameter = radius * 2f;
             zoneVisual.transform.localScale = new Vector3(diameter, diameter, 1f);
         }
@@ -166,136 +184,207 @@ public class AoEZone : MonoBehaviour
         if (zoneTrigger != null)
         {
             zoneTrigger.isTrigger = true;
-            // Compensate for any transform scale (visual scaling on same GO inflates the collider)
+
             float worldScale = Mathf.Max(0.001f, zoneTrigger.transform.lossyScale.x);
             zoneTrigger.radius = radius / worldScale;
             zoneTrigger.enabled = true;
         }
 
-        // Catch anything already overlapping the zone at activation
-        CatchExistingOccupants();
+        // Immediately catch anything already inside, including the player if the orb spawns on them.
+        ReconcileOccupants();
     }
-
-    private void CatchExistingOccupants()
-    {
-        Vector2 center = (Vector2)transform.position;
-        int count = Physics2D.OverlapCircleNonAlloc(center, radius, overlapBuffer);
-
-        for (int i = 0; i < count; i++)
-        {
-            var col = overlapBuffer[i];
-            if (col == null || col == zoneTrigger) continue;
-            HandleOccupantEnter(col);
-        }
-    }
-
-    // --------------------------------------------------
-    // Occupant tracking
-    // --------------------------------------------------
 
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (phase != Phase.Active) return;
-        HandleOccupantEnter(other);
+        if (other == null || other == zoneTrigger) return;
+
+        GameObject root = other.transform.root.gameObject;
+        ApplyRoot(root);
     }
 
     private void OnTriggerExit2D(Collider2D other)
     {
         if (phase != Phase.Active) return;
-        HandleOccupantExit(other);
+
+        // Do not remove immediately.
+        // Multi-collider objects and spawn-overlap cases can produce mismatched enter/exit events.
+        // The periodic ReconcileOccupants pass removes effects only when the root is truly outside.
+        nextOccupantRecheckTime = Time.time;
     }
 
-    private void HandleOccupantEnter(Collider2D other)
+    private void ReconcileOccupants()
     {
-        GameObject root = other.transform.root.gameObject;
+        if (phase != Phase.Active)
+            return;
 
-        if (!occupantCounts.ContainsKey(root))
-            occupantCounts[root] = 0;
-        occupantCounts[root]++;
+        scanRoots.Clear();
 
-        // Apply effects only on the first collider entering
-        if (occupantCounts[root] == 1)
+        Vector2 center = transform.position;
+        int count = Physics2D.OverlapCircleNonAlloc(center, radius, overlapBuffer);
+
+        for (int i = 0; i < count; i++)
         {
-            trackedRoots.Add(root);
-            for (int i = 0; i < effects.Count; i++)
-                if (effects[i] != null) effects[i].OnApply(root, sourceId);
+            Collider2D col = overlapBuffer[i];
+            if (col == null || col == zoneTrigger) continue;
+
+            GameObject root = col.transform.root.gameObject;
+            if (root == null) continue;
+
+            scanRoots.Add(root);
+            ApplyRoot(root);
+        }
+
+        rootsToRemove.Clear();
+
+        foreach (GameObject tracked in trackedRoots)
+        {
+            if (tracked == null || !scanRoots.Contains(tracked))
+                rootsToRemove.Add(tracked);
+        }
+
+        for (int i = 0; i < rootsToRemove.Count; i++)
+            RemoveRoot(rootsToRemove[i]);
+
+        rootsToRemove.Clear();
+    }
+
+    private void ApplyRoot(GameObject root)
+    {
+        if (root == null) return;
+
+        if (trackedRoots.Contains(root))
+            return;
+
+        trackedRoots.Add(root);
+
+        for (int i = 0; i < effects.Count; i++)
+        {
+            if (effects[i] != null)
+                effects[i].OnApply(root, sourceId);
         }
     }
 
-    private void HandleOccupantExit(Collider2D other)
+    private void RemoveRoot(GameObject root)
     {
-        GameObject root = other.transform.root.gameObject;
-
-        if (!occupantCounts.ContainsKey(root)) return;
-        occupantCounts[root]--;
-
-        // Remove effects only when ALL colliders have left
-        if (occupantCounts[root] <= 0)
+        if (root == null)
         {
-            occupantCounts.Remove(root);
             trackedRoots.Remove(root);
-            for (int i = 0; i < effects.Count; i++)
-                if (effects[i] != null) effects[i].OnRemove(root, sourceId);
+            return;
+        }
+
+        if (!trackedRoots.Remove(root))
+            return;
+
+        for (int i = 0; i < effects.Count; i++)
+        {
+            if (effects[i] != null)
+                effects[i].OnRemove(root, sourceId);
         }
     }
 
-    // --------------------------------------------------
-    // Fade out and cleanup
-    // --------------------------------------------------
-
-    private void BeginFadeOut()
+    private void BeginVisualFade()
     {
+        if (fadeStarted) return;
+
+        fadeStarted = true;
+
+        if (zoneVisual == null || fadeOutTime <= 0f)
+            return;
+
+        if (fadeRoutine != null)
+            StopCoroutine(fadeRoutine);
+
+        fadeRoutine = StartCoroutine(FadeVisualOnly());
+    }
+
+    private IEnumerator FadeVisualOnly()
+    {
+        if (zoneVisual == null)
+            yield break;
+
+        Color c = zoneVisual.color;
+        float startAlpha = c.a;
+
+        float fadeDuration = Mathf.Max(0.001f, activeEndTime - Time.time);
+        float elapsed = 0f;
+
+        while (elapsed < fadeDuration && phase == Phase.Active)
+        {
+            elapsed += Time.deltaTime;
+            float k = Mathf.Clamp01(elapsed / fadeDuration);
+
+            c.a = Mathf.Lerp(startAlpha, 0f, k);
+            zoneVisual.color = c;
+
+            yield return null;
+        }
+
+        if (zoneVisual != null)
+        {
+            c = zoneVisual.color;
+            c.a = 0f;
+            zoneVisual.color = c;
+        }
+
+        fadeRoutine = null;
+    }
+
+    private void EndZone()
+    {
+        if (phase == Phase.Done) return;
+
         CleanUpEffects();
         phase = Phase.Done;
-        StartCoroutine(FadeAndDestroy());
-    }
-
-    private IEnumerator FadeAndDestroy()
-    {
-        if (zoneVisual != null && fadeOutTime > 0f)
-        {
-            Color c = zoneVisual.color;
-            float elapsed = 0f;
-            while (elapsed < fadeOutTime)
-            {
-                elapsed += Time.deltaTime;
-                c.a = 1f - Mathf.Clamp01(elapsed / fadeOutTime);
-                zoneVisual.color = c;
-                yield return null;
-            }
-        }
 
         Destroy(gameObject);
     }
 
     private void CleanUpEffects()
     {
-        foreach (var root in trackedRoots)
-        {
-            if (root == null) continue;
-            for (int i = 0; i < effects.Count; i++)
-                if (effects[i] != null) effects[i].OnRemove(root, sourceId);
-        }
-        trackedRoots.Clear();
-        occupantCounts.Clear();
+        rootsToRemove.Clear();
 
-        if (zoneTrigger != null) zoneTrigger.enabled = false;
+        foreach (GameObject root in trackedRoots)
+            rootsToRemove.Add(root);
+
+        for (int i = 0; i < rootsToRemove.Count; i++)
+        {
+            GameObject root = rootsToRemove[i];
+            if (root == null) continue;
+
+            for (int e = 0; e < effects.Count; e++)
+            {
+                if (effects[e] != null)
+                    effects[e].OnRemove(root, sourceId);
+            }
+        }
+
+        trackedRoots.Clear();
+        scanRoots.Clear();
+        rootsToRemove.Clear();
+
+        if (zoneTrigger != null)
+            zoneTrigger.enabled = false;
     }
 
     private void OnDestroy()
     {
+        if (fadeRoutine != null)
+        {
+            StopCoroutine(fadeRoutine);
+            fadeRoutine = null;
+        }
+
         CleanUpEffects();
     }
-
-    // --------------------------------------------------
-    // Gizmos
-    // --------------------------------------------------
 
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.2f);
-        Gizmos.DrawWireSphere(transform.position, radius);
+
+        float drawRadius = radius > 0f ? radius : 1f;
+        Gizmos.DrawWireSphere(transform.position, drawRadius);
     }
 #endif
 }

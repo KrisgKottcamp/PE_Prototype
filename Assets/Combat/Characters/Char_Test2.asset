@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Eri
   maxHP: 50
-  combatMoveSpeed: 3
+  combatMoveSpeed: 3.15
   maxAP: 100
   apRegenPerSecond: 0
   apGainOnBasicHit: 3
@@ -22,6 +22,7 @@ MonoBehaviour:
   basicAttackProjectilePrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
   startingSkills:
   - {fileID: 11400000, guid: 0026b615976d7c04cb25ee2fa58f0fbe, type: 2}
+  - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
   skillCostIncreaseMultiplier: 3
   unlocks: []
   combatSprite: {fileID: 21300000, guid: bd5910ba01206c24aa8c8c3888ee11fd, type: 3}

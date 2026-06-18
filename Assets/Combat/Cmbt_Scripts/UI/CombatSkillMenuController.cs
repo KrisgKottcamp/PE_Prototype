@@ -1,18 +1,19 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// Drop-in CombatSkillMenuController
-/// Put this on your CombatHUD (scene object), not on the pawn prefab.
-/// It drives a skill list menu, slows time heavily, disables pawn control,
-/// and supports a second generic PartyTargetMenu for skills that require an ally target.
+/// Put this on your CombatHUD scene object, not on the pawn prefab.
+/// Drives the skill list menu, slows time heavily, disables pawn control,
+/// supports party-target skills, and supports placement skills.
 /// </summary>
 public class CombatSkillMenuController : MonoBehaviour
 {
     [Header("Input")]
-    [SerializeField] private KeyCode openKey = KeyCode.I;
-    [SerializeField] private KeyCode confirmKey = KeyCode.Return;
+    [SerializeField] private KeyCode openKey = KeyCode.Tab;
+    [SerializeField] private KeyCode confirmKey = KeyCode.Space;
+    [SerializeField] private bool confirmWithLeftClick = true;
     [SerializeField] private KeyCode cancelKey = KeyCode.Escape;
     [SerializeField] private KeyCode upKey = KeyCode.UpArrow;
     [SerializeField] private KeyCode downKey = KeyCode.DownArrow;
@@ -24,17 +25,17 @@ public class CombatSkillMenuController : MonoBehaviour
     [SerializeField] private float slowTimeScale = 0.12f;
 
     [Header("UI")]
-    [SerializeField] private GameObject skillPanelRoot;      // Skill menu panel root
-    [SerializeField] private TextMeshProUGUI listText;       // Skill list text
+    [SerializeField] private GameObject skillPanelRoot;
+    [SerializeField] private TextMeshProUGUI listText;
 
-    [Header("Party Target Menu (generic)")]
-    [SerializeField] private PartyTargetMenu partyTargetMenu; // Your generic party picker
+    [Header("Party Target Menu")]
+    [SerializeField] private PartyTargetMenu partyTargetMenu;
 
     [Header("Placement Controller")]
     [SerializeField] private PlacementController placement;
 
     [Header("Optional")]
-    [SerializeField] private bool closeMenuAfterCast = true;  // If false, menu stays open after casting non-target skills
+    [SerializeField] private bool closeMenuAfterCast = true;
 
     private bool isOpen;
     private bool selectingPartyTarget;
@@ -42,21 +43,19 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private int selectedIndex;
 
-    // Saved time state so we can restore exactly
     private float prevTimeScale = 1f;
     private float prevFixedDelta = 0.02f;
 
-    // Cached references discovered at runtime
     private CombatSkillSystem skillSystem;
     private CombatLockout pawnLockout;
     private MonoBehaviour[] pawnControlScripts;
 
-    // Pending cast for party-target skills
     private CombatSkillSystem.PendingCast pendingCast;
 
     private void Awake()
     {
-        if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
     }
 
     private void Update()
@@ -65,26 +64,29 @@ public class CombatSkillMenuController : MonoBehaviour
         {
             if (Input.GetKeyDown(openKey))
                 OpenSkillMenu();
+
             return;
         }
 
-        // When the party target menu is open, it handles inputs.
         if (selectingPartyTarget)
             return;
 
-        // When placing an AoE zone, cancel closes everything.
-        // Confirm (click) is handled by PlacementController.
         if (selectingPlacement)
         {
             if (Input.GetKeyDown(cancelKey))
             {
-                if (placement != null) placement.EndPlacement();
+                if (placement != null)
+                    placement.EndPlacement();
+
                 if (skillSystem != null && pendingCast != null)
                     skillSystem.CancelCast(pendingCast);
+
                 pendingCast = null;
                 selectingPlacement = false;
+
                 CloseSkillMenu();
             }
+
             return;
         }
 
@@ -107,10 +109,13 @@ public class CombatSkillMenuController : MonoBehaviour
             RefreshSkillText();
         }
 
-        if (Input.GetKeyDown(confirmKey))
-        {
+        bool confirmPressed = Input.GetKeyDown(confirmKey);
+
+        if (confirmWithLeftClick)
+            confirmPressed |= Input.GetMouseButtonDown(0);
+
+        if (confirmPressed)
             ConfirmSelection();
-        }
     }
 
     private void OpenSkillMenu()
@@ -124,9 +129,9 @@ public class CombatSkillMenuController : MonoBehaviour
 
         CachePawnRefs();
 
-        if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(true);
 
-        // Save and apply time slow
         prevTimeScale = Time.timeScale;
         prevFixedDelta = Time.fixedDeltaTime;
 
@@ -140,7 +145,6 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void CloseAll()
     {
-        // If we were in the middle of picking a party target, refund and close that menu too
         if (selectingPartyTarget)
         {
             if (skillSystem != null && pendingCast != null)
@@ -156,10 +160,11 @@ public class CombatSkillMenuController : MonoBehaviour
                 skillPanelRoot.SetActive(false);
         }
 
-        // If we were placing an AoE zone, refund and clean up
         if (selectingPlacement)
         {
-            if (placement != null) placement.EndPlacement();
+            if (placement != null)
+                placement.EndPlacement();
+
             if (skillSystem != null && pendingCast != null)
                 skillSystem.CancelCast(pendingCast);
 
@@ -178,19 +183,17 @@ public class CombatSkillMenuController : MonoBehaviour
         selectingPartyTarget = false;
         selectingPlacement = false;
 
-        if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
 
-        // Restore time exactly
         Time.timeScale = prevTimeScale;
         Time.fixedDeltaTime = prevFixedDelta;
 
         DisablePawnControl(false);
-
     }
 
     private void CachePawnRefs()
     {
-        // Skill system lives on the pawn
         skillSystem = FindObjectOfType<CombatSkillSystem>(true);
 
         if (skillSystem == null)
@@ -200,27 +203,41 @@ public class CombatSkillMenuController : MonoBehaviour
             return;
         }
 
-        var pawn = skillSystem.gameObject;
+        GameObject pawn = skillSystem.gameObject;
 
         pawnLockout = pawn.GetComponent<CombatLockout>();
 
-        // Add here any scripts you want disabled while the menu is open.
-        // Keep it flexible: if a script is missing, it is ignored.
-        var list = new System.Collections.Generic.List<MonoBehaviour>();
+        List<MonoBehaviour> list = new();
 
-        var mover = pawn.GetComponent<TopDownMover>();
-        if (mover != null) list.Add(mover);
+        AddIfPresent(list, pawn.GetComponent<CombatPawnMover>());
+        AddIfPresent(list, pawn.GetComponent<BasicAttack>());
+        AddIfPresent(list, pawn.GetComponent<ProjectileBasicAttack>());
+        AddIfPresent(list, pawn.GetComponent<HeavyComboAttack>());
+        AddIfPresent(list, pawn.GetComponent<CombatPartyController>());
 
-        var melee = pawn.GetComponent<BasicAttack>();
-        if (melee != null) list.Add(melee);
+        // Optional Dominic script support without hard dependency.
+        // This lets the project compile even if WhipAttack is not in an older branch.
+        MonoBehaviour[] behaviours = pawn.GetComponents<MonoBehaviour>();
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            MonoBehaviour behaviour = behaviours[i];
+            if (behaviour == null) continue;
 
-        var proj = pawn.GetComponent<ProjectileBasicAttack>();
-        if (proj != null) list.Add(proj);
+            string typeName = behaviour.GetType().Name;
 
-        var swap = pawn.GetComponent<CombatPartyController>();
-        if (swap != null) list.Add(swap);
+            if (typeName == "WhipAttack")
+                AddIfPresent(list, behaviour);
+        }
 
         pawnControlScripts = list.ToArray();
+    }
+
+    private void AddIfPresent(List<MonoBehaviour> list, MonoBehaviour script)
+    {
+        if (script == null) return;
+        if (list.Contains(script)) return;
+
+        list.Add(script);
     }
 
     private void DisablePawnControl(bool disable)
@@ -230,38 +247,52 @@ public class CombatSkillMenuController : MonoBehaviour
         if (disable)
         {
             for (int i = 0; i < pawnControlScripts.Length; i++)
-                if (pawnControlScripts[i] != null) pawnControlScripts[i].enabled = false;
+            {
+                if (pawnControlScripts[i] != null)
+                    pawnControlScripts[i].enabled = false;
+            }
+
             return;
         }
 
-        // Re-enable, but do not fight an active lockout.
-        // If lockout is currently active, let it re-enable scripts when it ends.
         if (pawnLockout != null && pawnLockout.IsLockedOut)
             return;
 
         for (int i = 0; i < pawnControlScripts.Length; i++)
-            if (pawnControlScripts[i] != null) pawnControlScripts[i].enabled = true;
+        {
+            if (pawnControlScripts[i] != null)
+                pawnControlScripts[i].enabled = true;
+        }
     }
 
     private int GetSkillCount()
     {
-        var pm = PartyManager.Instance;
-        if (pm == null || pm.Active == null || pm.Active.unlockedSkills == null) return 0;
+        PartyManager pm = PartyManager.Instance;
+
+        if (pm == null || pm.Active == null || pm.Active.unlockedSkills == null)
+            return 0;
+
         return pm.Active.unlockedSkills.Count;
     }
 
     private void ConfirmSelection()
     {
-        var pm = PartyManager.Instance;
-        if (pm == null || pm.Active == null || pm.Active.unlockedSkills == null) return;
+        PartyManager pm = PartyManager.Instance;
 
-        var skills = pm.Active.unlockedSkills;
-        if (skills.Count == 0) return;
+        if (pm == null || pm.Active == null || pm.Active.unlockedSkills == null)
+            return;
+
+        List<SkillDefinition> skills = pm.Active.unlockedSkills;
+
+        if (skills.Count == 0)
+            return;
 
         selectedIndex = Mathf.Clamp(selectedIndex, 0, skills.Count - 1);
 
-        var skill = skills[selectedIndex];
-        if (skill == null) return;
+        SkillDefinition skill = skills[selectedIndex];
+
+        if (skill == null)
+            return;
 
         if (skillSystem == null)
         {
@@ -269,129 +300,18 @@ public class CombatSkillMenuController : MonoBehaviour
             return;
         }
 
-        // Party-target skill flow
         if (skill.requiresPartyTarget)
         {
-            if (partyTargetMenu == null)
-            {
-                Debug.LogWarning("CombatSkillMenuController: partyTargetMenu not assigned.");
-                return;
-            }
-
-            if (!skillSystem.BeginCast(skill, out pendingCast))
-            {
-                RefreshSkillText();
-                return;
-            }
-
-            selectingPartyTarget = true;
-
-            // Hide skill panel while picking target
-            if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
-
-            bool includeDowned = skill.includeDownedTargets;
-            string title = string.IsNullOrWhiteSpace(skill.partyTargetMenuTitle) ? "Choose ally" : skill.partyTargetMenuTitle;
-
-            partyTargetMenu.Open(
-                title,
-                filterFn: (i) =>
-                {
-                    var st = PartyManager.Instance.party[i];
-                    if (includeDowned) return true;
-                    return st.currentHP > 0;
-                },
-                confirm: (targetIndex) =>
-                {
-                    // Resolve and close all menus
-                    skillSystem.ResolveCast(pendingCast, targetIndex);
-                    pendingCast = null;
-
-                    selectingPartyTarget = false;
-                    partyTargetMenu.Close();
-
-                    if (closeMenuAfterCast)
-                    {
-                        CloseSkillMenu();
-                    }
-                    else
-                    {
-                        // Return to skill menu still slowed
-                        if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
-                        RefreshSkillText();
-                    }
-                },
-                cancel: () =>
-                {
-                    // Refund AP, return to skill menu
-                    skillSystem.CancelCast(pendingCast);
-                    pendingCast = null;
-
-                    selectingPartyTarget = false;
-                    partyTargetMenu.Close();
-
-                    if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
-                    RefreshSkillText();
-                }
-            );
-
+            BeginPartyTargetSkill(skill);
             return;
         }
 
-        // Placement skill flow (any execution type with usesPlacement)
         if (skill.usesPlacement)
         {
-            if (placement == null)
-            {
-                Debug.LogWarning("CombatSkillMenuController: placement not assigned.");
-                return;
-            }
-
-            if (!skillSystem.BeginCast(skill, out pendingCast))
-            {
-                RefreshSkillText();
-                return;
-            }
-
-            selectingPlacement = true;
-
-            // Hide skill panel during placement
-            if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
-
-            // Get player transform for range clamping
-            Transform playerTf = skillSystem != null ? skillSystem.transform : null;
-
-            // AoE skills use zone radius for preview; other types use placementPreviewRadius
-            float previewRadius = skill.executionType == SkillExecutionType.AoE
-                ? skill.aoeRadius
-                : skill.placementPreviewRadius;
-
-            placement.BeginPlacement(
-                previewRadius,
-                skill.placementRange,
-                skill.placementBlockMask,
-                playerTf,
-                confirm: (worldPos) =>
-                {
-                    skillSystem.ResolveCastAtPosition(pendingCast, worldPos);
-                    pendingCast = null;
-                    selectingPlacement = false;
-
-                    if (closeMenuAfterCast)
-                    {
-                        CloseSkillMenu();
-                    }
-                    else
-                    {
-                        if (skillPanelRoot != null) skillPanelRoot.SetActive(true);
-                        RefreshSkillText();
-                    }
-                }
-            );
-
+            BeginPlacementSkill(skill);
             return;
         }
 
-        // Non-party-target skill
         bool ok = skillSystem.TryUseSkill(skill);
 
         if (ok)
@@ -407,18 +327,148 @@ public class CombatSkillMenuController : MonoBehaviour
         }
     }
 
+    private void BeginPartyTargetSkill(SkillDefinition skill)
+    {
+        if (partyTargetMenu == null)
+        {
+            Debug.LogWarning("CombatSkillMenuController: partyTargetMenu not assigned.");
+            return;
+        }
+
+        if (!skillSystem.BeginCast(skill, out pendingCast))
+        {
+            RefreshSkillText();
+            return;
+        }
+
+        selectingPartyTarget = true;
+
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
+
+        bool includeDowned = skill.includeDownedTargets;
+        string title = string.IsNullOrWhiteSpace(skill.partyTargetMenuTitle)
+            ? "Choose ally"
+            : skill.partyTargetMenuTitle;
+
+        partyTargetMenu.Open(
+            title,
+            filterFn: (i) =>
+            {
+                PartyManager pm = PartyManager.Instance;
+                if (pm == null || pm.party == null) return false;
+                if (i < 0 || i >= pm.party.Count) return false;
+
+                PartyManager.CharacterState st = pm.party[i];
+                if (st == null) return false;
+
+                if (includeDowned) return true;
+
+                return st.currentHP > 0;
+            },
+            confirm: (targetIndex) =>
+            {
+                skillSystem.ResolveCast(pendingCast, targetIndex);
+                pendingCast = null;
+
+                selectingPartyTarget = false;
+                partyTargetMenu.Close();
+
+                if (closeMenuAfterCast)
+                {
+                    CloseSkillMenu();
+                }
+                else
+                {
+                    if (skillPanelRoot != null)
+                        skillPanelRoot.SetActive(true);
+
+                    RefreshSkillText();
+                }
+            },
+            cancel: () =>
+            {
+                skillSystem.CancelCast(pendingCast);
+                pendingCast = null;
+
+                selectingPartyTarget = false;
+                partyTargetMenu.Close();
+
+                if (skillPanelRoot != null)
+                    skillPanelRoot.SetActive(true);
+
+                RefreshSkillText();
+            }
+        );
+    }
+
+    private void BeginPlacementSkill(SkillDefinition skill)
+    {
+        if (placement == null)
+        {
+            Debug.LogWarning("CombatSkillMenuController: placement not assigned.");
+            return;
+        }
+
+        if (!skillSystem.BeginCast(skill, out pendingCast))
+        {
+            RefreshSkillText();
+            return;
+        }
+
+        selectingPlacement = true;
+
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
+
+        Transform playerTf = skillSystem != null
+            ? skillSystem.transform
+            : null;
+
+        float previewRadius = skill.executionType == SkillExecutionType.AoE
+            ? skill.aoeRadius
+            : skill.placementPreviewRadius;
+
+        placement.BeginPlacement(
+            previewRadius,
+            skill.placementRange,
+            skill.placementBlockMask,
+            playerTf,
+            confirm: (worldPos) =>
+            {
+                skillSystem.ResolveCastAtPosition(pendingCast, worldPos);
+                pendingCast = null;
+                selectingPlacement = false;
+
+                if (closeMenuAfterCast)
+                {
+                    CloseSkillMenu();
+                }
+                else
+                {
+                    if (skillPanelRoot != null)
+                        skillPanelRoot.SetActive(true);
+
+                    RefreshSkillText();
+                }
+            }
+        );
+    }
+
     private void RefreshSkillText()
     {
         if (listText == null) return;
 
-        var pm = PartyManager.Instance;
-        if (pm == null)
+        PartyManager pm = PartyManager.Instance;
+
+        if (pm == null || pm.Active == null)
         {
             listText.text = "No PartyManager.";
             return;
         }
 
-        var skills = pm.Active.unlockedSkills;
+        List<SkillDefinition> skills = pm.Active.unlockedSkills;
+
         if (skills == null || skills.Count == 0)
         {
             listText.text = "No skills.";
@@ -427,23 +477,34 @@ public class CombatSkillMenuController : MonoBehaviour
 
         selectedIndex = Mathf.Clamp(selectedIndex, 0, skills.Count - 1);
 
-        var sb = new StringBuilder(256);
+        StringBuilder sb = new(256);
 
         for (int i = 0; i < skills.Count; i++)
         {
-            var s = skills[i];
+            SkillDefinition s = skills[i];
             if (s == null) continue;
 
-            int cost = (skillSystem != null) ? skillSystem.GetScaledCost(s) : s.baseApCost;
-            bool canUse = (skillSystem != null) && skillSystem.CanUse(s);
+            int cost = skillSystem != null
+                ? skillSystem.GetScaledCost(s)
+                : s.baseApCost;
+
+            bool canUse = skillSystem != null && skillSystem.CanUse(s);
 
             sb.Append(i == selectedIndex ? "> " : "  ");
             sb.Append(s.displayName);
             sb.Append("  (");
             sb.Append(cost);
             sb.Append(" AP)");
-            if (!canUse) sb.Append("  [NO AP]");
-            if (s.requiresPartyTarget) sb.Append("  [ALLY]");
+
+            if (!canUse)
+                sb.Append("  [NO AP]");
+
+            if (s.requiresPartyTarget)
+                sb.Append("  [ALLY]");
+
+            if (s.usesPlacement)
+                sb.Append("  [PLACE]");
+
             sb.AppendLine();
         }
 
@@ -452,11 +513,11 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void OnDisable()
     {
-        // Safety: never leave the game slowed if this object is disabled
         if (isOpen)
         {
             Time.timeScale = prevTimeScale;
             Time.fixedDeltaTime = prevFixedDelta;
+            DisablePawnControl(false);
         }
     }
 }

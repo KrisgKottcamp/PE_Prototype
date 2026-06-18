@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6443972786163842447}
   - component: {fileID: 9177751673410239542}
   - component: {fileID: 6862829599791500612}
+  - component: {fileID: 1228743307526588707}
   m_Layer: 11
   m_Name: PowerShot
   m_TagString: Untagged
@@ -177,3 +178,15 @@ MonoBehaviour:
   damage: 1
   stunSeconds: 0.15
   breaksEnemyProjectiles: 1
+--- !u!114 &1228743307526588707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7666303392692351521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40362256f4faa514ca848fad331492fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PowerShotOilIgniter

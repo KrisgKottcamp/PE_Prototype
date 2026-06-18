@@ -67,7 +67,7 @@ public class EnemyShooterDebug : MonoBehaviour
     [SerializeField] private bool spiralCenteredOnAim = true;
 
     [Header("Runtime")]
-    [SerializeField] private bool shootingEnabled = true;
+    [SerializeField] private bool shootingEnabled = false;
     [SerializeField] private string lastBlockReason = "None";
     [SerializeField] private string cooldownSetBy = "None";
 
@@ -92,7 +92,13 @@ public class EnemyShooterDebug : MonoBehaviour
     {
         samples.Clear();
         ResetBurstStateForEnable();
-        ScheduleNextFire(0f, "OnEnable");
+
+        // Enemies should not fire just because the prefab spawned.
+        // EnemyBrain opens this gate only after the enemy reaches / settles into
+        // its tactical behavior and enters an attack window.
+        shootingEnabled = false;
+        lastBlockReason = "SpawnLocked";
+        ScheduleNextFire(999f, "SpawnLocked");
     }
 
     private void Update()
@@ -148,15 +154,19 @@ public class EnemyShooterDebug : MonoBehaviour
     public void SetShootingEnabled(bool enabled)
     {
         if (enabled == shootingEnabled) return;
+
         shootingEnabled = enabled;
 
         if (shootingEnabled)
         {
             ResetBurstStateForEnable();
             ScheduleNextFire(0.03f, "EnableRisingEdge");
+            lastBlockReason = "ShooterEnabled";
         }
         else
         {
+            ResetBurstStateForEnable();
+            ScheduleNextFire(999f, "ShootingDisabled");
             lastBlockReason = "ShootingDisabled";
         }
     }

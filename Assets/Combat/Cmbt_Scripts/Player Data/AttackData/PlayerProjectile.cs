@@ -10,6 +10,13 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private int damage = 3;
     [SerializeField] private float stunSeconds = 0.15f;
 
+    [Header("Spawn Safety")]
+    [Tooltip("Prevents the projectile from damaging enemies immediately on spawn.")]
+    [SerializeField] private float enemyHitArmDelay = 0.04f;
+
+    [Tooltip("Projectile must travel this far before it can damage enemies.")]
+    [SerializeField] private float enemyHitArmDistance = 0.25f;
+
     [Header("Projectile Breaking")]
     [Tooltip("If true, destroys enemy projectiles on contact and keeps flying. " +
              "Enable on power shot prefab. Requires the enemy projectile layer to " +
@@ -17,7 +24,13 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private bool breaksEnemyProjectiles = false;
 
     private Rigidbody2D rb;
+    private SpeedModifier speedModifier;
+
     private Vector2 dir;
+    private Vector2 spawnPosition;
+
+    private float enemyArmedAt;
+    private float distanceTravelled;
 
     private int ownerCharacterIndex = -1;
     private bool awardApOnHit = true;
@@ -25,6 +38,8 @@ public class PlayerProjectile : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        speedModifier = GetComponent<SpeedModifier>();
+
         rb.gravityScale = 0f;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }
@@ -39,7 +54,9 @@ public class PlayerProjectile : MonoBehaviour
         LayerMask mask,
         bool awardAp)
     {
-        dir = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.up;
+        dir = direction.sqrMagnitude > 0.0001f
+            ? direction.normalized
+            : Vector2.up;
 
         ownerCharacterIndex = ownerIndex;
         damage = Mathf.Max(0, dmg);
@@ -49,20 +66,54 @@ public class PlayerProjectile : MonoBehaviour
         hitMask = mask;
         awardApOnHit = awardAp;
 
+        spawnPosition = rb != null ? rb.position : (Vector2)transform.position;
+        distanceTravelled = 0f;
+
+        enemyArmedAt = Time.time + Mathf.Max(0f, enemyHitArmDelay);
+
         Destroy(gameObject, lifetime);
     }
 
     private void FixedUpdate()
     {
-        rb.MovePosition(rb.position + dir * speed * Time.fixedDeltaTime);
+        float moveSpeed = speed * GetSpeedMultiplier();
+
+        Vector2 oldPos = rb.position;
+        Vector2 newPos = oldPos + dir * moveSpeed * Time.fixedDeltaTime;
+
+        distanceTravelled += Vector2.Distance(oldPos, newPos);
+
+        rb.MovePosition(newPos);
+    }
+
+    private float GetSpeedMultiplier()
+    {
+        // SpeedModifier can be added after Awake by AoESlowEffect.
+        if (speedModifier == null)
+            speedModifier = GetComponent<SpeedModifier>();
+
+        return speedModifier != null ? speedModifier.Multiplier : 1f;
+    }
+
+    private bool EnemyHitboxIsArmed()
+    {
+        if (Time.time < enemyArmedAt)
+            return false;
+
+        if (distanceTravelled < enemyHitArmDistance)
+            return false;
+
+        return true;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Destroy enemy projectiles on contact — player projectile pierces through
+        // Destroy enemy projectiles on contact. Player projectile pierces through.
+        // This is allowed immediately, even before enemy damage is armed.
         if (breaksEnemyProjectiles)
         {
-            var enemyProj = other.GetComponentInParent<Projectile>();
+            Projectile enemyProj = other.GetComponentInParent<Projectile>();
+
             if (enemyProj != null && enemyProj.Team == Projectile.ProjectileTeam.Enemy)
             {
                 Destroy(enemyProj.gameObject);
@@ -70,26 +121,41 @@ public class PlayerProjectile : MonoBehaviour
             }
         }
 
-        if (((1 << other.gameObject.layer) & hitMask.value) == 0) return;
+        if (((1 << other.gameObject.layer) & hitMask.value) == 0)
+            return;
 
-        var enemyHealth = other.GetComponentInParent<EnemyHealth>();
+        EnemyHealth enemyHealth = other.GetComponentInParent<EnemyHealth>();
+
         if (enemyHealth != null)
         {
+            // Main fix:
+            // Do not damage enemies during the spawn safety window.
+            // This prevents Power Shot from hitting enemies behind/inside the player at spawn.
+            if (!EnemyHitboxIsArmed())
+                return;
+
             enemyHealth.TakeDamage(damage);
 
-            var stunnable = other.GetComponentInParent<EnemyStunnable>();
-            if (stunnable != null) stunnable.Stun(stunSeconds);
+            EnemyStunnable stunnable = other.GetComponentInParent<EnemyStunnable>();
 
-            if (awardApOnHit && PartyManager.Instance != null && PartyManager.Instance.activeIndex == ownerCharacterIndex)
+            if (stunnable != null)
+                stunnable.Stun(stunSeconds);
+
+            if (awardApOnHit &&
+                PartyManager.Instance != null &&
+                PartyManager.Instance.activeIndex == ownerCharacterIndex)
             {
-                var pm = PartyManager.Instance;
+                PartyManager pm = PartyManager.Instance;
+
                 if (ownerCharacterIndex >= 0 && ownerCharacterIndex < pm.party.Count)
                 {
                     var owner = pm.party[ownerCharacterIndex];
+
                     if (owner.def != null)
                     {
                         int maxAP = Mathf.Max(0, owner.def.maxAP);
                         int gain = Mathf.Max(0, owner.def.apGainOnBasicHit);
+
                         owner.currentAP = Mathf.Clamp(owner.currentAP + gain, 0, maxAP);
                     }
                 }
@@ -99,7 +165,7 @@ public class PlayerProjectile : MonoBehaviour
             return;
         }
 
-        // cover/walls
+        // Cover/walls should still destroy the projectile immediately.
         Destroy(gameObject);
     }
 }

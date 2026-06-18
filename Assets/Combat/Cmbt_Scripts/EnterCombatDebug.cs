@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class EnterCombatDebug : MonoBehaviour
 {
-    [SerializeField] private KeyCode key = KeyCode.C;
+    [SerializeField] private KeyCode key = KeyCode.V;
     [SerializeField] private string returnSceneName = "TestMap_01";
     [SerializeField] private string returnSpawnId = "From_Map_02";
 
@@ -14,7 +14,20 @@ public class EnterCombatDebug : MonoBehaviour
 
     private void Update()
     {
-        if (!Input.GetKeyDown(key)) return;
+        if (!Input.GetKeyDown(key))
+            return;
+
+        if (CombatContext.Instance == null)
+        {
+            Debug.LogWarning("EnterCombatDebug: No CombatContext.Instance found.");
+            return;
+        }
+
+        if (SceneTransitionManager.Instance == null)
+        {
+            Debug.LogWarning("EnterCombatDebug: No SceneTransitionManager.Instance found.");
+            return;
+        }
 
         CombatContext.Instance.returnSceneName = returnSceneName;
         CombatContext.Instance.returnSpawnId = returnSpawnId;

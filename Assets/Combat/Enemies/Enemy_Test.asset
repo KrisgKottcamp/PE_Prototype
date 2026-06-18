@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Enemy_Test
   m_EditorClassIdentifier: 
   displayName: Enemy
-  maxHP: 60
+  maxHP: 100
   prefab: {fileID: 99964620462346716, guid: e6534d0c5dce0f14ea80c1498827bcee, type: 3}

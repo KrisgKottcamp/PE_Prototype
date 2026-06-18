@@ -47,7 +47,7 @@ MonoBehaviour:
   aoeEffects:
   - {fileID: 11400000, guid: 2171235443324e049a6ba1d86742188e, type: 2}
   aoeRadius: 2.5
-  aoeDuration: 4
+  aoeDuration: 12
   aoeUsesProjectile: 1
   aoeProjectileSpeed: 12
   aoeProjectileTravelTime: 0.4
