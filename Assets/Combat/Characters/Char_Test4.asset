@@ -23,6 +23,7 @@ MonoBehaviour:
   startingSkills:
   - {fileID: 11400000, guid: 9f62822f16956a74ebfc00d85efc8625, type: 2}
   - {fileID: 11400000, guid: 2b7c72cf93e9e1c46827553e390d2c64, type: 2}
+  - {fileID: 11400000, guid: 393668a7639a23044876a527bf84023b, type: 2}
   skillCostIncreaseMultiplier: 3
   unlocks: []
   combatSprite: {fileID: 6059244581636116009, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}

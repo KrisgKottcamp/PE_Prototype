@@ -422,6 +422,7 @@ GameObject:
   - component: {fileID: 4034515412725252725}
   - component: {fileID: -4198285968471152950}
   - component: {fileID: -8863248767788800456}
+  - component: {fileID: -3508966444783571563}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -967,3 +968,32 @@ MonoBehaviour:
   drawGizmos: 1
   logAttackFired: 0
   logApGain: 0
+--- !u!114 &-3508966444783571563
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70fa9d1506346314495232d7bd6676f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpeedBoost
+  characterRenderer: {fileID: 7670682228125476689}
+  glowRenderer: {fileID: 0}
+  glowColor: {r: 0.15, g: 0.65, b: 1, a: 1}
+  glowStartingAlpha: 0.4
+  glowScaleMultiplier: 1.08
+  glowSortingOrderOffset: -1
+  glowMaterial: {fileID: 0}
+  enableGhostTrail: 1
+  ghostInterval: 0.08
+  ghostLifetime: 0.25
+  minimumGhostMoveDistance: 0.025
+  ghostColor: {r: 0.15, g: 0.65, b: 1, a: 1}
+  ghostStartingAlpha: 0.28
+  ghostSortingOrderOffset: -2
+  ghostMaterial: {fileID: 0}
+  useUnscaledDuration: 0
+  logActivation: 0

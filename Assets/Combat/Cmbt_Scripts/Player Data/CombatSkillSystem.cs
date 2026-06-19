@@ -8,6 +8,7 @@ using UnityEngine;
 ///   2) Do melee hitbox damage (only if hitbox overlaps enemies)
 ///   3) Fire a projectile (damage happens only on projectile collision)
 ///   4) Heal a chosen party member (generic party target support)
+///   5) Apply a timed SpeedBoost to the shared combat pawn
 ///
 /// Intended usage:
 /// - For normal skills (no party target): call TryUseSkill(skill)
@@ -35,8 +36,8 @@ public class CombatSkillSystem : MonoBehaviour
     [SerializeField] private int defaultMeleeMaxTargets = 1;
 
     [Header("Timing")]
+    [Tooltip("Leave false for normal gameplay timing. Enable only if impact delays should ignore time slow.")]
     [SerializeField] private bool useUnscaledImpactDelay = false;
-
 
     private bool isCasting;
 
@@ -190,9 +191,8 @@ public class CombatSkillSystem : MonoBehaviour
 
         SkillDefinition skill = pending.skill;
 
-        // Delay to match skill timing
+        // Delay to match skill timing.
         float delay = Mathf.Max(0f, skill.impactDelay);
-
         if (delay > 0f)
         {
             if (useUnscaledImpactDelay)
@@ -221,6 +221,33 @@ public class CombatSkillSystem : MonoBehaviour
         if (skill.executionType == SkillExecutionType.AoE)
         {
             SpawnAoEZone(skill, dir);
+
+            ApplySkillCostMultiplier(pending.ownerIndex);
+            isCasting = false;
+            yield break;
+        }
+
+        if (skill.executionType == SkillExecutionType.SpeedBoost)
+        {
+            PlayerSpeedBoost speedBoost = GetComponent<PlayerSpeedBoost>();
+
+            // Auto-add for a safe prototype setup. You can still add it manually
+            // to PlayerRoot to tune its glow and ghost-trail fields in the Inspector.
+            if (speedBoost == null)
+                speedBoost = gameObject.AddComponent<PlayerSpeedBoost>();
+
+            speedBoost.Activate(
+                skill.speedBoostMultiplier,
+                skill.speedBoostDuration
+            );
+
+            SpawnVfx(
+                skill.impactVfxPrefab,
+                vfxOrigin.position,
+                dir,
+                skill.impactVfxAngleOffset,
+                skill.impactVfxForwardOffset
+            );
 
             ApplySkillCostMultiplier(pending.ownerIndex);
             isCasting = false;

@@ -2,43 +2,110 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Tracks active speed-modifying effects on this entity.
-/// Movement scripts (CombatPawnMover, EnemyBrain) read Multiplier to scale their speed.
-/// Added/removed automatically by SlowZone. Supports multiple simultaneous sources;
-/// uses the strongest slow (lowest multiplier).
-/// Self-destructs when all sources are removed.
+/// Tracks active movement-speed effects on this entity.
+///
+/// Slow sources use the strongest slow, meaning the lowest multiplier.
+/// Boost sources use the strongest boost, meaning the highest multiplier.
+/// The final movement multiplier is:
+///
+///     strongest slow * strongest boost
+///
+/// Examples:
+/// - No effects: 1.0
+/// - 0.5 slow: 0.5
+/// - 1.35 boost: 1.35
+/// - 0.5 slow and 1.35 boost: 0.675
+///
+/// Movement scripts such as CombatPawnMover and EnemyBrain read Multiplier.
 /// </summary>
 public class SpeedModifier : MonoBehaviour
 {
-    private readonly Dictionary<int, float> activeSources = new();
+    private readonly Dictionary<int, float> activeSlows = new();
+    private readonly Dictionary<int, float> activeBoosts = new();
+
     private static int nextSourceId;
 
-    /// <summary>Current speed multiplier (0..1). 1 = full speed, 0.4 = 40% speed.</summary>
+    /// <summary>The final combined movement-speed multiplier.</summary>
     public float Multiplier { get; private set; } = 1f;
 
-    /// <summary>Returns a unique source ID. Call once per SlowZone instance.</summary>
-    public static int GenerateSourceId() => ++nextSourceId;
+    /// <summary>The strongest currently active slow.</summary>
+    public float SlowMultiplier { get; private set; } = 1f;
+
+    /// <summary>The strongest currently active boost.</summary>
+    public float BoostMultiplier { get; private set; } = 1f;
+
+    /// <summary>Returns a unique source ID for a slow, boost, or other timed effect.</summary>
+    public static int GenerateSourceId()
+    {
+        nextSourceId++;
+
+        // Avoid returning zero after an integer overflow.
+        if (nextSourceId == 0)
+            nextSourceId++;
+
+        return nextSourceId;
+    }
 
     public void ApplySlow(int sourceId, float multiplier)
     {
-        activeSources[sourceId] = Mathf.Clamp01(multiplier);
+        activeSlows[sourceId] = Mathf.Clamp(multiplier, 0f, 1f);
         Recalculate();
     }
 
     public void RemoveSlow(int sourceId)
     {
-        activeSources.Remove(sourceId);
+        activeSlows.Remove(sourceId);
         Recalculate();
+        DestroyIfUnused();
+    }
 
-        if (activeSources.Count == 0)
-            Destroy(this);
+    public void ApplyBoost(int sourceId, float multiplier)
+    {
+        activeBoosts[sourceId] = Mathf.Max(1f, multiplier);
+        Recalculate();
+    }
+
+    public void RemoveBoost(int sourceId)
+    {
+        activeBoosts.Remove(sourceId);
+        Recalculate();
+        DestroyIfUnused();
+    }
+
+    public void RemoveSource(int sourceId)
+    {
+        activeSlows.Remove(sourceId);
+        activeBoosts.Remove(sourceId);
+        Recalculate();
+        DestroyIfUnused();
     }
 
     private void Recalculate()
     {
-        float min = 1f;
-        foreach (var kv in activeSources)
-            if (kv.Value < min) min = kv.Value;
-        Multiplier = min;
+        float strongestSlow = 1f;
+
+        foreach (KeyValuePair<int, float> source in activeSlows)
+        {
+            if (source.Value < strongestSlow)
+                strongestSlow = source.Value;
+        }
+
+        float strongestBoost = 1f;
+
+        foreach (KeyValuePair<int, float> source in activeBoosts)
+        {
+            if (source.Value > strongestBoost)
+                strongestBoost = source.Value;
+        }
+
+        SlowMultiplier = strongestSlow;
+        BoostMultiplier = strongestBoost;
+        Multiplier = strongestSlow * strongestBoost;
+    }
+
+    private void DestroyIfUnused()
+    {
+        if (activeSlows.Count == 0 && activeBoosts.Count == 0)
+            Destroy(this);
     }
 }
