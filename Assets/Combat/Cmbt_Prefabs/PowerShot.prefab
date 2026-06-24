@@ -178,6 +178,14 @@ MonoBehaviour:
   damage: 1
   stunSeconds: 0.15
   breaksEnemyProjectiles: 1
+  enableCloseRangeAimAssist: 1
+  closeRangeAssistDistance: 1
+  closeRangeAssistRadius: 0.18
+  minimumForwardAimDot: 0.8
+  closeRangeObstacleMask:
+    serializedVersion: 2
+    m_Bits: 128
+  logCloseRangeAssist: 0
 --- !u!114 &1228743307526588707
 MonoBehaviour:
   m_ObjectHideFlags: 0
