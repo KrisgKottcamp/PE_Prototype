@@ -4,12 +4,13 @@ using UnityEngine;
 
 /// <summary>
 /// Oil spill trigger.
-/// 
+///
 /// The oil spill does no direct damage while sitting on the ground.
 /// If hit by a projectile with PowerShotOilIgniter, it detonates,
 /// finds enemies currently inside the oil radius, then applies tick damage over time.
-/// 
-/// No separate burn-status script required.
+///
+/// Burn ticks grant a very small amount of Attack Momentum, with a strict
+/// per-enemy cap for each burn application.
 /// </summary>
 public class OilSpillDetonator : MonoBehaviour
 {
@@ -31,6 +32,21 @@ public class OilSpillDetonator : MonoBehaviour
 
     [Tooltip("If true, enemies take damage immediately, then continue taking ticks. If false, first tick happens after tickInterval.")]
     [SerializeField] private bool tickImmediately = true;
+
+    [Header("Burn Momentum")]
+    [Tooltip(
+        "Raw Momentum granted when one burn tick actually damages an enemy. " +
+        "AttackMomentumManager applies Global Gain Scale and tier scaling afterward."
+    )]
+    [SerializeField, Min(0f)]
+    private float momentumPerSuccessfulBurnTick = 0.5f;
+
+    [Tooltip(
+        "Maximum raw Momentum one enemy can generate during a single burn. " +
+        "This keeps damage-over-time from becoming a primary Momentum source."
+    )]
+    [SerializeField, Min(0f)]
+    private float maxMomentumPerEnemyBurn = 2f;
 
     [Header("Explosion Area")]
     [SerializeField] private float explosionRadius = 2.5f;
@@ -56,6 +72,7 @@ public class OilSpillDetonator : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool logDetonation = false;
+    [SerializeField] private bool logBurnMomentum = false;
     [SerializeField] private bool drawGizmos = true;
 
     private bool hasDetonated;
@@ -77,17 +94,24 @@ public class OilSpillDetonator : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (hasDetonated) return;
-        if (other == null) return;
+        if (hasDetonated)
+            return;
 
-        PowerShotOilIgniter igniter = other.GetComponentInParent<PowerShotOilIgniter>();
-        if (igniter == null) return;
+        if (other == null)
+            return;
+
+        PowerShotOilIgniter igniter =
+            other.GetComponentInParent<PowerShotOilIgniter>();
+
+        if (igniter == null)
+            return;
 
         Detonate();
 
         if (destroyIgnitingProjectile)
         {
-            PlayerProjectile playerProjectile = igniter.GetComponentInParent<PlayerProjectile>();
+            PlayerProjectile playerProjectile =
+                igniter.GetComponentInParent<PlayerProjectile>();
 
             if (playerProjectile != null)
                 Destroy(playerProjectile.gameObject);
@@ -98,12 +122,13 @@ public class OilSpillDetonator : MonoBehaviour
 
     public void Detonate()
     {
-        if (hasDetonated) return;
+        if (hasDetonated)
+            return;
 
         hasDetonated = true;
 
         if (logDetonation)
-            Debug.Log("Oil spill detonated. Applying tick damage over time.");
+            Debug.Log("Oil spill detonated. Applying tick damage over time.", this);
 
         Vector2 center = transform.position;
         float radius = GetExplosionRadius();
@@ -114,7 +139,7 @@ public class OilSpillDetonator : MonoBehaviour
         if (hideOilAfterDetonation)
             HideOil();
 
-        // Burn coroutines are run on CombatManager when possible, so the oil can vanish.
+        // Burn coroutines run on CombatManager when possible, so the oil object can vanish.
         Destroy(gameObject, 0.05f);
     }
 
@@ -135,21 +160,34 @@ public class OilSpillDetonator : MonoBehaviour
     {
         if (enemyMask.value == 0)
         {
-            Debug.LogWarning("OilSpillDetonator: enemyMask is empty. Set it to EnemyHurtbox.");
+            Debug.LogWarning(
+                "OilSpillDetonator: enemyMask is empty. Set it to EnemyHurtbox.",
+                this
+            );
             return;
         }
 
-        int count = Physics2D.OverlapCircleNonAlloc(center, radius, hitBuffer, enemyMask);
+        int count = Physics2D.OverlapCircleNonAlloc(
+            center,
+            radius,
+            hitBuffer,
+            enemyMask
+        );
 
         int uniqueCount = 0;
 
         for (int i = 0; i < count; i++)
         {
             Collider2D col = hitBuffer[i];
-            if (col == null) continue;
 
-            EnemyHealth enemy = col.GetComponentInParent<EnemyHealth>();
-            if (enemy == null) continue;
+            if (col == null)
+                continue;
+
+            EnemyHealth enemy =
+                col.GetComponentInParent<EnemyHealth>();
+
+            if (enemy == null)
+                continue;
 
             bool alreadyHitThisDetonation = false;
 
@@ -162,39 +200,52 @@ public class OilSpillDetonator : MonoBehaviour
                 }
             }
 
-            if (alreadyHitThisDetonation) continue;
+            if (alreadyHitThisDetonation)
+                continue;
 
             uniqueEnemies[uniqueCount] = enemy;
             uniqueCount++;
 
             StartBurn(enemy);
 
-            if (uniqueCount >= uniqueEnemies.Length || uniqueCount >= maxTargets)
+            if (uniqueCount >= uniqueEnemies.Length ||
+                uniqueCount >= maxTargets)
+            {
                 break;
+            }
         }
     }
 
     private void StartBurn(EnemyHealth enemy)
     {
-        if (enemy == null) return;
+        if (enemy == null)
+            return;
 
-        MonoBehaviour runner = CombatManager.Instance != null
-            ? CombatManager.Instance
-            : this;
+        MonoBehaviour runner =
+            CombatManager.Instance != null
+                ? CombatManager.Instance
+                : this;
 
-        if (refreshExistingBurn && activeBurns.TryGetValue(enemy, out BurnHandle existing))
+        if (refreshExistingBurn &&
+            activeBurns.TryGetValue(enemy, out BurnHandle existing))
         {
-            if (existing != null && existing.runner != null && existing.coroutine != null)
+            if (existing != null &&
+                existing.runner != null &&
+                existing.coroutine != null)
+            {
                 existing.runner.StopCoroutine(existing.coroutine);
+            }
 
             activeBurns.Remove(enemy);
         }
-        else if (!refreshExistingBurn && activeBurns.ContainsKey(enemy))
+        else if (!refreshExistingBurn &&
+                 activeBurns.ContainsKey(enemy))
         {
             return;
         }
 
-        Coroutine routine = runner.StartCoroutine(BurnRoutine(enemy));
+        Coroutine routine =
+            runner.StartCoroutine(BurnRoutine(enemy));
 
         activeBurns[enemy] = new BurnHandle
         {
@@ -208,8 +259,13 @@ public class OilSpillDetonator : MonoBehaviour
         EnemyHealth key = enemy;
 
         float elapsed = 0f;
-        float safeTickInterval = Mathf.Max(0.05f, tickInterval);
-        float safeDuration = Mathf.Max(0.05f, burnDuration);
+        float rawMomentumAwarded = 0f;
+
+        float safeTickInterval =
+            Mathf.Max(0.05f, tickInterval);
+
+        float safeDuration =
+            Mathf.Max(0.05f, burnDuration);
 
         if (!tickImmediately)
         {
@@ -217,16 +273,76 @@ public class OilSpillDetonator : MonoBehaviour
             elapsed += safeTickInterval;
         }
 
-        while (enemy != null && enemy.CurrentHP > 0 && elapsed < safeDuration)
+        while (enemy != null &&
+               enemy.CurrentHP > 0 &&
+               elapsed < safeDuration)
         {
             if (damagePerTick > 0)
+            {
+                int hpBefore = enemy.CurrentHP;
+
                 enemy.TakeDamage(damagePerTick);
+
+                int hpAfter =
+                    enemy != null
+                        ? enemy.CurrentHP
+                        : 0;
+
+                bool dealtDamage = hpAfter < hpBefore;
+
+                if (dealtDamage)
+                {
+                    AwardBurnTickMomentum(
+                        ref rawMomentumAwarded
+                    );
+                }
+            }
 
             yield return new WaitForSeconds(safeTickInterval);
             elapsed += safeTickInterval;
         }
 
         activeBurns.Remove(key);
+    }
+
+    private void AwardBurnTickMomentum(
+        ref float rawMomentumAwarded)
+    {
+        float perTick =
+            Mathf.Max(0f, momentumPerSuccessfulBurnTick);
+
+        float cap =
+            Mathf.Max(0f, maxMomentumPerEnemyBurn);
+
+        if (perTick <= 0f || cap <= 0f)
+            return;
+
+        float remaining =
+            Mathf.Max(0f, cap - rawMomentumAwarded);
+
+        float amount =
+            Mathf.Min(perTick, remaining);
+
+        if (amount <= 0f)
+            return;
+
+        AttackMomentumManager manager =
+            AttackMomentumManager.Instance;
+
+        if (manager == null)
+            return;
+
+        manager.RegisterMomentum(amount);
+        rawMomentumAwarded += amount;
+
+        if (logBurnMomentum)
+        {
+            Debug.Log(
+                $"Burn tick Momentum +{amount:0.##} raw. " +
+                $"This burn has awarded {rawMomentumAwarded:0.##}/{cap:0.##} raw.",
+                this
+            );
+        }
     }
 
     private void HideOil()
@@ -252,16 +368,24 @@ public class OilSpillDetonator : MonoBehaviour
 
     private void SpawnExplosionVfx(Vector2 center)
     {
-        if (explosionVfxPrefab == null) return;
+        if (explosionVfxPrefab == null)
+            return;
 
-        Vector3 pos = new Vector3(center.x, center.y, explosionVfxZ);
-        Instantiate(explosionVfxPrefab, pos, Quaternion.identity);
+        Vector3 pos =
+            new Vector3(center.x, center.y, explosionVfxZ);
+
+        Instantiate(
+            explosionVfxPrefab,
+            pos,
+            Quaternion.identity
+        );
     }
 
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        if (!drawGizmos) return;
+        if (!drawGizmos)
+            return;
 
         float radius = explosionRadius;
 
@@ -275,8 +399,13 @@ public class OilSpillDetonator : MonoBehaviour
             radius = zoneCollider.radius * scale;
         }
 
-        Gizmos.color = new Color(1f, 0.55f, 0.05f, 0.35f);
-        Gizmos.DrawWireSphere(transform.position, radius);
+        Gizmos.color =
+            new Color(1f, 0.55f, 0.05f, 0.35f);
+
+        Gizmos.DrawWireSphere(
+            transform.position,
+            radius
+        );
     }
 #endif
 }

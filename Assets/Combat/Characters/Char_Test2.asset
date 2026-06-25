@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Eri
   maxHP: 50
   combatMoveSpeed: 3.15
-  maxAP: 100
+  maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 3
   basicAttackType: 1

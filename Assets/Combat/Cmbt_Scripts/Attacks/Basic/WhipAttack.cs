@@ -4,15 +4,16 @@ using static CharacterDefinition;
 
 /// <summary>
 /// Dominic's whip-style basic attack.
-/// 
+///
 /// Behavior:
 /// - Click starts a short windup.
 /// - Whip extends toward the cursor.
-/// - If the cursor is inside max range, the whip extends only to the cursor distance.
-/// - If the cursor is beyond max range, the whip extends to max range.
-/// - Walls/cover clamp the whip so it cannot pass through obstacles.
-/// - Hitbox is checked along the growing whip segment.
-/// - AP is granted per unique enemy hit by the swing.
+/// - Cursor distance limits the reach up to the configured maximum.
+/// - Walls and cover clamp the reach.
+/// - Growing whip segments check for unique enemies.
+/// - AP is granted per unique enemy hit.
+/// - Attack Momentum is granted once per successful swing, regardless of
+///   how many enemies that swing hits.
 /// </summary>
 public class WhipAttack : MonoBehaviour
 {
@@ -37,7 +38,7 @@ public class WhipAttack : MonoBehaviour
     [Tooltip("Layers that block the whip, such as walls, cover, and obstacles.")]
     [SerializeField] private LayerMask obstacleMask;
 
-    [Tooltip("Small offset so the whip stops slightly before the wall instead of visually entering it.")]
+    [Tooltip("Small offset so the whip stops slightly before the wall.")]
     [SerializeField] private float obstacleSkin = 0.03f;
 
     [Header("Hit")]
@@ -57,21 +58,28 @@ public class WhipAttack : MonoBehaviour
     [Tooltip("How long the whip remains active at full reach.")]
     [SerializeField] private float activeHoldTime = 0.05f;
 
-    [Tooltip("How long the visual takes to retract back toward the player.")]
+    [Tooltip("How long the visual takes to retract toward the player.")]
     [SerializeField] private float retractTime = 0.05f;
 
     [Header("AP")]
     [Tooltip("AP gained for each unique enemy hit by one whip swing.")]
     [SerializeField] private int apGainOnHit = 18;
 
+    [Header("Attack Momentum")]
+    [Tooltip(
+        "Raw Momentum reported once when a whip swing hits at least one enemy. " +
+        "Hitting multiple enemies still awards this only once."
+    )]
+    [SerializeField, Min(0f)]
+    private float momentumGainOnSuccessfulSwing = 8f;
+
     [Header("Whip Placeholder Visual")]
     [SerializeField] private LineRenderer whipLine;
     [SerializeField] private bool createLineIfMissing = true;
-
     [SerializeField] private Color lineColor = Color.white;
     [SerializeField] private float lineWidth = 0.14f;
 
-    [Tooltip("Use Default first. If you have a UI sorting layer, UI can also work.")]
+    [Tooltip("Use Default first. A dedicated effects sorting layer can also work.")]
     [SerializeField] private string lineSortingLayerName = "Default";
 
     [SerializeField] private int lineSortingOrder = 9999;
@@ -91,6 +99,7 @@ public class WhipAttack : MonoBehaviour
     [SerializeField] private bool drawGizmos = true;
     [SerializeField] private bool logAttackFired = false;
     [SerializeField] private bool logApGain = false;
+    [SerializeField] private bool logMomentumGain = false;
 
     private Camera cam;
     private Vector2 lastAimDir = Vector2.right;
@@ -138,6 +147,7 @@ public class WhipAttack : MonoBehaviour
     private void Update()
     {
         PartyManager pm = PartyManager.Instance;
+
         if (pm == null || pm.Active == null || pm.Active.def == null)
             return;
 
@@ -152,24 +162,32 @@ public class WhipAttack : MonoBehaviour
         if (cooldownTimer > 0f)
             cooldownTimer -= Time.deltaTime;
 
-        bool pressed = Input.GetKeyDown(attackKey) || Input.GetMouseButtonDown(0);
+        bool pressed =
+            Input.GetKeyDown(attackKey) ||
+            Input.GetMouseButtonDown(0);
 
         if (allowKeyboardAttackKey)
             pressed |= Input.GetKeyDown(keyboardAttackKey);
 
-        if (!pressed) return;
-        if (cooldownTimer > 0f) return;
-        if (swingRunning) return;
+        if (!pressed)
+            return;
 
-        Vector2 dir = lastAimDir.sqrMagnitude > 0.0001f
-            ? lastAimDir.normalized
-            : Vector2.right;
+        if (cooldownTimer > 0f || swingRunning)
+            return;
 
-        float desiredReach = GetCursorLimitedReach(dir);
+        Vector2 dir =
+            lastAimDir.sqrMagnitude > 0.0001f
+                ? lastAimDir.normalized
+                : Vector2.right;
+
+        float desiredReach = GetCursorLimitedReach();
         desiredReach = GetWallBlockedReach(dir, desiredReach);
 
         cooldownTimer = attackCooldown;
-        swingRoutine = StartCoroutine(WhipSwingRoutine(dir, desiredReach));
+
+        swingRoutine = StartCoroutine(
+            WhipSwingRoutine(dir, desiredReach)
+        );
     }
 
     private void UpdateMouseAim()
@@ -184,55 +202,100 @@ public class WhipAttack : MonoBehaviour
         lastMouseWorld = world;
         hasMouseWorld = true;
 
-        Vector2 origin = hitOrigin != null ? (Vector2)hitOrigin.position : (Vector2)transform.position;
+        Vector2 origin =
+            hitOrigin != null
+                ? (Vector2)hitOrigin.position
+                : (Vector2)transform.position;
+
         Vector2 delta = lastMouseWorld - origin;
 
         if (delta.sqrMagnitude > 0.0001f)
             lastAimDir = delta.normalized;
     }
 
-    private float GetCursorLimitedReach(Vector2 dir)
+    private float GetCursorLimitedReach()
     {
         if (!hasMouseWorld)
             return range;
 
-        Vector2 origin = hitOrigin != null ? (Vector2)hitOrigin.position : (Vector2)transform.position;
+        Vector2 origin =
+            hitOrigin != null
+                ? (Vector2)hitOrigin.position
+                : (Vector2)transform.position;
+
         Vector2 toMouse = lastMouseWorld - origin;
 
         if (toMouse.sqrMagnitude <= 0.0001f)
             return lineStartOffset;
 
-        float mouseDistance = toMouse.magnitude;
-        return Mathf.Clamp(mouseDistance, lineStartOffset, range);
+        return Mathf.Clamp(
+            toMouse.magnitude,
+            lineStartOffset,
+            range
+        );
     }
 
-    private float GetWallBlockedReach(Vector2 dir, float desiredReach)
+    private float GetWallBlockedReach(
+        Vector2 dir,
+        float desiredReach)
     {
-        desiredReach = Mathf.Clamp(desiredReach, lineStartOffset, range);
+        desiredReach = Mathf.Clamp(
+            desiredReach,
+            lineStartOffset,
+            range
+        );
 
         if (obstacleMask.value == 0)
             return desiredReach;
 
-        Vector2 origin = hitOrigin != null ? (Vector2)hitOrigin.position : (Vector2)transform.position;
-        RaycastHit2D hit = Physics2D.Raycast(origin, dir, desiredReach, obstacleMask);
+        Vector2 origin =
+            hitOrigin != null
+                ? (Vector2)hitOrigin.position
+                : (Vector2)transform.position;
+
+        RaycastHit2D hit = Physics2D.Raycast(
+            origin,
+            dir,
+            desiredReach,
+            obstacleMask
+        );
 
         if (hit.collider == null)
             return desiredReach;
 
-        return Mathf.Max(lineStartOffset, hit.distance - obstacleSkin);
+        return Mathf.Max(
+            lineStartOffset,
+            hit.distance - obstacleSkin
+        );
     }
 
-    private IEnumerator WhipSwingRoutine(Vector2 dir, float targetReach)
+    private IEnumerator WhipSwingRoutine(
+        Vector2 dir,
+        float targetReach)
     {
         swingRunning = true;
 
-        dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
-        targetReach = Mathf.Clamp(targetReach, lineStartOffset, range);
+        dir =
+            dir.sqrMagnitude > 0.0001f
+                ? dir.normalized
+                : Vector2.right;
+
+        targetReach = Mathf.Clamp(
+            targetReach,
+            lineStartOffset,
+            range
+        );
 
         int uniqueCount = 0;
+        bool momentumGrantedThisSwing = false;
 
         if (logAttackFired)
-            Debug.Log($"WhipAttack fired. Target reach: {targetReach}");
+        {
+            Debug.Log(
+                $"WhipAttack fired. Target reach: {targetReach}",
+                this
+            );
+        }
 
         if (whipLine == null)
             SetupWhipLine();
@@ -241,10 +304,18 @@ public class WhipAttack : MonoBehaviour
             whipLine.enabled = true;
 
         Vector3 origin = GetLineOrigin();
-        Vector3 start = origin + (Vector3)(dir * lineStartOffset);
+        Vector3 start =
+            origin +
+            (Vector3)(dir * lineStartOffset);
 
         SetLine(start, start);
-        SpawnVfx(hitOrigin != null ? (Vector2)hitOrigin.position : (Vector2)transform.position, dir);
+
+        SpawnVfx(
+            hitOrigin != null
+                ? (Vector2)hitOrigin.position
+                : (Vector2)transform.position,
+            dir
+        );
 
         if (windupDelay > 0f)
             yield return new WaitForSeconds(windupDelay);
@@ -252,20 +323,44 @@ public class WhipAttack : MonoBehaviour
         Vector3 previousEnd = start;
 
         float t = 0f;
+
         while (t < extendTime)
         {
             t += Time.deltaTime;
-            float k = extendTime <= 0f ? 1f : Mathf.Clamp01(t / extendTime);
+
+            float k =
+                extendTime <= 0f
+                    ? 1f
+                    : Mathf.Clamp01(t / extendTime);
 
             origin = GetLineOrigin();
-            start = origin + (Vector3)(dir * lineStartOffset);
 
-            float blockedReach = GetWallBlockedReach(dir, targetReach);
-            Vector3 currentEnd = origin + (Vector3)(dir * Mathf.Lerp(lineStartOffset, blockedReach, k));
+            start =
+                origin +
+                (Vector3)(dir * lineStartOffset);
+
+            float blockedReach =
+                GetWallBlockedReach(dir, targetReach);
+
+            Vector3 currentEnd =
+                origin +
+                (Vector3)(
+                    dir *
+                    Mathf.Lerp(
+                        lineStartOffset,
+                        blockedReach,
+                        k
+                    )
+                );
 
             SetLine(start, currentEnd);
 
-            CheckWhipSegment(previousEnd, currentEnd, ref uniqueCount);
+            CheckWhipSegment(
+                previousEnd,
+                currentEnd,
+                ref uniqueCount,
+                ref momentumGrantedThisSwing
+            );
 
             previousEnd = currentEnd;
 
@@ -273,46 +368,78 @@ public class WhipAttack : MonoBehaviour
         }
 
         origin = GetLineOrigin();
-        start = origin + (Vector3)(dir * lineStartOffset);
 
-        float fullBlockedReach = GetWallBlockedReach(dir, targetReach);
-        Vector3 fullEnd = origin + (Vector3)(dir * fullBlockedReach);
+        start =
+            origin +
+            (Vector3)(dir * lineStartOffset);
+
+        float fullBlockedReach =
+            GetWallBlockedReach(dir, targetReach);
+
+        Vector3 fullEnd =
+            origin +
+            (Vector3)(dir * fullBlockedReach);
 
         SetLine(start, fullEnd);
 
         float holdTimer = 0f;
+
         while (holdTimer < activeHoldTime)
         {
             holdTimer += Time.deltaTime;
 
             origin = GetLineOrigin();
-            start = origin + (Vector3)(dir * lineStartOffset);
 
-            fullBlockedReach = GetWallBlockedReach(dir, targetReach);
-            fullEnd = origin + (Vector3)(dir * fullBlockedReach);
+            start =
+                origin +
+                (Vector3)(dir * lineStartOffset);
+
+            fullBlockedReach =
+                GetWallBlockedReach(dir, targetReach);
+
+            fullEnd =
+                origin +
+                (Vector3)(dir * fullBlockedReach);
 
             SetLine(start, fullEnd);
 
-            CheckWhipSegment(start, fullEnd, ref uniqueCount);
+            CheckWhipSegment(
+                start,
+                fullEnd,
+                ref uniqueCount,
+                ref momentumGrantedThisSwing
+            );
 
             yield return null;
         }
 
         t = 0f;
+
         while (t < retractTime)
         {
             t += Time.deltaTime;
-            float k = retractTime <= 0f ? 1f : Mathf.Clamp01(t / retractTime);
+
+            float k =
+                retractTime <= 0f
+                    ? 1f
+                    : Mathf.Clamp01(t / retractTime);
 
             origin = GetLineOrigin();
-            start = origin + (Vector3)(dir * lineStartOffset);
 
-            fullBlockedReach = GetWallBlockedReach(dir, targetReach);
-            fullEnd = origin + (Vector3)(dir * fullBlockedReach);
+            start =
+                origin +
+                (Vector3)(dir * lineStartOffset);
 
-            // Correct retract direction:
-            // Keep the base near the player and pull the tip back toward the player.
-            Vector3 retractEnd = Vector3.Lerp(fullEnd, start, k);
+            fullBlockedReach =
+                GetWallBlockedReach(dir, targetReach);
+
+            fullEnd =
+                origin +
+                (Vector3)(dir * fullBlockedReach);
+
+            Vector3 retractEnd =
+                Vector3.Lerp(fullEnd, start, k);
+
             SetLine(start, retractEnd);
 
             yield return null;
@@ -325,7 +452,11 @@ public class WhipAttack : MonoBehaviour
         swingRoutine = null;
     }
 
-    private void CheckWhipSegment(Vector3 from, Vector3 to, ref int uniqueCount)
+    private void CheckWhipSegment(
+        Vector3 from,
+        Vector3 to,
+        ref int uniqueCount,
+        ref bool momentumGrantedThisSwing)
     {
         Vector2 a = from;
         Vector2 b = to;
@@ -333,50 +464,90 @@ public class WhipAttack : MonoBehaviour
         Vector2 delta = b - a;
         float length = delta.magnitude;
 
-        if (length <= 0.001f)
-            return;
-
-        if (enemyMask.value == 0)
+        if (length <= 0.001f || enemyMask.value == 0)
             return;
 
         Vector2 dir = delta / length;
         Vector2 center = (a + b) * 0.5f;
         Vector2 size = new Vector2(length, width);
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
 
-        int count = Physics2D.OverlapBoxNonAlloc(center, size, angle, hitCols, enemyMask);
+        float angle =
+            Mathf.Atan2(dir.y, dir.x) *
+            Mathf.Rad2Deg;
+
+        int count = Physics2D.OverlapBoxNonAlloc(
+            center,
+            size,
+            angle,
+            hitCols,
+            enemyMask
+        );
 
         for (int i = 0; i < count; i++)
         {
             Collider2D col = hitCols[i];
+
             if (col == null)
                 continue;
 
-            EnemyHealth enemy = col.GetComponentInParent<EnemyHealth>();
+            EnemyHealth enemy =
+                col.GetComponentInParent<EnemyHealth>();
+
             if (enemy == null)
                 continue;
 
             if (HasAlreadyHit(enemy, uniqueCount))
                 continue;
 
-            if (uniqueCount >= uniqueEnemies.Length || uniqueCount >= maxTargets)
+            if (uniqueCount >= uniqueEnemies.Length ||
+                uniqueCount >= maxTargets)
+            {
                 break;
+            }
 
             uniqueEnemies[uniqueCount] = enemy;
             uniqueCount++;
 
             enemy.TakeDamage(damage);
 
-            EnemyStunnable stunnable = enemy.GetComponentInParent<EnemyStunnable>();
+            EnemyStunnable stunnable =
+                enemy.GetComponentInParent<EnemyStunnable>();
+
             if (stunnable != null)
                 stunnable.Stun(stunSeconds);
 
-            // AP now stacks per unique enemy hit by this single whip swing.
             GrantAPForEnemyHit(enemy);
+
+            // Momentum is deliberately once per swing, unlike AP, which
+            // continues to stack for every unique enemy hit.
+            if (!momentumGrantedThisSwing)
+            {
+                AttackMomentumManager manager =
+                    AttackMomentumManager.Instance;
+
+                if (manager != null)
+                {
+                    manager.RegisterMomentum(
+                        momentumGainOnSuccessfulSwing
+                    );
+
+                    momentumGrantedThisSwing = true;
+
+                    if (logMomentumGain)
+                    {
+                        Debug.Log(
+                            $"Whip Momentum +{momentumGainOnSuccessfulSwing}",
+                            this
+                        );
+                    }
+                }
+            }
         }
     }
 
-    private bool HasAlreadyHit(EnemyHealth enemy, int uniqueCount)
+    private bool HasAlreadyHit(
+        EnemyHealth enemy,
+        int uniqueCount)
     {
         for (int i = 0; i < uniqueCount; i++)
         {
@@ -390,42 +561,76 @@ public class WhipAttack : MonoBehaviour
     private void GrantAPForEnemyHit(EnemyHealth enemy)
     {
         PartyManager pm = PartyManager.Instance;
+
         if (pm == null)
             return;
 
         PartyManager.CharacterState active = pm.Active;
+
         if (active == null || active.def == null)
             return;
 
         int maxAP = Mathf.Max(0, active.def.maxAP);
         int before = active.currentAP;
-        active.currentAP = Mathf.Clamp(active.currentAP + apGainOnHit, 0, maxAP);
+
+        active.currentAP = Mathf.Clamp(
+            active.currentAP + apGainOnHit,
+            0,
+            maxAP
+        );
 
         if (logApGain)
         {
-            string enemyName = enemy != null ? enemy.name : "enemy";
-            Debug.Log($"Whip AP +{apGainOnHit} from {enemyName}. AP {before} -> {active.currentAP}");
+            string enemyName =
+                enemy != null
+                    ? enemy.name
+                    : "enemy";
+
+            Debug.Log(
+                $"Whip AP +{apGainOnHit} from {enemyName}. " +
+                $"AP {before} -> {active.currentAP}",
+                this
+            );
         }
     }
 
-    private void SpawnVfx(Vector2 origin, Vector2 dir)
+    private void SpawnVfx(
+        Vector2 origin,
+        Vector2 dir)
     {
         if (whipVfxPrefab == null)
             return;
 
-        Vector3 pos = origin + dir * vfxForwardOffset;
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + vfxAngleOffset;
+        Vector3 position =
+            origin +
+            dir * vfxForwardOffset;
 
-        Instantiate(whipVfxPrefab, pos, Quaternion.Euler(0f, 0f, angle));
+        float angle =
+            Mathf.Atan2(dir.y, dir.x) *
+            Mathf.Rad2Deg +
+            vfxAngleOffset;
+
+        Instantiate(
+            whipVfxPrefab,
+            position,
+            Quaternion.Euler(0f, 0f, angle)
+        );
     }
 
     private void SetupWhipLine()
     {
         if (whipLine == null && createLineIfMissing)
         {
-            GameObject lineObj = new GameObject("WhipLine_Placeholder");
-            lineObj.transform.SetParent(transform, false);
-            whipLine = lineObj.AddComponent<LineRenderer>();
+            GameObject lineObject =
+                new GameObject("WhipLine_Placeholder");
+
+            lineObject.transform.SetParent(
+                transform,
+                false
+            );
+
+            whipLine =
+                lineObject.AddComponent<LineRenderer>();
         }
 
         if (whipLine == null)
@@ -450,30 +655,43 @@ public class WhipAttack : MonoBehaviour
         Shader shader = Shader.Find("Sprites/Default");
 
         if (shader == null)
-            shader = Shader.Find("Universal Render Pipeline/Unlit");
+        {
+            shader = Shader.Find(
+                "Universal Render Pipeline/Unlit"
+            );
+        }
 
         if (shader == null)
             shader = Shader.Find("Hidden/Internal-Colored");
 
         if (shader != null)
         {
-            Material mat = new Material(shader);
-            mat.color = lineColor;
-            whipLine.material = mat;
+            Material material = new Material(shader);
+            material.color = lineColor;
+            whipLine.material = material;
         }
 
-        whipLine.sortingLayerName = lineSortingLayerName;
-        whipLine.sortingOrder = lineSortingOrder;
+        whipLine.sortingLayerName =
+            lineSortingLayerName;
+
+        whipLine.sortingOrder =
+            lineSortingOrder;
     }
 
     private Vector3 GetLineOrigin()
     {
-        Vector3 origin = hitOrigin != null ? hitOrigin.position : transform.position;
+        Vector3 origin =
+            hitOrigin != null
+                ? hitOrigin.position
+                : transform.position;
+
         origin.z += lineZOffset;
         return origin;
     }
 
-    private void SetLine(Vector3 start, Vector3 end)
+    private void SetLine(
+        Vector3 start,
+        Vector3 end)
     {
         if (whipLine == null)
             return;
@@ -488,36 +706,77 @@ public class WhipAttack : MonoBehaviour
         if (!drawGizmos)
             return;
 
-        Transform o = hitOrigin != null ? hitOrigin : transform;
-        Vector2 origin = o.position;
+        Transform originTransform =
+            hitOrigin != null
+                ? hitOrigin
+                : transform;
 
-        Vector2 dir = lastAimDir.sqrMagnitude > 0.0001f
-            ? lastAimDir.normalized
-            : Vector2.right;
+        Vector2 origin =
+            originTransform.position;
+
+        Vector2 dir =
+            lastAimDir.sqrMagnitude > 0.0001f
+                ? lastAimDir.normalized
+                : Vector2.right;
 
         float gizmoReach = range;
 
         if (hasMouseWorld)
         {
-            float mouseDistance = Vector2.Distance(origin, lastMouseWorld);
-            gizmoReach = Mathf.Clamp(mouseDistance, lineStartOffset, range);
+            float mouseDistance =
+                Vector2.Distance(
+                    origin,
+                    lastMouseWorld
+                );
+
+            gizmoReach = Mathf.Clamp(
+                mouseDistance,
+                lineStartOffset,
+                range
+            );
         }
 
         if (Application.isPlaying)
-            gizmoReach = GetWallBlockedReach(dir, gizmoReach);
+        {
+            gizmoReach =
+                GetWallBlockedReach(
+                    dir,
+                    gizmoReach
+                );
+        }
 
-        Vector2 center = origin + dir * (gizmoReach * 0.5f);
-        Vector2 size = new Vector2(gizmoReach, width);
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        Vector2 center =
+            origin +
+            dir * (gizmoReach * 0.5f);
+
+        Vector2 size =
+            new Vector2(gizmoReach, width);
+
+        float angle =
+            Mathf.Atan2(dir.y, dir.x) *
+            Mathf.Rad2Deg;
 
         Gizmos.color = Color.magenta;
 
         Matrix4x4 oldMatrix = Gizmos.matrix;
-        Gizmos.matrix = Matrix4x4.TRS(center, Quaternion.Euler(0f, 0f, angle), Vector3.one);
-        Gizmos.DrawWireCube(Vector3.zero, size);
+
+        Gizmos.matrix = Matrix4x4.TRS(
+            center,
+            Quaternion.Euler(0f, 0f, angle),
+            Vector3.one
+        );
+
+        Gizmos.DrawWireCube(
+            Vector3.zero,
+            size
+        );
+
         Gizmos.matrix = oldMatrix;
 
-        Gizmos.DrawLine(origin, origin + dir * gizmoReach);
+        Gizmos.DrawLine(
+            origin,
+            origin + dir * gizmoReach
+        );
     }
 #endif
 }

@@ -34,8 +34,13 @@ public class CombatSkillMenuController : MonoBehaviour
     [Header("Placement Controller")]
     [SerializeField] private PlacementController placement;
 
+    [Header("Attack Momentum")]
+    [SerializeField] private AttackMomentumManager attackMomentum;
+
     [Header("Optional")]
     [SerializeField] private bool closeMenuAfterCast = true;
+
+    public bool IsOpen => isOpen;
 
     private bool isOpen;
     private bool selectingPartyTarget;
@@ -140,6 +145,14 @@ public class CombatSkillMenuController : MonoBehaviour
 
         DisablePawnControl(true);
 
+        if (attackMomentum == null)
+            attackMomentum = AttackMomentumManager.Instance;
+
+        if (attackMomentum == null)
+            attackMomentum = FindObjectOfType<AttackMomentumManager>(true);
+
+        attackMomentum?.SetMomentumPaused(true);
+
         RefreshSkillText();
     }
 
@@ -189,6 +202,7 @@ public class CombatSkillMenuController : MonoBehaviour
         Time.timeScale = prevTimeScale;
         Time.fixedDeltaTime = prevFixedDelta;
 
+        attackMomentum?.SetMomentumPaused(false);
         DisablePawnControl(false);
     }
 
@@ -517,6 +531,7 @@ public class CombatSkillMenuController : MonoBehaviour
         {
             Time.timeScale = prevTimeScale;
             Time.fixedDeltaTime = prevFixedDelta;
+            attackMomentum?.SetMomentumPaused(false);
             DisablePawnControl(false);
         }
     }

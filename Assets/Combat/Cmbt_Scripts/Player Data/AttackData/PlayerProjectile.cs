@@ -53,6 +53,9 @@ public class PlayerProjectile : MonoBehaviour
     private int ownerCharacterIndex = -1;
     private bool awardApOnHit = true;
 
+    private float momentumGainOnHit;
+    private bool startsActiveScoringOnHit;
+
     private Vector2 launchOrigin;
     private bool hasLaunchOrigin;
     private bool hitResolved;
@@ -84,7 +87,9 @@ public class PlayerProjectile : MonoBehaviour
         float projectileSpeed,
         float life,
         LayerMask mask,
-        bool awardAp)
+        bool awardAp,
+        float momentumGain = 0f,
+        bool startActiveScoringOnHit = false)
     {
         dir = direction.sqrMagnitude > 0.0001f
             ? direction.normalized
@@ -97,6 +102,10 @@ public class PlayerProjectile : MonoBehaviour
         lifetime = Mathf.Max(0.05f, life);
         hitMask = mask;
         awardApOnHit = awardAp;
+        momentumGainOnHit =
+            Mathf.Max(0f, momentumGain);
+        startsActiveScoringOnHit =
+            startActiveScoringOnHit;
 
         if (!hasLaunchOrigin)
         {
@@ -323,7 +332,33 @@ public class PlayerProjectile : MonoBehaviour
             stunnable.Stun(stunSeconds);
 
         GrantApIfAllowed();
+        GrantMomentumIfAllowed();
         Destroy(gameObject);
+    }
+
+    private void GrantMomentumIfAllowed()
+    {
+        if (momentumGainOnHit <= 0f)
+            return;
+
+        AttackMomentumManager manager =
+            AttackMomentumManager.Instance;
+
+        if (manager == null)
+            return;
+
+        if (startsActiveScoringOnHit)
+        {
+            manager.RegisterSuccessfulSkill(
+                momentumGainOnHit
+            );
+        }
+        else
+        {
+            manager.RegisterMomentum(
+                momentumGainOnHit
+            );
+        }
     }
 
     private void GrantApIfAllowed()

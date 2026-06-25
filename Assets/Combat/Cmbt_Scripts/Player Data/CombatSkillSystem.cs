@@ -207,11 +207,18 @@ public class CombatSkillSystem : MonoBehaviour
         // 0) Custom execution types
         if (skill.executionType == SkillExecutionType.PushBack)
         {
-            var pushBack = GetComponent<PushBack>();
+            PushBack pushBack = GetComponent<PushBack>();
+            bool succeeded = false;
+
             if (pushBack != null)
-                pushBack.Execute();
+                succeeded = pushBack.Execute();
             else
-                Debug.LogWarning($"Skill '{skill.name}' is PushBack type but no PushBack component found on pawn.");
+                Debug.LogWarning(
+                    $"Skill '{skill.name}' is PushBack type but no PushBack component found on pawn."
+                );
+
+            if (succeeded)
+                AwardSuccessfulSkillMomentum(skill);
 
             ApplySkillCostMultiplier(pending.ownerIndex);
             isCasting = false;
@@ -220,7 +227,10 @@ public class CombatSkillSystem : MonoBehaviour
 
         if (skill.executionType == SkillExecutionType.AoE)
         {
-            SpawnAoEZone(skill, dir);
+            bool succeeded = SpawnAoEZone(skill, dir);
+
+            if (succeeded)
+                AwardSuccessfulSkillMomentum(skill);
 
             ApplySkillCostMultiplier(pending.ownerIndex);
             isCasting = false;
@@ -249,6 +259,8 @@ public class CombatSkillSystem : MonoBehaviour
                 skill.impactVfxForwardOffset
             );
 
+            AwardSuccessfulSkillMomentum(skill);
+
             ApplySkillCostMultiplier(pending.ownerIndex);
             isCasting = false;
             yield break;
@@ -271,7 +283,14 @@ public class CombatSkillSystem : MonoBehaviour
         // 2) Party-target heal: heal selected index (or self if none)
         if (skill.requiresPartyTarget && skill.heal > 0)
         {
-            ApplyHealToPartyMember(skill, pending.ownerIndex, partyTargetIndex);
+            bool healed = ApplyHealToPartyMember(
+                skill,
+                pending.ownerIndex,
+                partyTargetIndex
+            );
+
+            if (healed)
+                AwardSuccessfulSkillMomentum(skill);
 
             // Impact VFX at player (or you can choose to spawn on target later)
             SpawnVfx(skill.impactVfxPrefab, vfxOrigin.position, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
@@ -284,7 +303,14 @@ public class CombatSkillSystem : MonoBehaviour
         // 3) Self heal (non-party target)
         if (!skill.requiresPartyTarget && skill.heal > 0)
         {
-            ApplyHealToPartyMember(skill, pending.ownerIndex, pending.ownerIndex);
+            bool healed = ApplyHealToPartyMember(
+                skill,
+                pending.ownerIndex,
+                pending.ownerIndex
+            );
+
+            if (healed)
+                AwardSuccessfulSkillMomentum(skill);
 
             SpawnVfx(skill.impactVfxPrefab, vfxOrigin.position, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
 
@@ -302,8 +328,10 @@ public class CombatSkillSystem : MonoBehaviour
         Vector3 meleeCenter = (Vector2)vfxOrigin.position + dir * GetMeleeRange(skill);
         SpawnVfx(skill.impactVfxPrefab, meleeCenter, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
 
-        // You can decide if multiplier should increase even on miss.
-        // This implementation increases on resolve regardless of hit.
+        if (hitSomething)
+            AwardSuccessfulSkillMomentum(skill);
+
+        // Cost multiplier still increases on resolve, even on a miss.
         ApplySkillCostMultiplier(pending.ownerIndex);
 
         isCasting = false;
@@ -312,6 +340,17 @@ public class CombatSkillSystem : MonoBehaviour
     // ----------------------------
     // Helpers
     // ----------------------------
+
+    private void AwardSuccessfulSkillMomentum(
+        SkillDefinition skill)
+    {
+        if (skill == null || skill.momentumGain <= 0f)
+            return;
+
+        AttackMomentumManager.Instance?.RegisterSuccessfulSkill(
+            skill.momentumGain
+        );
+    }
 
     private Vector2 GetAimDir()
     {
@@ -344,18 +383,39 @@ public class CombatSkillSystem : MonoBehaviour
         owner.skillCostMultiplier *= inc;
     }
 
-    private void ApplyHealToPartyMember(SkillDefinition skill, int ownerIndex, int? targetIndexNullable)
+    private bool ApplyHealToPartyMember(
+        SkillDefinition skill,
+        int ownerIndex,
+        int? targetIndexNullable)
     {
-        var pm = PartyManager.Instance;
-        if (pm == null || pm.party == null) return;
+        PartyManager pm = PartyManager.Instance;
 
-        int targetIndex = targetIndexNullable.HasValue ? targetIndexNullable.Value : ownerIndex;
-        if (targetIndex < 0 || targetIndex >= pm.party.Count) return;
+        if (pm == null || pm.party == null)
+            return false;
 
-        var tgt = pm.party[targetIndex];
-        if (tgt == null || tgt.def == null) return;
+        int targetIndex =
+            targetIndexNullable.HasValue
+                ? targetIndexNullable.Value
+                : ownerIndex;
 
-        tgt.currentHP = Mathf.Clamp(tgt.currentHP + skill.heal, 0, tgt.def.maxHP);
+        if (targetIndex < 0 || targetIndex >= pm.party.Count)
+            return false;
+
+        PartyManager.CharacterState target =
+            pm.party[targetIndex];
+
+        if (target == null || target.def == null)
+            return false;
+
+        int before = target.currentHP;
+
+        target.currentHP = Mathf.Clamp(
+            target.currentHP + skill.heal,
+            0,
+            target.def.maxHP
+        );
+
+        return target.currentHP > before;
     }
 
     private void FireSkillProjectile(SkillDefinition skill, Vector2 dir, int ownerIndex)
@@ -380,16 +440,18 @@ public class CombatSkillSystem : MonoBehaviour
             skill.projectileSpeed,
             skill.projectileLifetime,
             mask,
-            awardApOnHit: false
+            awardApOnHit: false,
+            momentumGain: skill.momentumGain,
+            startActiveScoringOnHit: true
         );
     }
 
-    private void SpawnAoEZone(SkillDefinition skill, Vector2 dir)
+    private bool SpawnAoEZone(SkillDefinition skill, Vector2 dir)
     {
         if (skill.aoeZonePrefab == null)
         {
             Debug.LogWarning($"Skill '{skill.name}' is AoE type but aoeZonePrefab is null.");
-            return;
+            return false;
         }
 
         Vector2 spawnPos = (Vector2)vfxOrigin.position;
@@ -400,7 +462,7 @@ public class CombatSkillSystem : MonoBehaviour
         {
             Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab missing AoEZone component.");
             Destroy(zoneObj);
-            return;
+            return false;
         }
 
         zone.Initialize(
@@ -412,6 +474,7 @@ public class CombatSkillSystem : MonoBehaviour
             skill.aoeUsesProjectile ? skill.aoeProjectileTravelTime : 0f,
             skill.aoeObstacleMask
         );
+        return true;
     }
 
     /// <summary>
@@ -424,10 +487,15 @@ public class CombatSkillSystem : MonoBehaviour
     {
         if (pending == null || pending.skill == null) return;
 
+        bool succeeded = false;
+
         switch (pending.skill.executionType)
         {
             case SkillExecutionType.AoE:
-                SpawnAoEZoneAtPosition(pending.skill, worldPos);
+                succeeded = SpawnAoEZoneAtPosition(
+                    pending.skill,
+                    worldPos
+                );
                 break;
 
             // Future placement-based types go here:
@@ -439,15 +507,20 @@ public class CombatSkillSystem : MonoBehaviour
                 break;
         }
 
+        if (succeeded)
+            AwardSuccessfulSkillMomentum(pending.skill);
+
         ApplySkillCostMultiplier(pending.ownerIndex);
     }
 
-    private void SpawnAoEZoneAtPosition(SkillDefinition skill, Vector2 worldPos)
+    private bool SpawnAoEZoneAtPosition(
+        SkillDefinition skill,
+        Vector2 worldPos)
     {
         if (skill.aoeZonePrefab == null)
         {
             Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab is null.");
-            return;
+            return false;
         }
 
         var zoneObj = Instantiate(skill.aoeZonePrefab, worldPos, Quaternion.identity);
@@ -457,7 +530,7 @@ public class CombatSkillSystem : MonoBehaviour
         {
             Debug.LogWarning($"Skill '{skill.name}': aoeZonePrefab missing AoEZone component.");
             Destroy(zoneObj);
-            return;
+            return false;
         }
 
         // Spawn directly at position — no travel
@@ -467,6 +540,7 @@ public class CombatSkillSystem : MonoBehaviour
             skill.aoeEffects,
             Vector2.zero, 0f, 0f, default
         );
+        return true;
     }
 
     private float GetMeleeRange(SkillDefinition skill)

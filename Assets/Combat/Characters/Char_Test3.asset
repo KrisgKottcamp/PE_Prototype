@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Imogen
   maxHP: 100
   combatMoveSpeed: 3.25
-  maxAP: 100
+  maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 20
   basicAttackType: 2

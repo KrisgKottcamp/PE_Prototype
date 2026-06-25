@@ -20,7 +20,9 @@ public class ProjectileShooter : MonoBehaviour
         float speed,
         float lifetime,
         LayerMask hitMask,
-        bool awardApOnHit)
+        bool awardApOnHit,
+        float momentumGain = 0f,
+        bool startActiveScoringOnHit = false)
     {
         if (prefab == null)
             return null;
@@ -51,7 +53,9 @@ public class ProjectileShooter : MonoBehaviour
             speed,
             lifetime,
             hitMask,
-            awardApOnHit
+            awardApOnHit,
+            momentumGain,
+            startActiveScoringOnHit
         );
 
         return proj;

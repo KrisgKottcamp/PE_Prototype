@@ -32,6 +32,15 @@ public class PlayerFocusMode : MonoBehaviour
     [Tooltip("If true, Focus Mode will not override stronger time slows like the skill menu.")]
     [SerializeField] private bool avoidOverridingStrongerSlow = true;
 
+    [Header("Attack Momentum")]
+    [Tooltip(
+        "Multiplier applied to active Momentum drainage while focusing. " +
+        "0.5 means the red gauge drains at half speed. " +
+        "This does not pause the encounter clock or Momentum averaging."
+    )]
+    [Range(0f, 1f)]
+    [SerializeField] private float focusMomentumDrainMultiplier = 0.5f;
+
     [Header("Character Sprite Opacity")]
     [Tooltip("Character/body renderers to fade while focusing. Leave empty to auto-find child SpriteRenderers.")]
     [SerializeField] private SpriteRenderer[] characterSpriteRenderers;
@@ -102,6 +111,7 @@ public class PlayerFocusMode : MonoBehaviour
         {
             IsFocusing = shouldFocus;
             SetHurtboxVisible(IsFocusing);
+            SyncMomentumDrainMultiplier();
 
             if (!IsFocusing)
                 apDrainAccumulator = 0f;
@@ -181,6 +191,27 @@ public class PlayerFocusMode : MonoBehaviour
         IsFocusing = false;
         apDrainAccumulator = 0f;
         SetHurtboxVisible(false);
+        SyncMomentumDrainMultiplier();
+    }
+
+    private void SyncMomentumDrainMultiplier()
+    {
+        AttackMomentumManager manager =
+            AttackMomentumManager.Instance;
+
+        if (manager == null)
+            return;
+
+        manager.SetFocusDrainMultiplier(
+            IsFocusing
+                ? Mathf.Clamp01(focusMomentumDrainMultiplier)
+                : 1f
+        );
+    }
+
+    private void ResetMomentumDrainMultiplier()
+    {
+        AttackMomentumManager.Instance?.SetFocusDrainMultiplier(1f);
     }
 
     private void TickCharacterSpriteOpacity()
@@ -426,11 +457,13 @@ public class PlayerFocusMode : MonoBehaviour
 
         IsFocusing = false;
         apDrainAccumulator = 0f;
+        ResetMomentumDrainMultiplier();
     }
 
     private void OnDestroy()
     {
         RestoreTimeScaleOnDisable();
+        ResetMomentumDrainMultiplier();
     }
 
     private void RestoreTimeScaleOnDisable()

@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ccbe543ff20d144788056d711267558, type: 3}
+  m_Name: CombatRankSettings_Default
+  m_EditorClassIdentifier: Assembly-CSharp::CombatRankSettings
+  baseTargetSeconds: 20
+  targetSecondsPerEnemy: 30
+  minimumTargetSeconds: 35
+  timeWeight: 0.45
+  momentumWeight: 0.35
+  cleanPlayWeight: 0.2
+  perfectTimeRatio: 0.45
+  scoreAtTargetTime: 0.35
+  zeroTimeScoreRatio: 1.25
+  activeAverageMomentumWeight: 0.85
+  peakMomentumWeight: 0.15
+  momentumExponent: 1.1
+  zeroCleanScoreAtPartyHealthLost: 0.8
+  twoStarThreshold: 0.3
+  threeStarThreshold: 0.5
+  fourStarThreshold: 0.72
+  fiveStarThreshold: 0.88
+  oneDeathMaximumStars: 3
+  multipleDeathsMaximumStars: 1
+  fourStarMaximumTimeRatio: 0.6
+  fourStarMinimumMomentumScore: 0.6
+  fourStarMinimumCleanPlayScore: 0.75
+  fiveStarMaximumTimeRatio: 0.48
+  fiveStarMinimumMomentumScore: 0.78
+  fiveStarMinimumCleanPlayScore: 0.9

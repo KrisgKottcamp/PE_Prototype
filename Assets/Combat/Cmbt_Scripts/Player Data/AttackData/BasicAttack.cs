@@ -23,6 +23,9 @@ public class BasicAttack : MonoBehaviour
     [Header("Stun")]
     [SerializeField] private float stunSeconds = 0.25f;
 
+    [Header("Attack Momentum")]
+    [SerializeField] private float momentumGainOnSuccessfulSwing = 8f;
+
     [Header("VFX (optional)")]
     [SerializeField] private GameObject attackVfxPrefab;
     [SerializeField] private float vfxAngleOffset = 0f; // if art faces up, try +90
@@ -141,7 +144,10 @@ public class BasicAttack : MonoBehaviour
         }
 
         if (uniqueCount > 0)
+        {
             GrantAP();
+            AttackMomentumManager.Instance?.RegisterMomentum(momentumGainOnSuccessfulSwing);
+        }
     }
 
     private void GrantAP()

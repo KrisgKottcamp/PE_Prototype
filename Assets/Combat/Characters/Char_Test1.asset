@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Audrey
   maxHP: 100
   combatMoveSpeed: 3.5
-  maxAP: 100
+  maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 10
   basicAttackType: 0

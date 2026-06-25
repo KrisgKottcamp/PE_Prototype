@@ -36,6 +36,8 @@ MonoBehaviour:
     m_Bits: 0
   damage: 10
   heal: 0
+  momentumAwardMode: 0
+  momentumGain: 14
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}
   castVfxAngleOffset: 0

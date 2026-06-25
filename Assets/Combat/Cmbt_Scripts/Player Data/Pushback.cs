@@ -1,18 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Imogen's Push Back skill.
-///
-/// AoE centered on the player pawn:
-///   1. Spawns a bubble sprite that fades out over bubbleFadeDuration.
-///   2. Knocks back every enemy in radius via KnockbackReceiver2D.
-///   3. Reflects every enemy-team Projectile in radius (flips team,
-///      reverses direction, enables damageAnyNonOwner so it hurts enemies).
-///
-/// Lives on the combat pawn. Called by CombatSkillSystem when a skill
-/// with executionType == SkillExecutionType.PushBack is resolved.
-/// </summary>
 public class PushBack : MonoBehaviour
 {
     [Header("AoE")]
@@ -24,17 +12,10 @@ public class PushBack : MonoBehaviour
     [SerializeField] private float knockbackDuration = 0.3f;
 
     [Header("Projectile Reflect")]
-    [Tooltip("Layer to reassign reflected projectiles to. Must collide with EnemyHurtbox " +
-             "in your Physics2D collision matrix. Use the same layer as PlayerProjectile. " +
-             "Pick exactly one layer.")]
     [SerializeField] private LayerMask reflectedProjectileLayer;
-
-    [Tooltip("Base damage of the first reflected projectile to hit an enemy. " +
-             "Each subsequent hit on the same enemy deals half (floored), minimum 1.")]
     [SerializeField] private int reflectedDamageBase = 10;
 
     [Header("Bubble VFX")]
-    [Tooltip("Prefab with a SpriteRenderer. Spawned on the player, fades out, then destroyed.")]
     [SerializeField] private GameObject bubblePrefab;
     [SerializeField] private float bubbleFadeDuration = 0.2f;
 
@@ -42,144 +23,188 @@ public class PushBack : MonoBehaviour
     [SerializeField] private bool drawGizmos = true;
 
     private readonly Collider2D[] hitBuffer = new Collider2D[32];
-    private readonly KnockbackReceiver2D[] dedup = new KnockbackReceiver2D[32];
+    private readonly KnockbackReceiver2D[] dedup =
+        new KnockbackReceiver2D[32];
 
-    // --------------------------------------------------
-    // Public API (called by CombatSkillSystem)
-    // --------------------------------------------------
-
-    public void Execute()
+    public bool Execute()
     {
-        Vector2 center = (Vector2)transform.position;
+        Vector2 center = transform.position;
 
         SpawnBubble(center);
-        PushEnemies(center);
-        ReflectProjectiles(center);
+
+        int pushedEnemies = PushEnemies(center);
+        int reflectedProjectiles = ReflectProjectiles(center);
+
+        return pushedEnemies > 0 || reflectedProjectiles > 0;
     }
 
-    // --------------------------------------------------
-    // Enemy knockback
-    // --------------------------------------------------
-
-    private void PushEnemies(Vector2 center)
+    private int PushEnemies(Vector2 center)
     {
-        int count = Physics2D.OverlapCircleNonAlloc(center, radius, hitBuffer, enemyMask);
+        int count = Physics2D.OverlapCircleNonAlloc(
+            center,
+            radius,
+            hitBuffer,
+            enemyMask
+        );
+
         int uniqueCount = 0;
 
         for (int i = 0; i < count; i++)
         {
-            var col = hitBuffer[i];
-            if (col == null) continue;
+            Collider2D col = hitBuffer[i];
 
-            var knockback = col.GetComponentInParent<KnockbackReceiver2D>();
-            if (knockback == null) continue;
+            if (col == null)
+                continue;
 
-            // Deduplicate — one push per enemy even if multiple colliders overlap
-            bool already = false;
+            KnockbackReceiver2D knockback =
+                col.GetComponentInParent<KnockbackReceiver2D>();
+
+            if (knockback == null)
+                continue;
+
+            bool alreadyHit = false;
+
             for (int j = 0; j < uniqueCount; j++)
             {
-                if (dedup[j] == knockback) { already = true; break; }
+                if (dedup[j] == knockback)
+                {
+                    alreadyHit = true;
+                    break;
+                }
             }
-            if (already) continue;
-            if (uniqueCount < dedup.Length)
-                dedup[uniqueCount++] = knockback;
 
-            Vector2 dir = (Vector2)knockback.transform.position - center;
-            if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
-            dir = dir.normalized;
+            if (alreadyHit)
+                continue;
 
-            knockback.ApplyKnockback(dir, knockbackForce, knockbackDuration);
+            if (uniqueCount >= dedup.Length)
+                break;
+
+            dedup[uniqueCount] = knockback;
+            uniqueCount++;
+
+            Vector2 direction =
+                (Vector2)knockback.transform.position - center;
+
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = Vector2.up;
+            else
+                direction.Normalize();
+
+            knockback.ApplyKnockback(
+                direction,
+                knockbackForce,
+                knockbackDuration
+            );
         }
+
+        return uniqueCount;
     }
 
-    // --------------------------------------------------
-    // Projectile reflection
-    // --------------------------------------------------
-
-    private void ReflectProjectiles(Vector2 center)
+    private int ReflectProjectiles(Vector2 center)
     {
         int layer = LayerFromMask(reflectedProjectileLayer);
-        var tracker = new ReflectDamageTracker(reflectedDamageBase);
-        var projectiles = FindObjectsOfType<Projectile>(false);
+
+        ReflectDamageTracker tracker =
+            new ReflectDamageTracker(reflectedDamageBase);
+
+        Projectile[] projectiles =
+            FindObjectsOfType<Projectile>(false);
+
+        int reflectedCount = 0;
 
         for (int i = 0; i < projectiles.Length; i++)
         {
-            var proj = projectiles[i];
-            if (proj == null) continue;
-            if (proj.Team != Projectile.ProjectileTeam.Enemy) continue;
+            Projectile projectile = projectiles[i];
 
-            float dist = Vector2.Distance(center, (Vector2)proj.transform.position);
-            if (dist > radius) continue;
+            if (projectile == null ||
+                projectile.Team != Projectile.ProjectileTeam.Enemy)
+            {
+                continue;
+            }
 
-            proj.Reflect(transform, layer, tracker);
+            float distance = Vector2.Distance(
+                center,
+                projectile.transform.position
+            );
+
+            if (distance > radius)
+                continue;
+
+            projectile.Reflect(transform, layer, tracker);
+            reflectedCount++;
         }
+
+        return reflectedCount;
     }
 
-    // --------------------------------------------------
-    // Helpers
-    // --------------------------------------------------
-
-    /// <summary>Extracts a single layer index from a LayerMask. Returns -1 if empty.</summary>
     private static int LayerFromMask(LayerMask mask)
     {
-        int val = mask.value;
-        if (val == 0) return -1;
+        int value = mask.value;
+
+        if (value == 0)
+            return -1;
+
         for (int i = 0; i < 32; i++)
-            if ((val & (1 << i)) != 0) return i;
+        {
+            if ((value & (1 << i)) != 0)
+                return i;
+        }
+
         return -1;
     }
 
-    // --------------------------------------------------
-    // Bubble VFX
-    // --------------------------------------------------
-
     private void SpawnBubble(Vector2 center)
     {
-        if (bubblePrefab == null) return;
+        if (bubblePrefab == null)
+            return;
 
-        // Parent to pawn so the bubble follows the player while fading
-        GameObject bubble = Instantiate(bubblePrefab, center, Quaternion.identity, transform);
+        GameObject bubble = Instantiate(
+            bubblePrefab,
+            center,
+            Quaternion.identity,
+            transform
+        );
+
         StartCoroutine(FadeBubble(bubble));
     }
 
     private IEnumerator FadeBubble(GameObject bubble)
     {
-        if (bubble == null) yield break;
+        if (bubble == null)
+            yield break;
 
-        var sr = bubble.GetComponentInChildren<SpriteRenderer>();
-        if (sr == null)
+        SpriteRenderer sprite =
+            bubble.GetComponentInChildren<SpriteRenderer>();
+
+        if (sprite == null)
         {
             Destroy(bubble);
             yield break;
         }
 
-        Color c = sr.color;
+        Color color = sprite.color;
         float elapsed = 0f;
+        float duration = Mathf.Max(0.01f, bubbleFadeDuration);
 
-        while (elapsed < bubbleFadeDuration)
+        while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            c.a = 1f - Mathf.Clamp01(elapsed / bubbleFadeDuration);
-            sr.color = c;
+            color.a = 1f - Mathf.Clamp01(elapsed / duration);
+            sprite.color = color;
             yield return null;
         }
 
         Destroy(bubble);
     }
 
-    // --------------------------------------------------
-    // Gizmos
-    // --------------------------------------------------
-
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        if (!drawGizmos) return;
+        if (!drawGizmos)
+            return;
 
-        Gizmos.color = new Color(0.3f, 0.6f, 1f, 0.25f);
-        Gizmos.DrawWireSphere(transform.position, radius);
         Gizmos.color = new Color(0.3f, 0.6f, 1f, 0.6f);
-        Gizmos.DrawSphere(transform.position, 0.1f);
+        Gizmos.DrawWireSphere(transform.position, radius);
     }
 #endif
 }

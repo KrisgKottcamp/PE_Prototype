@@ -29,6 +29,14 @@ public class SkillDefinition : ScriptableObject
     [Header("AP")]
     public int baseApCost = 10;
 
+    [Header("Attack Momentum")]
+    [Tooltip(
+        "Raw Momentum awarded when this skill succeeds. " +
+        "The manager applies Global Gain Scale and tier scaling."
+    )]
+    [Min(0f)]
+    public float momentumGain = 18f;
+
     [Header("Targeting")]
     public bool requiresPartyTarget = false;
     public bool includeDownedTargets = false;

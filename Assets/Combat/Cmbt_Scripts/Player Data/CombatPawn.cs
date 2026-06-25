@@ -5,7 +5,31 @@ public class CombatPawn : MonoBehaviour
 {
     [Header("Hit Settings")]
     [SerializeField] private float invulnSeconds = 0.6f;
-    [SerializeField] private MonoBehaviour[] disableOnDeath; // optional, movement etc.
+    [SerializeField] private MonoBehaviour[] disableOnDeath;
+
+    [Header("Momentum Damage Penalty")]
+    [Tooltip(
+        "How much Momentum would be lost from taking damage equal to 100% " +
+        "of the active character's maximum HP."
+    )]
+    [SerializeField, Min(0f)]
+    private float momentumLossPerFullHealthBar = 40f;
+
+    [Tooltip(
+        "Smallest Momentum loss from any accepted damage instance."
+    )]
+    [SerializeField, Min(0f)]
+    private float minimumMomentumLossPerHit = 2f;
+
+    [Tooltip(
+        "Largest Momentum loss allowed from one accepted damage instance. " +
+        "Set to 0 for no upper cap."
+    )]
+    [SerializeField, Min(0f)]
+    private float maximumMomentumLossPerHit = 12f;
+
+    [SerializeField]
+    private bool logMomentumDamagePenalty = false;
 
     [Header("Feedback")]
     [SerializeField] private SpriteRenderer[] spritesToFlash;
@@ -17,19 +41,52 @@ public class CombatPawn : MonoBehaviour
 
     public void ApplyDamage(int amount)
     {
-        if (amount <= 0) return;
-        if (IsInvulnerable) return;
+        if (amount <= 0 || IsInvulnerable)
+            return;
 
-        var pm = PartyManager.Instance;
-        if (pm == null)
+        PartyManager partyManager = PartyManager.Instance;
+
+        if (partyManager == null)
         {
-            Debug.LogError("CombatPawn: PartyManager missing.");
+            Debug.LogError(
+                "CombatPawn: PartyManager missing."
+            );
+
             return;
         }
 
-        // Apply to active character HP (persists across scenes)
-        var active = pm.Active;
-        active.currentHP = Mathf.Max(0, active.currentHP - amount);
+        PartyManager.CharacterState active =
+            partyManager.Active;
+
+        if (active == null || active.def == null)
+        {
+            Debug.LogError(
+                "CombatPawn: Active character or definition missing."
+            );
+
+            return;
+        }
+
+        int hpBefore = active.currentHP;
+
+        active.currentHP = Mathf.Max(
+            0,
+            active.currentHP - amount
+        );
+
+        int actualDamage = Mathf.Max(
+            0,
+            hpBefore - active.currentHP
+        );
+
+        CombatManager.Instance?.NotifyPlayerDamaged(
+            actualDamage
+        );
+
+        ApplyMomentumDamagePenalty(
+            actualDamage,
+            active.def.maxHP
+        );
 
         if (active.currentHP <= 0)
         {
@@ -40,35 +97,96 @@ public class CombatPawn : MonoBehaviour
         StartCoroutine(InvulnWindow());
     }
 
+    private void ApplyMomentumDamagePenalty(
+        int actualDamage,
+        int maximumHP)
+    {
+        if (actualDamage <= 0 || maximumHP <= 0)
+            return;
+
+        AttackMomentumManager manager =
+            AttackMomentumManager.Instance;
+
+        if (manager == null || !manager.IsRunning)
+            return;
+
+        float damageFraction =
+            actualDamage / (float)maximumHP;
+
+        float penalty =
+            damageFraction *
+            Mathf.Max(0f, momentumLossPerFullHealthBar);
+
+        float minimum =
+            Mathf.Max(0f, minimumMomentumLossPerHit);
+
+        float maximum =
+            Mathf.Max(0f, maximumMomentumLossPerHit);
+
+        if (minimum > 0f)
+            penalty = Mathf.Max(minimum, penalty);
+
+        if (maximum > 0f)
+            penalty = Mathf.Min(maximum, penalty);
+
+        if (penalty <= 0f)
+            return;
+
+        manager.ApplyMomentumPenalty(penalty);
+
+        if (logMomentumDamagePenalty)
+        {
+            Debug.Log(
+                $"CombatPawn: Took {actualDamage}/{maximumHP} HP " +
+                $"and lost {penalty:0.##} Momentum.",
+                this
+            );
+        }
+    }
+
     private IEnumerator InvulnWindow()
     {
         IsInvulnerable = true;
 
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
-        flashRoutine = StartCoroutine(FlashSprites());
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
 
-        yield return new WaitForSeconds(invulnSeconds);
+        flashRoutine = StartCoroutine(
+            FlashSprites()
+        );
+
+        yield return new WaitForSeconds(
+            invulnSeconds
+        );
 
         IsInvulnerable = false;
 
-        if (flashRoutine != null) StopCoroutine(flashRoutine);
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
         SetSpritesVisible(true);
     }
 
     private IEnumerator FlashSprites()
     {
         bool visible = true;
+
         while (true)
         {
             visible = !visible;
             SetSpritesVisible(visible);
-            yield return new WaitForSeconds(flashInterval);
+
+            yield return new WaitForSeconds(
+                flashInterval
+            );
         }
     }
 
     private void SetSpritesVisible(bool visible)
     {
-        if (spritesToFlash == null) return;
+        if (spritesToFlash == null)
+            return;
+
         for (int i = 0; i < spritesToFlash.Length; i++)
         {
             if (spritesToFlash[i] != null)
@@ -78,16 +196,18 @@ public class CombatPawn : MonoBehaviour
 
     private void OnDeath()
     {
-        // Disable movement or other scripts so you stop interacting
+        AttackMomentumManager.Instance?.
+            ResetForCharacterDefeat();
+
         if (disableOnDeath != null)
         {
             for (int i = 0; i < disableOnDeath.Length; i++)
-                if (disableOnDeath[i] != null) disableOnDeath[i].enabled = false;
+            {
+                if (disableOnDeath[i] != null)
+                    disableOnDeath[i].enabled = false;
+            }
         }
 
-        // Let CombatManager decide what defeat means
         CombatManager.Instance?.NotifyPlayerDown();
     }
-
-
 }

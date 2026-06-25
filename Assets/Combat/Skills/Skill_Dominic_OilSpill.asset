@@ -36,6 +36,8 @@ MonoBehaviour:
     m_Bits: 0
   damage: 0
   heal: 0
+  momentumAwardMode: 0
+  momentumGain: 14
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}
   castVfxAngleOffset: 0
@@ -43,6 +45,8 @@ MonoBehaviour:
   impactVfxPrefab: {fileID: 0}
   impactVfxAngleOffset: 0
   impactVfxForwardOffset: 0
+  speedBoostMultiplier: 1.35
+  speedBoostDuration: 5
   aoeZonePrefab: {fileID: 8170228569374706463, guid: 342d8f9f5a18d0547825d08e1e5538d1, type: 3}
   aoeEffects: []
   aoeRadius: 2.5

@@ -14,7 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Slash
   targetType: 1
+  executionType: 0
   baseApCost: 10
+  requiresPartyTarget: 0
+  includeDownedTargets: 0
+  partyTargetMenuTitle: Choose ally
   meleeRange: 0.9
   meleeRadius: 0.4
   meleeHitMask:
@@ -32,6 +36,8 @@ MonoBehaviour:
     m_Bits: 0
   damage: 30
   heal: 0
+  momentumAwardMode: 0
+  momentumGain: 20
   impactDelay: 0.1
   castVfxPrefab: {fileID: 6400882652763300098, guid: 2d933487017735743a887f7ea2af8348, type: 3}
   castVfxAngleOffset: 0
@@ -39,3 +45,21 @@ MonoBehaviour:
   impactVfxPrefab: {fileID: 0}
   impactVfxAngleOffset: 0
   impactVfxForwardOffset: 0
+  speedBoostMultiplier: 1.35
+  speedBoostDuration: 5
+  aoeZonePrefab: {fileID: 0}
+  aoeEffects: []
+  aoeRadius: 2.5
+  aoeDuration: 4
+  aoeUsesProjectile: 1
+  aoeProjectileSpeed: 12
+  aoeProjectileTravelTime: 0.4
+  aoeObstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  usesPlacement: 0
+  placementRange: 8
+  placementBlockMask:
+    serializedVersion: 2
+    m_Bits: 0
+  placementPreviewRadius: 0.5

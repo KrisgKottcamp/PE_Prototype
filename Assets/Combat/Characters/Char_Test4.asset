@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: Dominic
   maxHP: 90
   combatMoveSpeed: 3.5
-  maxAP: 100
+  maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 5
   basicAttackType: 3
