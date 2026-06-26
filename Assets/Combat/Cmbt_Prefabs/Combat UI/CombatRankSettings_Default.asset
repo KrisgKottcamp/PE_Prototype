@@ -39,6 +39,6 @@ MonoBehaviour:
   fiveStarMinimumCleanPlayScore: 0.75
   enableLegendaryRank: 1
   legendaryMaximumTimeRatio: 0.45
-  legendaryMinimumMomentumScore: 0.82
+  legendaryMinimumMomentumScore: 0.6
   legendaryMinimumCleanPlayScore: 0.95
   legendaryMinimumOverallScore: 0.85

@@ -430,6 +430,7 @@ GameObject:
   - component: {fileID: 142555494}
   - component: {fileID: 142555495}
   - component: {fileID: 142555496}
+  - component: {fileID: 142555497}
   m_Layer: 0
   m_Name: CombatManager
   m_TagString: Untagged
@@ -508,6 +509,24 @@ MonoBehaviour:
   peakMomentumDrainToZeroSeconds: 3
   logQualifyingActions: 0
   logEncounterResult: 1
+--- !u!114 &142555497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 142555493}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 590d78ca9dad11a4091f1529a4be6ad1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatEncounterReset
+  resetPartyAtCombatStart: 1
+  restorePartyToMaximumHP: 1
+  resetPartyAP: 1
+  resetSkillCostMultipliers: 1
+  resetActivePartyMember: 1
+  logReset: 0
 --- !u!1 &142922310
 GameObject:
   m_ObjectHideFlags: 0
