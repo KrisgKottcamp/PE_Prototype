@@ -19,18 +19,24 @@ public static class CombatRankCalculator
     private const float DefaultTwoStarThreshold = 0.30f;
     private const float DefaultThreeStarThreshold = 0.50f;
     private const float DefaultFourStarThreshold = 0.72f;
-    private const float DefaultFiveStarThreshold = 0.88f;
+    private const float DefaultFiveStarThreshold = 0.82f;
 
     private const int DefaultOneDeathCap = 3;
     private const int DefaultMultipleDeathCap = 1;
 
-    private const float DefaultFourMaxTimeRatio = 0.60f;
-    private const float DefaultFourMinMomentum = 0.60f;
-    private const float DefaultFourMinClean = 0.75f;
+    private const float DefaultFourMinTimeScore = 0.55f;
+    private const float DefaultFourMinMomentum = 0.35f;
+    private const float DefaultFourMinClean = 0.60f;
 
-    private const float DefaultFiveMaxTimeRatio = 0.48f;
-    private const float DefaultFiveMinMomentum = 0.78f;
-    private const float DefaultFiveMinClean = 0.90f;
+    private const float DefaultFiveMinTimeScore = 0.75f;
+    private const float DefaultFiveMinMomentum = 0.50f;
+    private const float DefaultFiveMinClean = 0.75f;
+
+    private const bool DefaultLegendaryEnabled = true;
+    private const float DefaultLegendaryMaxTimeRatio = 0.45f;
+    private const float DefaultLegendaryMinMomentum = 0.82f;
+    private const float DefaultLegendaryMinClean = 0.95f;
+    private const float DefaultLegendaryMinOverall = 0.92f;
 
     public static CombatRankResult Calculate(
         AttackMomentumResult encounter,
@@ -114,7 +120,7 @@ public static class CombatRankCalculator
 
         bool passedFourGate =
             PassesFourStarGate(
-                timeRatio,
+                timeScore,
                 momentumScore,
                 cleanScore,
                 partyMemberDeaths,
@@ -123,9 +129,19 @@ public static class CombatRankCalculator
 
         bool passedFiveGate =
             PassesFiveStarGate(
+                timeScore,
+                momentumScore,
+                cleanScore,
+                partyMemberDeaths,
+                settings
+            );
+
+        bool passedLegendaryGate =
+            PassesLegendaryGate(
                 timeRatio,
                 momentumScore,
                 cleanScore,
+                overallScore,
                 partyMemberDeaths,
                 settings
             );
@@ -154,10 +170,16 @@ public static class CombatRankCalculator
             deathCap
         );
 
+        bool isLegendary =
+            finalStars == 5 &&
+            deathCap == 5 &&
+            passedLegendaryGate;
+
         return new CombatRankResult(
             finalStars,
             baseStars,
             deathCap,
+            isLegendary,
             overallScore,
             timeScore,
             momentumScore,
@@ -168,7 +190,8 @@ public static class CombatRankCalculator
             combinedPartyMaxHP,
             partyMemberDeaths,
             passedFourGate,
-            passedFiveGate
+            passedFiveGate,
+            passedLegendaryGate
         );
     }
 
@@ -342,7 +365,7 @@ public static class CombatRankCalculator
     }
 
     private static bool PassesFourStarGate(
-        float timeRatio,
+        float timeScore,
         float momentumScore,
         float cleanScore,
         int deaths,
@@ -351,10 +374,10 @@ public static class CombatRankCalculator
         if (deaths > 0)
             return false;
 
-        float maxTime =
+        float minTime =
             settings != null
-                ? settings.FourStarMaximumTimeRatio
-                : DefaultFourMaxTimeRatio;
+                ? settings.FourStarMinimumTimeScore
+                : DefaultFourMinTimeScore;
 
         float minMomentum =
             settings != null
@@ -367,13 +390,13 @@ public static class CombatRankCalculator
                 : DefaultFourMinClean;
 
         return
-            timeRatio <= maxTime &&
+            timeScore >= minTime &&
             momentumScore >= minMomentum &&
             cleanScore >= minClean;
     }
 
     private static bool PassesFiveStarGate(
-        float timeRatio,
+        float timeScore,
         float momentumScore,
         float cleanScore,
         int deaths,
@@ -382,10 +405,10 @@ public static class CombatRankCalculator
         if (deaths > 0)
             return false;
 
-        float maxTime =
+        float minTime =
             settings != null
-                ? settings.FiveStarMaximumTimeRatio
-                : DefaultFiveMaxTimeRatio;
+                ? settings.FiveStarMinimumTimeScore
+                : DefaultFiveMinTimeScore;
 
         float minMomentum =
             settings != null
@@ -398,9 +421,55 @@ public static class CombatRankCalculator
                 : DefaultFiveMinClean;
 
         return
-            timeRatio <= maxTime &&
+            timeScore >= minTime &&
             momentumScore >= minMomentum &&
             cleanScore >= minClean;
+    }
+
+    private static bool PassesLegendaryGate(
+        float timeRatio,
+        float momentumScore,
+        float cleanScore,
+        float overallScore,
+        int deaths,
+        CombatRankSettings settings)
+    {
+        if (deaths > 0)
+            return false;
+
+        bool enabled =
+            settings != null
+                ? settings.EnableLegendaryRank
+                : DefaultLegendaryEnabled;
+
+        if (!enabled)
+            return false;
+
+        float maxTime =
+            settings != null
+                ? settings.LegendaryMaximumTimeRatio
+                : DefaultLegendaryMaxTimeRatio;
+
+        float minMomentum =
+            settings != null
+                ? settings.LegendaryMinimumMomentumScore
+                : DefaultLegendaryMinMomentum;
+
+        float minClean =
+            settings != null
+                ? settings.LegendaryMinimumCleanPlayScore
+                : DefaultLegendaryMinClean;
+
+        float minOverall =
+            settings != null
+                ? settings.LegendaryMinimumOverallScore
+                : DefaultLegendaryMinOverall;
+
+        return
+            timeRatio <= maxTime &&
+            momentumScore >= minMomentum &&
+            cleanScore >= minClean &&
+            overallScore >= minOverall;
     }
 
     private static int GetDeathStarCap(

@@ -16,6 +16,7 @@ MonoBehaviour:
   targetType: 0
   executionType: 0
   baseApCost: 10
+  momentumGain: 40
   requiresPartyTarget: 1
   includeDownedTargets: 0
   partyTargetMenuTitle: Choose Ally to Heal
@@ -36,8 +37,6 @@ MonoBehaviour:
     m_Bits: 0
   damage: 0
   heal: 30
-  momentumAwardMode: 0
-  momentumGain: 30
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}
   castVfxAngleOffset: 0

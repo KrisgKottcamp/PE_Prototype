@@ -13,6 +13,8 @@ public struct CombatRankResult
     [Range(1, 5)]
     public int deathStarCap;
 
+    public bool isLegendary;
+
     [Range(0f, 1f)]
     public float overallScore01;
 
@@ -35,11 +37,13 @@ public struct CombatRankResult
 
     public bool passedFourStarGate;
     public bool passedFiveStarGate;
+    public bool passedLegendaryGate;
 
     public CombatRankResult(
         int stars,
         int uncappedStars,
         int deathStarCap,
+        bool isLegendary,
         float overallScore01,
         float timeScore01,
         float momentumScore01,
@@ -50,11 +54,13 @@ public struct CombatRankResult
         int combinedPartyMaxHP,
         int partyMemberDeaths,
         bool passedFourStarGate,
-        bool passedFiveStarGate)
+        bool passedFiveStarGate,
+        bool passedLegendaryGate)
     {
         this.stars = Mathf.Clamp(stars, 1, 5);
         this.uncappedStars = Mathf.Clamp(uncappedStars, 1, 5);
         this.deathStarCap = Mathf.Clamp(deathStarCap, 1, 5);
+        this.isLegendary = isLegendary;
 
         this.overallScore01 = Mathf.Clamp01(overallScore01);
         this.timeScore01 = Mathf.Clamp01(timeScore01);
@@ -74,5 +80,6 @@ public struct CombatRankResult
 
         this.passedFourStarGate = passedFourStarGate;
         this.passedFiveStarGate = passedFiveStarGate;
+        this.passedLegendaryGate = passedLegendaryGate;
     }
 }

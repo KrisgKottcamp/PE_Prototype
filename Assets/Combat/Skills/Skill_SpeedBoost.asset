@@ -15,7 +15,8 @@ MonoBehaviour:
   displayName: Speed Boost
   targetType: 0
   executionType: 3
-  baseApCost: 30
+  baseApCost: 28
+  momentumGain: 18
   requiresPartyTarget: 0
   includeDownedTargets: 0
   partyTargetMenuTitle: Choose ally
@@ -36,8 +37,6 @@ MonoBehaviour:
     m_Bits: 0
   damage: 10
   heal: 0
-  momentumAwardMode: 0
-  momentumGain: 14
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}
   castVfxAngleOffset: 0

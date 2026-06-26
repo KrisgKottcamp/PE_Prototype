@@ -92,7 +92,7 @@ public class CombatRankSettings : ScriptableObject
     private float fourStarThreshold = 0.72f;
 
     [SerializeField, Range(0f, 1f)]
-    private float fiveStarThreshold = 0.88f;
+    private float fiveStarThreshold = 0.82f;
 
     [Header("Party Death Caps")]
     [Tooltip(
@@ -107,31 +107,55 @@ public class CombatRankSettings : ScriptableObject
     [SerializeField, Range(1, 5)]
     private int multipleDeathsMaximumStars = 1;
 
-    [Header("Four-Star Mastery Gate")]
+    [Header("Four-Star Eligibility")]
     [Tooltip(
-        "Four stars require completion at or below this fraction of target time."
+        "Four stars reward strong overall play. These are minimum category floors, " +
+        "not mastery requirements."
+    )]
+    [SerializeField, Range(0f, 1f)]
+    private float fourStarMinimumTimeScore = 0.55f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float fourStarMinimumMomentumScore = 0.35f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float fourStarMinimumCleanPlayScore = 0.60f;
+
+    [Header("Five-Star Eligibility")]
+    [Tooltip(
+        "Five stars reward an excellent run, but Legendary remains the only " +
+        "true mastery checklist."
+    )]
+    [SerializeField, Range(0f, 1f)]
+    private float fiveStarMinimumTimeScore = 0.75f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float fiveStarMinimumMomentumScore = 0.50f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float fiveStarMinimumCleanPlayScore = 0.75f;
+
+    [Header("Legendary Rank Gate")]
+    [Tooltip(
+        "Legendary is the true mastery tier above five stars."
+    )]
+    [SerializeField]
+    private bool enableLegendaryRank = true;
+
+    [Tooltip(
+        "Legendary requires completion at or below this fraction of target time."
     )]
     [SerializeField, Range(0.10f, 1.5f)]
-    private float fourStarMaximumTimeRatio = 0.60f;
+    private float legendaryMaximumTimeRatio = 0.45f;
 
     [SerializeField, Range(0f, 1f)]
-    private float fourStarMinimumMomentumScore = 0.60f;
+    private float legendaryMinimumMomentumScore = 0.82f;
 
     [SerializeField, Range(0f, 1f)]
-    private float fourStarMinimumCleanPlayScore = 0.75f;
-
-    [Header("Five-Star Mastery Gate")]
-    [Tooltip(
-        "Five stars require completion at or below this fraction of target time."
-    )]
-    [SerializeField, Range(0.10f, 1.5f)]
-    private float fiveStarMaximumTimeRatio = 0.48f;
+    private float legendaryMinimumCleanPlayScore = 0.95f;
 
     [SerializeField, Range(0f, 1f)]
-    private float fiveStarMinimumMomentumScore = 0.78f;
-
-    [SerializeField, Range(0f, 1f)]
-    private float fiveStarMinimumCleanPlayScore = 0.90f;
+    private float legendaryMinimumOverallScore = 0.92f;
 
     public float TimeWeight => Mathf.Max(0f, timeWeight);
     public float MomentumWeight => Mathf.Max(0f, momentumWeight);
@@ -172,8 +196,8 @@ public class CombatRankSettings : ScriptableObject
     public int MultipleDeathsMaximumStars =>
         Mathf.Clamp(multipleDeathsMaximumStars, 1, 5);
 
-    public float FourStarMaximumTimeRatio =>
-        Mathf.Max(0.01f, fourStarMaximumTimeRatio);
+    public float FourStarMinimumTimeScore =>
+        Mathf.Clamp01(fourStarMinimumTimeScore);
 
     public float FourStarMinimumMomentumScore =>
         Mathf.Clamp01(fourStarMinimumMomentumScore);
@@ -181,14 +205,29 @@ public class CombatRankSettings : ScriptableObject
     public float FourStarMinimumCleanPlayScore =>
         Mathf.Clamp01(fourStarMinimumCleanPlayScore);
 
-    public float FiveStarMaximumTimeRatio =>
-        Mathf.Max(0.01f, fiveStarMaximumTimeRatio);
+    public float FiveStarMinimumTimeScore =>
+        Mathf.Clamp01(fiveStarMinimumTimeScore);
 
     public float FiveStarMinimumMomentumScore =>
         Mathf.Clamp01(fiveStarMinimumMomentumScore);
 
     public float FiveStarMinimumCleanPlayScore =>
         Mathf.Clamp01(fiveStarMinimumCleanPlayScore);
+
+    public bool EnableLegendaryRank =>
+        enableLegendaryRank;
+
+    public float LegendaryMaximumTimeRatio =>
+        Mathf.Max(0.01f, legendaryMaximumTimeRatio);
+
+    public float LegendaryMinimumMomentumScore =>
+        Mathf.Clamp01(legendaryMinimumMomentumScore);
+
+    public float LegendaryMinimumCleanPlayScore =>
+        Mathf.Clamp01(legendaryMinimumCleanPlayScore);
+
+    public float LegendaryMinimumOverallScore =>
+        Mathf.Clamp01(legendaryMinimumOverallScore);
 
     public float CalculateTargetTime(int enemyCount)
     {
@@ -227,18 +266,24 @@ public class CombatRankSettings : ScriptableObject
         twoStarThreshold = 0.30f;
         threeStarThreshold = 0.50f;
         fourStarThreshold = 0.72f;
-        fiveStarThreshold = 0.88f;
+        fiveStarThreshold = 0.82f;
 
         oneDeathMaximumStars = 3;
         multipleDeathsMaximumStars = 1;
 
-        fourStarMaximumTimeRatio = 0.60f;
-        fourStarMinimumMomentumScore = 0.60f;
-        fourStarMinimumCleanPlayScore = 0.75f;
+        fourStarMinimumTimeScore = 0.55f;
+        fourStarMinimumMomentumScore = 0.35f;
+        fourStarMinimumCleanPlayScore = 0.60f;
 
-        fiveStarMaximumTimeRatio = 0.48f;
-        fiveStarMinimumMomentumScore = 0.78f;
-        fiveStarMinimumCleanPlayScore = 0.90f;
+        fiveStarMinimumTimeScore = 0.75f;
+        fiveStarMinimumMomentumScore = 0.50f;
+        fiveStarMinimumCleanPlayScore = 0.75f;
+
+        enableLegendaryRank = true;
+        legendaryMaximumTimeRatio = 0.45f;
+        legendaryMinimumMomentumScore = 0.82f;
+        legendaryMinimumCleanPlayScore = 0.95f;
+        legendaryMinimumOverallScore = 0.92f;
 
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(this);
@@ -285,9 +330,5 @@ public class CombatRankSettings : ScriptableObject
         multipleDeathsMaximumStars =
             Mathf.Clamp(multipleDeathsMaximumStars, 1, 5);
 
-        fiveStarMaximumTimeRatio = Mathf.Min(
-            fiveStarMaximumTimeRatio,
-            fourStarMaximumTimeRatio
-        );
     }
 }

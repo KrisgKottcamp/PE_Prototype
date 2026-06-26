@@ -1,8 +1,16 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class EnemyShooterDebug : MonoBehaviour
 {
+    [System.Serializable]
+    private class PatternTelegraph
+    {
+        public PatternType pattern;
+        public EnemyTelegraphProfile profile;
+    }
+
     public enum PatternType
     {
         AimedSingle,
@@ -66,6 +74,12 @@ public class EnemyShooterDebug : MonoBehaviour
     [Tooltip("If true, Spiral is centered on aim direction. If false, it rotates globally.")]
     [SerializeField] private bool spiralCenteredOnAim = true;
 
+    [Header("Attack Telegraph")]
+    [SerializeField] private EnemyAttackTelegraph attackTelegraph;
+    [SerializeField] private PatternTelegraph[] patternTelegraphs;
+    [SerializeField] private EnemyTelegraphProfile fallbackTelegraphProfile;
+    [SerializeField] private bool lockAimDuringTelegraph = true;
+
     [Header("Runtime")]
     [SerializeField] private bool shootingEnabled = false;
     [SerializeField] private string lastBlockReason = "None";
@@ -81,6 +95,7 @@ public class EnemyShooterDebug : MonoBehaviour
     private float spiralAngleDeg = 0f;
     private float sweepAngleDeg = 0f;
     private int sweepDir = 1;
+    private bool isTelegraphing = false;
 
     private const float TargetSearchInterval = 0.20f;
     private const float MinInterval = 0.03f;
@@ -107,6 +122,7 @@ public class EnemyShooterDebug : MonoBehaviour
         RecordTargetSample();
 
         if (!shootingEnabled) { lastBlockReason = "ShootingDisabled"; return; }
+        if (isTelegraphing) { lastBlockReason = "Telegraphing"; return; }
         if (projectilePrefab == null) { lastBlockReason = "NoProjectilePrefab"; return; }
 
         if (Time.time < nextFireTime)
@@ -147,8 +163,9 @@ public class EnemyShooterDebug : MonoBehaviour
 
         Vector2 baseDir = toAim / dist;
 
-        if (useBurstFire) FireBurstStep(origin, baseDir);
-        else FireSingleTick(origin, baseDir);
+        StartCoroutine(
+            TelegraphAndFireRoutine(origin, baseDir, useBurstFire)
+        );
     }
 
     public void SetShootingEnabled(bool enabled)
@@ -166,6 +183,8 @@ public class EnemyShooterDebug : MonoBehaviour
         else
         {
             ResetBurstStateForEnable();
+            isTelegraphing = false;
+            if (attackTelegraph != null) attackTelegraph.CancelTelegraph();
             ScheduleNextFire(999f, "ShootingDisabled");
             lastBlockReason = "ShootingDisabled";
         }
@@ -196,6 +215,50 @@ public class EnemyShooterDebug : MonoBehaviour
     public void SetPattern(PatternType newPattern)
     {
         pattern = newPattern;
+    }
+
+    private IEnumerator TelegraphAndFireRoutine(Vector2 origin, Vector2 initialDirection, bool fireAsBurstStep)
+    {
+        if (isTelegraphing) yield break;
+        isTelegraphing = true;
+
+        EnemyTelegraphProfile profile = GetTelegraphProfile(pattern);
+        Vector2 lockedDirection = initialDirection.sqrMagnitude > 0.0001f ? initialDirection.normalized : Vector2.right;
+
+        if (attackTelegraph != null && profile != null)
+            yield return attackTelegraph.PlayTelegraphRoutine(profile, lockedDirection);
+        else if (profile != null)
+            yield return new WaitForSeconds(Mathf.Max(0.01f, profile.duration));
+
+        if (!shootingEnabled) { isTelegraphing = false; yield break; }
+
+        Vector2 fireDirection = lockedDirection;
+        if (!lockAimDuringTelegraph && TryGetDelayedAimPoint(out Vector2 updatedAimPoint))
+        {
+            Vector2 currentOrigin = muzzle != null ? (Vector2)muzzle.position : (Vector2)transform.position;
+            Vector2 toUpdatedAim = updatedAimPoint - currentOrigin;
+            if (toUpdatedAim.sqrMagnitude > 0.0001f) fireDirection = toUpdatedAim.normalized;
+            origin = currentOrigin;
+        }
+
+        if (fireAsBurstStep) FireBurstStep(origin, fireDirection);
+        else FireSingleTick(origin, fireDirection);
+
+        isTelegraphing = false;
+    }
+
+    private EnemyTelegraphProfile GetTelegraphProfile(PatternType requestedPattern)
+    {
+        if (patternTelegraphs != null)
+        {
+            for (int i = 0; i < patternTelegraphs.Length; i++)
+            {
+                PatternTelegraph entry = patternTelegraphs[i];
+                if (entry != null && entry.pattern == requestedPattern && entry.profile != null)
+                    return entry.profile;
+            }
+        }
+        return fallbackTelegraphProfile;
     }
 
     private void FireSingleTick(Vector2 origin, Vector2 baseDir)

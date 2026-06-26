@@ -29,7 +29,7 @@ MonoBehaviour:
     burstCooldown: 0.75
     burstsPerEnable: 1
     farPattern: 1
-    midPattern: 1
+    midPattern: 3
     closePattern: 5
     fanBullets: 5
     fanArc: 28
@@ -53,7 +53,7 @@ MonoBehaviour:
     burstsPerEnable: 1
     farPattern: 0
     midPattern: 1
-    closePattern: 1
+    closePattern: 2
     fanBullets: 4
     fanArc: 50
     ringBullets: 12
@@ -74,7 +74,7 @@ MonoBehaviour:
     intraBurstInterval: 0.1
     burstCooldown: 0.95
     burstsPerEnable: 1
-    farPattern: 1
+    farPattern: 6
     midPattern: 1
     closePattern: 1
     fanBullets: 3
@@ -97,9 +97,9 @@ MonoBehaviour:
     intraBurstInterval: 0.16
     burstCooldown: 1.1
     burstsPerEnable: 1
-    farPattern: 0
-    midPattern: 1
-    closePattern: 1
+    farPattern: 3
+    midPattern: 2
+    closePattern: 0
     fanBullets: 4
     fanArc: 50
     ringBullets: 12

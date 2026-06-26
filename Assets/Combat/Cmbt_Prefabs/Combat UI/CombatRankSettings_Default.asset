@@ -15,9 +15,9 @@ MonoBehaviour:
   baseTargetSeconds: 20
   targetSecondsPerEnemy: 30
   minimumTargetSeconds: 35
-  timeWeight: 0.45
-  momentumWeight: 0.35
-  cleanPlayWeight: 0.2
+  timeWeight: 0.25
+  momentumWeight: 0.4
+  cleanPlayWeight: 0.35
   perfectTimeRatio: 0.45
   scoreAtTargetTime: 0.35
   zeroTimeScoreRatio: 1.25
@@ -27,13 +27,18 @@ MonoBehaviour:
   zeroCleanScoreAtPartyHealthLost: 0.8
   twoStarThreshold: 0.3
   threeStarThreshold: 0.5
-  fourStarThreshold: 0.72
-  fiveStarThreshold: 0.88
+  fourStarThreshold: 0.65
+  fiveStarThreshold: 0.8
   oneDeathMaximumStars: 3
-  multipleDeathsMaximumStars: 1
-  fourStarMaximumTimeRatio: 0.6
-  fourStarMinimumMomentumScore: 0.6
-  fourStarMinimumCleanPlayScore: 0.75
-  fiveStarMaximumTimeRatio: 0.48
-  fiveStarMinimumMomentumScore: 0.78
-  fiveStarMinimumCleanPlayScore: 0.9
+  multipleDeathsMaximumStars: 2
+  fourStarMinimumTimeScore: 0.55
+  fourStarMinimumMomentumScore: 0.35
+  fourStarMinimumCleanPlayScore: 0.6
+  fiveStarMinimumTimeScore: 0.75
+  fiveStarMinimumMomentumScore: 0.5
+  fiveStarMinimumCleanPlayScore: 0.75
+  enableLegendaryRank: 1
+  legendaryMaximumTimeRatio: 0.45
+  legendaryMinimumMomentumScore: 0.82
+  legendaryMinimumCleanPlayScore: 0.95
+  legendaryMinimumOverallScore: 0.85

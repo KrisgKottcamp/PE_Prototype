@@ -16,6 +16,7 @@ MonoBehaviour:
   targetType: 1
   executionType: 1
   baseApCost: 10
+  momentumGain: 20
   requiresPartyTarget: 0
   includeDownedTargets: 0
   partyTargetMenuTitle: Choose ally
@@ -36,8 +37,6 @@ MonoBehaviour:
     m_Bits: 0
   damage: 2
   heal: 0
-  momentumAwardMode: 0
-  momentumGain: 18
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}
   castVfxAngleOffset: 0

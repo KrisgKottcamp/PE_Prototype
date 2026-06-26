@@ -94,7 +94,12 @@ public class CombatResultsPanel : MonoBehaviour
             headingText.text = "BATTLE COMPLETE";
 
         if (rankText != null)
-            rankText.text = $"{rank.stars} STAR RANK";
+        {
+            rankText.text =
+                rank.isLegendary
+                    ? "LEGENDARY RANK"
+                    : $"{rank.stars} STAR RANK";
+        }
 
         if (timeText != null)
         {
@@ -142,6 +147,9 @@ public class CombatResultsPanel : MonoBehaviour
         }
 
         RefreshStars(rank.stars);
+
+        if (rank.isLegendary && headingText != null)
+            headingText.text = "LEGENDARY VICTORY";
     }
 
     public void Continue()
