@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07511ce5bf4eccb44ba1a147c45c8782, type: 3}
+  m_Name: ProceduralEncounterProfile
+  m_EditorClassIdentifier: Assembly-CSharp::ProceduralEncounterProfile
+  displayName: EncounterProfile_Test_Level
+  designerNotes: 
+  backgroundVariants:
+  - {fileID: -971165736088576676, guid: d444b230fba26bb4c8fef2dc2e0ef25e, type: 3}
+  minimumEnemyCount: 1
+  maximumEnemyCount: 4
+  useWeightedEnemyCount: 1
+  enemyCountWeights:
+  - enemyCount: 1
+    weight: 1
+  - enemyCount: 2
+    weight: 4
+  - enemyCount: 3
+    weight: 5
+  - enemyCount: 4
+    weight: 1
+  minimumDifficultyBudget: 4
+  maximumDifficultyBudget: 6
+  enemyRules:
+  - enemy: {fileID: 11400000, guid: a9523818adeabf14d8901ed633990ff8, type: 2}
+    weight: 3
+    difficultyCost: 2
+    minimumCount: 0
+    maximumCount: 4
+    footprintRadius: 0.05
+    minimumPlayerDistance: 3
+  - enemy: {fileID: 11400000, guid: e2a96c588f883a84d911f1ba2eedd5c6, type: 2}
+    weight: 3
+    difficultyCost: 2
+    minimumCount: 0
+    maximumCount: 2
+    footprintRadius: 0.5
+    minimumPlayerDistance: 4
+  - enemy: {fileID: 11400000, guid: f510c66bbd35f164a8271745cedf5476, type: 2}
+    weight: 7
+    difficultyCost: 1
+    minimumCount: 0
+    maximumCount: 4
+    footprintRadius: 0.5
+    minimumPlayerDistance: 0
+  - enemy: {fileID: 11400000, guid: f1e00082caee08d4fa5101b8c84b44a3, type: 2}
+    weight: 1
+    difficultyCost: 3
+    minimumCount: 0
+    maximumCount: 1
+    footprintRadius: 0.8
+    minimumPlayerDistance: 4
+  minimumObstacleCount: 2
+  maximumObstacleCount: 4
+  obstacleRules:
+  - obstacle: {fileID: 11400000, guid: 2eaea58a87633474aa314014cfa38007, type: 2}
+    weight: 3
+    minimumCount: 1
+    maximumCount: 2
+  - obstacle: {fileID: 11400000, guid: 7f7c8670005bae94b8673ef30c2d608b, type: 2}
+    weight: 3
+    minimumCount: 1
+    maximumCount: 2
+  playerSafeRadius: 3
+  enemySpacing: 0.3
+  placementAttemptsPerObject: 100
+  fallbackToManualEncounter: 1

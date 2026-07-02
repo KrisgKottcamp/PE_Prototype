@@ -8,7 +8,18 @@ public class CombatManager : MonoBehaviour
 
     [Header("Scene References")]
     [SerializeField] private Transform playerSpawn;
+
+    [Tooltip(
+        "Used only by Manual encounters, including boss arenas."
+    )]
     [SerializeField] private Transform enemySpawnsParent;
+
+    [Header("Procedural Encounters")]
+    [SerializeField]
+    private ProceduralArenaGenerator proceduralArenaGenerator;
+
+    [SerializeField]
+    private bool logProceduralGeneration = true;
 
     [Header("Attack Momentum")]
     [SerializeField] private AttackMomentumManager attackMomentum;
@@ -79,7 +90,7 @@ public class CombatManager : MonoBehaviour
 
         SpawnPlayerPawn();
         InitializeAttackMomentum();
-        SpawnEnemiesFromContext();
+        SpawnEncounterFromContext();
     }
 
     private void OnDestroy()
@@ -157,12 +168,13 @@ public class CombatManager : MonoBehaviour
         );
     }
 
-    private void SpawnEnemiesFromContext()
+    private void SpawnEncounterFromContext()
     {
         livingEnemies.Clear();
         encounterEnemyCount = 0;
 
-        CombatContext context = CombatContext.Instance;
+        CombatContext context =
+            CombatContext.Instance;
 
         if (context == null)
         {
@@ -174,27 +186,126 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        if (context.WantsProceduralEncounter)
+        {
+            bool generated =
+                TrySpawnProceduralEncounter(context);
+
+            if (generated)
+                return;
+
+            bool allowFallback =
+                context.proceduralProfile != null &&
+                context.proceduralProfile
+                    .fallbackToManualEncounter;
+
+            if (!allowFallback)
+                return;
+
+            Debug.LogWarning(
+                "CombatManager: Procedural generation failed. " +
+                "Falling back to the manual enemy list.",
+                this
+            );
+        }
+
+        SpawnManualEnemies(context);
+    }
+
+    private bool TrySpawnProceduralEncounter(
+        CombatContext context)
+    {
+        if (proceduralArenaGenerator == null)
+        {
+            proceduralArenaGenerator =
+                FindObjectOfType<
+                    ProceduralArenaGenerator
+                >(true);
+        }
+
+        if (proceduralArenaGenerator == null)
+        {
+            Debug.LogError(
+                "CombatManager: Procedural encounter requested, " +
+                "but no ProceduralArenaGenerator exists in the arena.",
+                this
+            );
+
+            return false;
+        }
+
+        ProceduralGenerationResult result =
+            proceduralArenaGenerator.GenerateAndSpawn(
+                context.proceduralProfile,
+                context.proceduralSeed
+            );
+
+        if (!result.success)
+        {
+            Debug.LogError(
+                $"CombatManager: Procedural generation failed. " +
+                $"Reason: {result.failureReason} " +
+                $"Seed: {result.seed}",
+                this
+            );
+
+            return false;
+        }
+
+        for (int i = 0;
+             i < result.spawnedEnemies.Count;
+             i++)
+        {
+            RegisterSpawnedEnemy(
+                result.spawnedEnemies[i]
+            );
+        }
+
+        if (logProceduralGeneration)
+        {
+            Debug.Log(
+                $"CombatManager accepted procedural encounter. " +
+                $"Seed={result.seed}, " +
+                $"Enemies={encounterEnemyCount}, " +
+                $"Obstacles={result.spawnedObstacleCount}, " +
+                $"TacticalPoints=" +
+                $"{result.activeTacticalPointCount}.",
+                this
+            );
+        }
+
+        return encounterEnemyCount > 0;
+    }
+
+    private void SpawnManualEnemies(
+        CombatContext context)
+    {
         if (enemySpawnsParent == null)
         {
             Debug.LogError(
-                "CombatManager: enemySpawnsParent not assigned."
+                "CombatManager: Manual encounter requested, " +
+                "but enemySpawnsParent is not assigned."
             );
 
             return;
         }
 
-        int spawnCount = enemySpawnsParent.childCount;
+        int spawnCount =
+            enemySpawnsParent.childCount;
 
         if (spawnCount <= 0)
         {
             Debug.LogError(
-                "CombatManager: enemySpawnsParent has no spawn children."
+                "CombatManager: Manual encounter requested, " +
+                "but enemySpawnsParent has no spawn children."
             );
 
             return;
         }
 
-        for (int i = 0; i < context.enemiesToSpawn.Count; i++)
+        for (int i = 0;
+             i < context.enemiesToSpawn.Count;
+             i++)
         {
             EnemyDefinition definition =
                 context.enemiesToSpawn[i];
@@ -210,7 +321,9 @@ public class CombatManager : MonoBehaviour
             }
 
             Transform spawn =
-                enemySpawnsParent.GetChild(i % spawnCount);
+                enemySpawnsParent.GetChild(
+                    i % spawnCount
+                );
 
             GameObject enemyObject = Instantiate(
                 definition.prefab,
@@ -222,14 +335,31 @@ public class CombatManager : MonoBehaviour
                 enemyObject.GetComponent<EnemyHealth>();
 
             if (health == null)
+            {
+                Debug.LogWarning(
+                    $"Manual enemy prefab '{definition.prefab.name}' " +
+                    $"does not contain EnemyHealth.",
+                    enemyObject
+                );
+
                 continue;
+            }
 
             health.Init(definition.maxHP);
-            health.OnDied += OnEnemyDied;
-
-            livingEnemies.Add(health);
-            encounterEnemyCount++;
+            RegisterSpawnedEnemy(health);
         }
+    }
+
+    private void RegisterSpawnedEnemy(
+        EnemyHealth health)
+    {
+        if (health == null)
+            return;
+
+        health.OnDied += OnEnemyDied;
+
+        livingEnemies.Add(health);
+        encounterEnemyCount++;
     }
 
     private void OnEnemyDied(EnemyHealth enemy)

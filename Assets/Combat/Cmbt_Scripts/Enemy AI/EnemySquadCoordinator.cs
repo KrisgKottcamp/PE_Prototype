@@ -1,431 +1,1107 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Coordinates stable squad roles, shared perception, and anti-stalemate pressure.
+///
+/// Roles are no longer cleared and rebuilt every tick. An enemy keeps a role
+/// for a minimum duration unless it must retreat or the squad reaches emergency
+/// pressure.
+/// </summary>
 public class EnemySquadCoordinator : MonoBehaviour
 {
+    private sealed class RoleStamp
+    {
+        public EnemySquadRole role;
+        public float assignedAt;
+    }
+
     [Header("References")]
-    [SerializeField] private Transform player; // auto-find CombatPawn if null
+    [SerializeField]
+    private Transform player;
 
     [Header("Tick")]
-    [SerializeField] private float coordinatorTick = 0.35f;
-    [SerializeField] private bool useUnscaledTime = false;
+    [SerializeField, Min(0.05f)]
+    private float coordinatorTick = 0.35f;
+
+    [SerializeField]
+    private bool useUnscaledTime = false;
 
     [Header("Behavior Weights")]
-    [SerializeField] private float coverCampingDistance = 6.0f;
-    [SerializeField] private float coverCampingLosThreshold = 0.5f; // if many enemies lose LOS to player
-    [SerializeField] private float playerAggroDistance = 2.5f;
-    [SerializeField] private float lowHpRetreatThreshold = 0.30f;
+    [SerializeField]
+    private float coverCampingDistance = 8.0f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float coverCampingLosThreshold = 0.5f;
+
+    [SerializeField]
+    private float playerAggroDistance = 2.5f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float lowHpRetreatThreshold = 0.30f;
 
     [Header("Role Limits")]
-    [SerializeField] private int maxSuppressors = 1;
-    [SerializeField] private int maxFlankers = 2; // left+right total
-    [SerializeField] private bool forceAtLeastOneAnchor = true;
+    [SerializeField, Min(0)]
+    private int maxSuppressors = 1;
+
+    [SerializeField, Min(0)]
+    private int maxFlankers = 2;
+
+    [SerializeField]
+    private bool forceAtLeastOneAnchor = true;
+
+    [Header("Role Stability")]
+    [Tooltip(
+        "Minimum time a normal role is kept before the coordinator may replace it."
+    )]
+    [SerializeField, Min(0f)]
+    private float minimumRoleDuration = 2.0f;
+
+    [Tooltip(
+        "Above this pressure, anchors may be reassigned early to break a stall."
+    )]
+    [SerializeField, Range(0f, 1f)]
+    private float emergencyRoleOverridePressure = 0.85f;
 
     [Header("LOS")]
-    [SerializeField] private LayerMask losBlockMask; // reuse Obstacles layer
+    [SerializeField]
+    private LayerMask losBlockMask;
 
-    [Header("Stalemate / Pressure Escalation")]
-    [Tooltip("Seconds the player must remain stationary and hidden before pressure starts building.")]
-    [SerializeField] private float stalemateGracePeriod = 3.5f;
-    [Tooltip("Seconds it takes to ramp from zero pressure to full pressure (1.0) after the grace period ends.")]
-    [SerializeField] private float pressureRampDuration = 4.0f;
-    [Tooltip("How far the player must move (world units) to be considered 'active' and reset the stalemate timer.")]
-    [SerializeField] private float playerMoveResetThreshold = 0.6f;
-    [Tooltip("How quickly pressure bleeds off when the player becomes active again. 1 = instant reset, 0.1 = slow bleed.")]
-    [SerializeField] private float pressureDecayRate = 0.4f;
+    [Header("Shared Perception")]
+    [Tooltip(
+        "The squad updates the shared player position only while at least one enemy sees the player."
+    )]
+    [SerializeField]
+    private bool useTrueLastSeenPosition = true;
+
+    [SerializeField, Min(0f)]
+    private float lastSeenMemorySeconds = 3.0f;
+
+    [Header("Stalemate / Pressure")]
+    [SerializeField]
+    private float stalemateGracePeriod = 2.75f;
+
+    [SerializeField]
+    private float pressureRampDuration = 3.5f;
+
+    [SerializeField]
+    private float playerMoveResetThreshold = 0.6f;
+
+    [SerializeField]
+    private float pressureDecayRate = 0.4f;
+
+    [Header("Engagement Health")]
+    [Tooltip(
+        "An enemy that has done nothing meaningful for this long contributes to pressure."
+    )]
+    [SerializeField, Min(0.25f)]
+    private float idleAgentGrace = 1.8f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float blockedLosPressureWeight = 0.65f;
+
+    [SerializeField, Range(0f, 1f)]
+    private float idleAgentPressureWeight = 0.45f;
 
     [Header("Debug")]
-    [SerializeField] private bool debugLogs = false;
-    [SerializeField] private bool drawGizmos = true;
-    [SerializeField] private float debugCurrentPressure = 0f;
+    [SerializeField]
+    private bool debugLogs = false;
 
-    private readonly List<IEnemySquadAgent> agents = new();
+    [SerializeField]
+    private bool drawGizmos = true;
+
+    [SerializeField]
+    private float debugCurrentPressure = 0f;
+
+    [SerializeField]
+    private float debugBlockedLosRatio = 0f;
+
+    [SerializeField]
+    private float debugIdleAgentRatio = 0f;
+
+    [SerializeField]
+    private bool debugAnyEnemySeesPlayer = false;
+
+    private readonly List<IEnemySquadAgent> agents =
+        new List<IEnemySquadAgent>();
+
+    private readonly Dictionary<
+        IEnemySquadAgent,
+        RoleStamp
+    > roleStamps =
+        new Dictionary<
+            IEnemySquadAgent,
+            RoleStamp
+        >();
+
     private float nextTickTime;
     private Vector2 sharedLastSeenPlayerPos;
+    private float lastPlayerSeenTime = -999f;
 
-    // Stalemate tracking
     private float stalemateTimer = 0f;
     private float currentPressure01 = 0f;
     private Vector2 lastPlayerPosForStalemate;
     private bool stalematePlayerPosInitialized = false;
 
-    public Vector2 SharedLastSeenPlayerPos => sharedLastSeenPlayerPos;
-    public float CurrentPressure01 => currentPressure01;
+    public Vector2 SharedLastSeenPlayerPos =>
+        sharedLastSeenPlayerPos;
 
-    private float Now => useUnscaledTime ? Time.unscaledTime : Time.time;
+    public float CurrentPressure01 =>
+        currentPressure01;
+
+    private float Now =>
+        useUnscaledTime
+            ? Time.unscaledTime
+            : Time.time;
 
     private void Awake()
     {
         TryFindPlayer();
-        sharedLastSeenPlayerPos = player != null ? (Vector2)player.position : Vector2.zero;
-        nextTickTime = Now + coordinatorTick;
+
+        sharedLastSeenPlayerPos =
+            player != null
+                ? (Vector2)player.position
+                : Vector2.zero;
+
+        nextTickTime =
+            Now +
+            coordinatorTick;
     }
 
     private void Update()
     {
-        if (player == null) TryFindPlayer();
-        if (player == null) return;
+        if (player == null)
+            TryFindPlayer();
 
-        if (Now < nextTickTime) return;
-        nextTickTime = Now + Mathf.Max(0.05f, coordinatorTick);
+        if (player == null)
+            return;
+
+        if (Now < nextTickTime)
+            return;
+
+        nextTickTime =
+            Now +
+            Mathf.Max(
+                0.05f,
+                coordinatorTick
+            );
 
         TickCoordinator();
     }
 
-    public void Register(IEnemySquadAgent agent)
+    public void Register(
+        IEnemySquadAgent agent)
     {
-        if (agent == null) return;
-        if (!agents.Contains(agent)) agents.Add(agent);
+        if (agent == null)
+            return;
+
+        if (!agents.Contains(agent))
+            agents.Add(agent);
     }
 
-    public void Unregister(IEnemySquadAgent agent)
+    public void Unregister(
+        IEnemySquadAgent agent)
     {
-        if (agent == null) return;
+        if (agent == null)
+            return;
+
         agents.Remove(agent);
+        roleStamps.Remove(agent);
     }
 
     private void TickCoordinator()
     {
         CleanupDeadRefs();
 
-        if (agents.Count == 0) return;
+        List<IEnemySquadAgent> alive =
+            BuildAliveList();
 
-        sharedLastSeenPlayerPos = player.position;
+        if (alive.Count == 0)
+            return;
 
-        // Push shared player position to all agents
-        for (int i = 0; i < agents.Count; i++)
-            agents[i].SetSharedPlayerPosition(sharedLastSeenPlayerPos);
-
-        // Build alive list
-        List<IEnemySquadAgent> alive = new();
-        for (int i = 0; i < agents.Count; i++)
-        {
-            if (agents[i] != null && agents[i].IsAlive) alive.Add(agents[i]);
-        }
-
-        if (alive.Count == 0) return;
-
-        // --- Stalemate / Pressure Escalation ---
+        UpdateSharedPerception(alive);
         UpdatePressure(alive);
 
-        // Push pressure to all alive agents
-        for (int i = 0; i < alive.Count; i++)
-            alive[i].NotifySquadPressure(currentPressure01);
+        for (int i = 0;
+             i < alive.Count;
+             i++)
+        {
+            alive[i].SetSharedPlayerPosition(
+                sharedLastSeenPlayerPos
+            );
 
-        // Compute squad context
-        Vector2 squadCenter = ComputeSquadCenter(alive);
-        bool playerIsAggressive = IsPlayerAggressive(alive);
-        bool playerIsCoverCamping = IsPlayerCoverCamping(alive);
+            alive[i].NotifySquadPressure(
+                currentPressure01
+            );
+        }
 
-        // Sort by urgency: low HP first for retreat consideration
-        alive.Sort((a, b) => a.Health01.CompareTo(b.Health01));
+        AssignStableRoles(alive);
 
-        // Role pools
+        if (debugLogs)
+        {
+            Debug.Log(
+                $"[Squad] Alive={alive.Count} " +
+                $"Pressure={currentPressure01:F2} " +
+                $"BlockedLOS={debugBlockedLosRatio:F2} " +
+                $"Idle={debugIdleAgentRatio:F2} " +
+                $"SeesPlayer={debugAnyEnemySeesPlayer}",
+                this
+            );
+        }
+    }
+
+    private void UpdateSharedPerception(
+        List<IEnemySquadAgent> alive)
+    {
+        bool anySeesPlayer = false;
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
+        {
+            EnemyBrain brain =
+                alive[i] as EnemyBrain;
+
+            bool sees =
+                brain != null
+                    ? brain.HasLineOfSightToPlayer
+                    : CombatLineOfSight2D
+                        .HasLineOfSight(
+                            alive[i].Transform,
+                            alive[i].Transform.position,
+                            player,
+                            losBlockMask,
+                            out _
+                        );
+
+            if (sees)
+            {
+                anySeesPlayer = true;
+                break;
+            }
+        }
+
+        debugAnyEnemySeesPlayer =
+            anySeesPlayer;
+
+        if (!useTrueLastSeenPosition ||
+            anySeesPlayer)
+        {
+            sharedLastSeenPlayerPos =
+                player.position;
+
+            lastPlayerSeenTime = Now;
+            return;
+        }
+
+        if (Now - lastPlayerSeenTime >
+            lastSeenMemorySeconds)
+        {
+            // Keep the last known position rather than granting exact
+            // knowledge through walls. The brain can investigate it.
+        }
+    }
+
+    private void UpdatePressure(
+        List<IEnemySquadAgent> alive)
+    {
+        Vector2 playerPosition =
+            player.position;
+
+        if (!stalematePlayerPosInitialized)
+        {
+            lastPlayerPosForStalemate =
+                playerPosition;
+
+            stalematePlayerPosInitialized =
+                true;
+        }
+
+        float playerMoveDelta =
+            Vector2.Distance(
+                playerPosition,
+                lastPlayerPosForStalemate
+            );
+
+        bool playerIsMoving =
+            playerMoveDelta >=
+            playerMoveResetThreshold;
+
+        int blockedCount = 0;
+        int idleCount = 0;
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
+        {
+            EnemyBrain brain =
+                alive[i] as EnemyBrain;
+
+            bool hasLos =
+                brain != null
+                    ? brain.HasLineOfSightToPlayer
+                    : CombatLineOfSight2D
+                        .HasLineOfSight(
+                            alive[i].Transform,
+                            alive[i].Transform.position,
+                            player,
+                            losBlockMask,
+                            out _
+                        );
+
+            if (!hasLos)
+                blockedCount++;
+
+            if (brain != null &&
+                Now -
+                brain.LastMeaningfulActionTime >=
+                idleAgentGrace)
+            {
+                idleCount++;
+            }
+        }
+
+        debugBlockedLosRatio =
+            alive.Count > 0
+                ? blockedCount /
+                  (float)alive.Count
+                : 0f;
+
+        debugIdleAgentRatio =
+            alive.Count > 0
+                ? idleCount /
+                  (float)alive.Count
+                : 0f;
+
+        bool hidden =
+            debugBlockedLosRatio >=
+            coverCampingLosThreshold;
+
+        bool squadInactive =
+            debugIdleAgentRatio >=
+            0.5f;
+
+        bool stalemateCondition =
+            !playerIsMoving &&
+            (hidden || squadInactive);
+
+        if (playerIsMoving)
+        {
+            lastPlayerPosForStalemate =
+                playerPosition;
+
+            stalemateTimer = 0f;
+
+            currentPressure01 =
+                Mathf.MoveTowards(
+                    currentPressure01,
+                    0f,
+                    pressureDecayRate *
+                    coordinatorTick
+                );
+
+            debugCurrentPressure =
+                currentPressure01;
+
+            return;
+        }
+
+        if (stalemateCondition)
+        {
+            stalemateTimer +=
+                coordinatorTick;
+
+            float elapsedAfterGrace =
+                stalemateTimer -
+                stalemateGracePeriod;
+
+            float timePressure =
+                elapsedAfterGrace > 0f
+                    ? Mathf.Clamp01(
+                        elapsedAfterGrace /
+                        Mathf.Max(
+                            0.01f,
+                            pressureRampDuration
+                        )
+                    )
+                    : 0f;
+
+            float engagementPressure =
+                Mathf.Clamp01(
+                    debugBlockedLosRatio *
+                    blockedLosPressureWeight +
+                    debugIdleAgentRatio *
+                    idleAgentPressureWeight
+                );
+
+            currentPressure01 =
+                Mathf.Max(
+                    currentPressure01,
+                    timePressure,
+                    engagementPressure
+                );
+        }
+        else
+        {
+            stalemateTimer =
+                Mathf.Max(
+                    0f,
+                    stalemateTimer -
+                    coordinatorTick *
+                    0.5f
+                );
+
+            currentPressure01 =
+                Mathf.MoveTowards(
+                    currentPressure01,
+                    0f,
+                    pressureDecayRate *
+                    0.5f *
+                    coordinatorTick
+                );
+        }
+
+        debugCurrentPressure =
+            currentPressure01;
+    }
+
+    private void AssignStableRoles(
+        List<IEnemySquadAgent> alive)
+    {
+        Dictionary<
+            IEnemySquadAgent,
+            EnemySquadRole
+        > desired =
+            new Dictionary<
+                IEnemySquadAgent,
+                EnemySquadRole
+            >();
+
         int suppressors = 0;
         int flankers = 0;
         int anchors = 0;
 
-        // 1) Force retreaters first (low HP)
-        for (int i = 0; i < alive.Count; i++)
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            var ag = alive[i];
-            if (ag.Health01 <= lowHpRetreatThreshold)
+            IEnemySquadAgent agent =
+                alive[i];
+
+            if (agent.Health01 <=
+                lowHpRetreatThreshold)
             {
-                ag.SetRole(EnemySquadRole.Retreater);
+                desired[agent] =
+                    EnemySquadRole.Retreater;
+
+                continue;
+            }
+
+            if (ShouldPreserveCurrentRole(
+                    agent))
+            {
+                desired[agent] =
+                    agent.CurrentRole;
+
+                CountRole(
+                    agent.CurrentRole,
+                    ref suppressors,
+                    ref flankers,
+                    ref anchors
+                );
+            }
+        }
+
+        while (suppressors <
+               maxSuppressors)
+        {
+            IEnemySquadAgent candidate =
+                PickBestSuppressor(
+                    alive,
+                    desired
+                );
+
+            if (candidate == null)
+                break;
+
+            desired[candidate] =
+                EnemySquadRole.Suppressor;
+
+            suppressors++;
+        }
+
+        bool playerAggressive =
+            IsPlayerAggressive(alive);
+
+        bool shouldFlank =
+            debugBlockedLosRatio >=
+                coverCampingLosThreshold ||
+            (!playerAggressive &&
+             alive.Count >= 3) ||
+            currentPressure01 >= 0.5f;
+
+        IEnemySquadAgent firstFlanker =
+            null;
+
+        while (shouldFlank &&
+               flankers <
+               maxFlankers)
+        {
+            IEnemySquadAgent candidate =
+                PickBestFlanker(
+                    alive,
+                    desired
+                );
+
+            if (candidate == null)
+                break;
+
+            EnemySquadRole side;
+
+            if (firstFlanker == null)
+            {
+                side =
+                    ChooseFlankSide(
+                        candidate.Transform.position,
+                        ComputeSquadCenter(alive),
+                        sharedLastSeenPlayerPos
+                    );
+
+                firstFlanker = candidate;
             }
             else
             {
-                ag.SetRole(EnemySquadRole.None);
+                EnemySquadRole firstRole =
+                    desired[firstFlanker];
+
+                side =
+                    firstRole ==
+                    EnemySquadRole.FlankerLeft
+                        ? EnemySquadRole.FlankerRight
+                        : EnemySquadRole.FlankerLeft;
             }
+
+            desired[candidate] = side;
+            flankers++;
         }
 
-        // 2) Assign suppressor
-        if (maxSuppressors > 0)
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            IEnemySquadAgent bestSuppressor = PickBestSuppressor(alive);
-            if (bestSuppressor != null && bestSuppressor.CurrentRole == EnemySquadRole.None)
-            {
-                bestSuppressor.SetRole(EnemySquadRole.Suppressor);
-                suppressors++;
-            }
+            IEnemySquadAgent agent =
+                alive[i];
+
+            if (desired.ContainsKey(agent))
+                continue;
+
+            desired[agent] =
+                EnemySquadRole.Anchor;
+
+            anchors++;
         }
 
-        // 3) Assign flankers when player cover-camps, or occasionally in balanced mode,
-        //    or when pressure is high (force flanking to break stalemate)
-        bool shouldFlank = playerIsCoverCamping
-            || (!playerIsAggressive && alive.Count >= 3)
-            || currentPressure01 >= 0.5f;
-
-        if (shouldFlank && maxFlankers > 0)
+        if (forceAtLeastOneAnchor &&
+            anchors == 0)
         {
-            // Pick up to 2 flankers, distribute left/right
-            IEnemySquadAgent flankA = PickBestFlanker(alive, exclude: null);
-            if (flankA != null && flankA.CurrentRole == EnemySquadRole.None)
-            {
-                EnemySquadRole side = ChooseFlankSide(flankA.Transform.position, squadCenter, sharedLastSeenPlayerPos);
-                flankA.SetRole(side);
-                flankers++;
-            }
+            IEnemySquadAgent fallback =
+                PickBestAnchorCandidate(
+                    alive
+                );
 
-            if (flankers < maxFlankers)
-            {
-                IEnemySquadAgent flankB = PickBestFlanker(alive, exclude: flankA);
-                if (flankB != null && flankB.CurrentRole == EnemySquadRole.None)
-                {
-                    // Prefer opposite side for spread
-                    EnemySquadRole sideB = EnemySquadRole.FlankerLeft;
-                    if (flankA != null && flankA.CurrentRole == EnemySquadRole.FlankerLeft) sideB = EnemySquadRole.FlankerRight;
-                    else if (flankA != null && flankA.CurrentRole == EnemySquadRole.FlankerRight) sideB = EnemySquadRole.FlankerLeft;
-                    else sideB = ChooseFlankSide(flankB.Transform.position, squadCenter, sharedLastSeenPlayerPos);
-
-                    flankB.SetRole(sideB);
-                    flankers++;
-                }
-            }
-        }
-
-        // 4) Remaining become anchors
-        for (int i = 0; i < alive.Count; i++)
-        {
-            var ag = alive[i];
-            if (ag.CurrentRole == EnemySquadRole.None)
-            {
-                ag.SetRole(EnemySquadRole.Anchor);
-                anchors++;
-            }
-        }
-
-        // 5) Ensure at least one anchor if requested
-        if (forceAtLeastOneAnchor && anchors == 0)
-        {
-            IEnemySquadAgent fallback = PickBestAnchorCandidate(alive);
             if (fallback != null)
             {
-                fallback.SetRole(EnemySquadRole.Anchor);
-                anchors = 1;
+                desired[fallback] =
+                    EnemySquadRole.Anchor;
             }
         }
 
-        if (debugLogs)
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            Debug.Log($"[Squad] Alive={alive.Count} Aggro={playerIsAggressive} CoverCamp={playerIsCoverCamping} " +
-                      $"Pressure={currentPressure01:F2} Stalemate={stalemateTimer:F1}s Roles S:{suppressors} F:{flankers} A:{anchors}");
+            ApplyRole(
+                alive[i],
+                desired[alive[i]]
+            );
         }
     }
 
-    // ------------------------------------
-    // Pressure / Stalemate
-    // ------------------------------------
-
-    private void UpdatePressure(List<IEnemySquadAgent> alive)
+    private bool ShouldPreserveCurrentRole(
+        IEnemySquadAgent agent)
     {
-        Vector2 playerPos = player.position;
+        EnemySquadRole current =
+            agent.CurrentRole;
 
-        if (!stalematePlayerPosInitialized)
+        if (current ==
+            EnemySquadRole.None)
         {
-            lastPlayerPosForStalemate = playerPos;
-            stalematePlayerPosInitialized = true;
+            return false;
         }
 
-        float playerMoveDelta = Vector2.Distance(playerPos, lastPlayerPosForStalemate);
-        bool playerIsMoving = playerMoveDelta >= playerMoveResetThreshold;
-
-        // The squad is in stalemate if the player is hiding (cover-camping) and not moving.
-        // We also only build pressure when there are living enemies that are actually passive.
-        bool squadIsPassive = IsPlayerCoverCamping(alive);
-        bool stalemateCondition = !playerIsMoving && squadIsPassive;
-
-        if (playerIsMoving)
+        if (!roleStamps.TryGetValue(
+                agent,
+                out RoleStamp stamp))
         {
-            // Player moved — decay pressure, reset stalemate timer
-            lastPlayerPosForStalemate = playerPos;
-            stalemateTimer = 0f;
-            currentPressure01 = Mathf.MoveTowards(currentPressure01, 0f, pressureDecayRate * coordinatorTick);
-        }
-        else if (stalemateCondition)
-        {
-            stalemateTimer += coordinatorTick;
+            roleStamps[agent] =
+                new RoleStamp
+                {
+                    role = current,
+                    assignedAt = Now
+                };
 
-            float excess = stalemateTimer - stalemateGracePeriod;
-            if (excess > 0f)
-            {
-                float targetPressure = Mathf.Clamp01(excess / Mathf.Max(0.01f, pressureRampDuration));
-                // Pressure only ever increases during a stalemate
-                currentPressure01 = Mathf.Max(currentPressure01, targetPressure);
-            }
-        }
-        else
-        {
-            // Player is stationary but enemies have LOS — slow decay
-            stalemateTimer = Mathf.Max(0f, stalemateTimer - coordinatorTick * 0.5f);
-            currentPressure01 = Mathf.MoveTowards(currentPressure01, 0f, pressureDecayRate * 0.5f * coordinatorTick);
+            return true;
         }
 
-        debugCurrentPressure = currentPressure01;
+        if (stamp.role != current)
+        {
+            stamp.role = current;
+            stamp.assignedAt = Now;
+        }
+
+        if (currentPressure01 >=
+                emergencyRoleOverridePressure &&
+            current ==
+                EnemySquadRole.Anchor)
+        {
+            return false;
+        }
+
+        return
+            Now -
+            stamp.assignedAt <
+            minimumRoleDuration;
     }
 
-    // ------------------------------------
-    // Player / squad helpers
-    // ------------------------------------
+    private void ApplyRole(
+        IEnemySquadAgent agent,
+        EnemySquadRole role)
+    {
+        if (agent.CurrentRole == role)
+        {
+            if (!roleStamps.ContainsKey(
+                    agent))
+            {
+                roleStamps[agent] =
+                    new RoleStamp
+                    {
+                        role = role,
+                        assignedAt = Now
+                    };
+            }
+
+            return;
+        }
+
+        agent.SetRole(role);
+
+        roleStamps[agent] =
+            new RoleStamp
+            {
+                role = role,
+                assignedAt = Now
+            };
+    }
+
+    private void CountRole(
+        EnemySquadRole role,
+        ref int suppressors,
+        ref int flankers,
+        ref int anchors)
+    {
+        if (role ==
+            EnemySquadRole.Suppressor)
+        {
+            suppressors++;
+        }
+        else if (
+            role ==
+                EnemySquadRole.FlankerLeft ||
+            role ==
+                EnemySquadRole.FlankerRight)
+        {
+            flankers++;
+        }
+        else if (role ==
+                 EnemySquadRole.Anchor)
+        {
+            anchors++;
+        }
+    }
 
     private void TryFindPlayer()
     {
-        CombatPawn pawn = FindObjectOfType<CombatPawn>(true);
-        if (pawn != null) player = pawn.transform;
+        CombatPawn pawn =
+            FindObjectOfType<
+                CombatPawn
+            >(true);
+
+        if (pawn != null)
+            player = pawn.transform;
+    }
+
+    private List<IEnemySquadAgent>
+        BuildAliveList()
+    {
+        List<IEnemySquadAgent> alive =
+            new List<IEnemySquadAgent>();
+
+        for (int i =
+                 agents.Count - 1;
+             i >= 0;
+             i--)
+        {
+            IEnemySquadAgent agent =
+                agents[i];
+
+            if (agent == null ||
+                agent.Transform == null)
+            {
+                roleStamps.Remove(agent);
+                agents.RemoveAt(i);
+                continue;
+            }
+
+            if (agent.IsAlive)
+                alive.Add(agent);
+        }
+
+        return alive;
     }
 
     private void CleanupDeadRefs()
     {
-        for (int i = agents.Count - 1; i >= 0; i--)
+        for (int i =
+                 agents.Count - 1;
+             i >= 0;
+             i--)
         {
-            if (agents[i] == null || agents[i].Transform == null)
+            IEnemySquadAgent agent =
+                agents[i];
+
+            if (agent == null ||
+                agent.Transform == null)
+            {
+                roleStamps.Remove(agent);
                 agents.RemoveAt(i);
+            }
         }
     }
 
-    private Vector2 ComputeSquadCenter(List<IEnemySquadAgent> alive)
+    private Vector2 ComputeSquadCenter(
+        List<IEnemySquadAgent> alive)
     {
         Vector2 sum = Vector2.zero;
-        int count = 0;
-        for (int i = 0; i < alive.Count; i++)
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            sum += (Vector2)alive[i].Transform.position;
-            count++;
+            sum +=
+                (Vector2)alive[i]
+                    .Transform.position;
         }
-        return count > 0 ? sum / count : Vector2.zero;
+
+        return
+            alive.Count > 0
+                ? sum / alive.Count
+                : Vector2.zero;
     }
 
-    private bool IsPlayerAggressive(List<IEnemySquadAgent> alive)
+    private bool IsPlayerAggressive(
+        List<IEnemySquadAgent> alive)
     {
         int closeCount = 0;
-        Vector2 p = player.position;
+        Vector2 playerPosition =
+            player.position;
 
-        for (int i = 0; i < alive.Count; i++)
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            float d = Vector2.Distance(alive[i].Transform.position, p);
-            if (d <= playerAggroDistance) closeCount++;
-        }
+            float distance =
+                Vector2.Distance(
+                    alive[i].Transform.position,
+                    playerPosition
+                );
 
-        return closeCount >= Mathf.CeilToInt(alive.Count * 0.5f);
-    }
-
-    private bool IsPlayerCoverCamping(List<IEnemySquadAgent> alive)
-    {
-        int blockedLos = 0;
-        int inRange = 0;
-        Vector2 p = player.position;
-
-        for (int i = 0; i < alive.Count; i++)
-        {
-            var a = alive[i];
-            float d = Vector2.Distance(a.Transform.position, p);
-            if (d <= coverCampingDistance)
+            if (distance <=
+                playerAggroDistance)
             {
-                inRange++;
-                bool blocked = Physics2D.Linecast(a.Transform.position, p, losBlockMask);
-                if (blocked) blockedLos++;
+                closeCount++;
             }
         }
 
-        if (inRange == 0) return false;
-        float ratio = (float)blockedLos / inRange;
-        return ratio >= coverCampingLosThreshold;
+        return closeCount >=
+            Mathf.CeilToInt(
+                alive.Count *
+                0.5f
+            );
     }
 
-    private IEnemySquadAgent PickBestSuppressor(List<IEnemySquadAgent> alive)
+    private IEnemySquadAgent
+        PickBestSuppressor(
+            List<IEnemySquadAgent> alive,
+            Dictionary<
+                IEnemySquadAgent,
+                EnemySquadRole
+            > assigned)
     {
         IEnemySquadAgent best = null;
-        float bestScore = float.NegativeInfinity;
-        Vector2 p = player.position;
+        float bestScore =
+            float.NegativeInfinity;
 
-        for (int i = 0; i < alive.Count; i++)
+        Vector2 playerPosition =
+            player.position;
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            var a = alive[i];
-            if (!a.IsAlive || a.CurrentRole != EnemySquadRole.None) continue;
-            if (!a.IsRanged) continue;
+            IEnemySquadAgent agent =
+                alive[i];
 
-            float dist = Vector2.Distance(a.Transform.position, p);
-            bool hasLos = !Physics2D.Linecast(a.Transform.position, p, losBlockMask);
+            if (assigned.ContainsKey(agent) ||
+                !agent.IsRanged)
+            {
+                continue;
+            }
+
+            EnemyBrain brain =
+                agent as EnemyBrain;
+
+            bool hasLos =
+                brain != null
+                    ? brain.HasLineOfSightToPlayer
+                    : CombatLineOfSight2D
+                        .HasLineOfSight(
+                            agent.Transform,
+                            agent.Transform.position,
+                            player,
+                            losBlockMask,
+                            out _
+                        );
+
+            float distance =
+                Vector2.Distance(
+                    agent.Transform.position,
+                    playerPosition
+                );
 
             float score = 0f;
-            score += hasLos ? 2.0f : -1.0f;
-            score += Mathf.Clamp01(1f - Mathf.Abs(dist - 4.0f) / 4.0f);
-            score += a.Health01;
+            score += hasLos ? 2f : -1f;
 
-            if (score > bestScore) { bestScore = score; best = a; }
+            score +=
+                Mathf.Clamp01(
+                    1f -
+                    Mathf.Abs(
+                        distance - 4f
+                    ) /
+                    4f
+                );
+
+            score += agent.Health01;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = agent;
+            }
         }
+
         return best;
     }
 
-    private IEnemySquadAgent PickBestFlanker(List<IEnemySquadAgent> alive, IEnemySquadAgent exclude)
+    private IEnemySquadAgent
+        PickBestFlanker(
+            List<IEnemySquadAgent> alive,
+            Dictionary<
+                IEnemySquadAgent,
+                EnemySquadRole
+            > assigned)
     {
         IEnemySquadAgent best = null;
-        float bestScore = float.NegativeInfinity;
-        Vector2 p = player.position;
+        float bestScore =
+            float.NegativeInfinity;
 
-        for (int i = 0; i < alive.Count; i++)
+        Vector2 playerPosition =
+            player.position;
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            var a = alive[i];
-            if (!a.IsAlive || a.CurrentRole != EnemySquadRole.None) continue;
-            if (a == exclude) continue;
+            IEnemySquadAgent agent =
+                alive[i];
 
-            float dist = Vector2.Distance(a.Transform.position, p);
+            if (assigned.ContainsKey(agent))
+                continue;
+
+            float distance =
+                Vector2.Distance(
+                    agent.Transform.position,
+                    playerPosition
+                );
+
             float score = 0f;
-            score += 1.0f - Mathf.Clamp01(dist / 10f);
-            score += a.IsMelee ? 0.6f : 0.2f;
-            score += a.Health01;
 
-            if (score > bestScore) { bestScore = score; best = a; }
+            score +=
+                1f -
+                Mathf.Clamp01(
+                    distance /
+                    10f
+                );
+
+            score +=
+                agent.IsMelee
+                    ? 0.6f
+                    : 0.2f;
+
+            score += agent.Health01;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = agent;
+            }
         }
+
         return best;
     }
 
-    private IEnemySquadAgent PickBestAnchorCandidate(List<IEnemySquadAgent> alive)
+    private IEnemySquadAgent
+        PickBestAnchorCandidate(
+            List<IEnemySquadAgent> alive)
     {
         IEnemySquadAgent best = null;
-        float bestScore = float.NegativeInfinity;
-        Vector2 p = player.position;
+        float bestScore =
+            float.NegativeInfinity;
 
-        for (int i = 0; i < alive.Count; i++)
+        Vector2 playerPosition =
+            player.position;
+
+        for (int i = 0;
+             i < alive.Count;
+             i++)
         {
-            var a = alive[i];
-            if (!a.IsAlive) continue;
-            float dist = Vector2.Distance(a.Transform.position, p);
-            float score = a.Health01 + Mathf.Clamp01(dist / 8f);
-            if (score > bestScore) { bestScore = score; best = a; }
+            IEnemySquadAgent agent =
+                alive[i];
+
+            float distance =
+                Vector2.Distance(
+                    agent.Transform.position,
+                    playerPosition
+                );
+
+            float score =
+                agent.Health01 +
+                Mathf.Clamp01(
+                    distance /
+                    8f
+                );
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = agent;
+            }
         }
+
         return best;
     }
 
-    private EnemySquadRole ChooseFlankSide(Vector2 agentPos, Vector2 squadCenter, Vector2 playerPos)
+    private EnemySquadRole ChooseFlankSide(
+        Vector2 agentPosition,
+        Vector2 squadCenter,
+        Vector2 playerPosition)
     {
-        Vector2 forward = (playerPos - squadCenter).normalized;
-        if (forward.sqrMagnitude < 0.0001f) forward = Vector2.right;
-        Vector2 right = new Vector2(forward.y, -forward.x);
-        Vector2 v = agentPos - playerPos;
-        float sideDot = Vector2.Dot(v, right);
-        return sideDot >= 0f ? EnemySquadRole.FlankerRight : EnemySquadRole.FlankerLeft;
+        Vector2 forward =
+            (
+                playerPosition -
+                squadCenter
+            ).normalized;
+
+        if (forward.sqrMagnitude <
+            0.0001f)
+        {
+            forward = Vector2.right;
+        }
+
+        Vector2 right =
+            new Vector2(
+                forward.y,
+                -forward.x
+            );
+
+        Vector2 fromPlayer =
+            agentPosition -
+            playerPosition;
+
+        float side =
+            Vector2.Dot(
+                fromPlayer,
+                right
+            );
+
+        return
+            side >= 0f
+                ? EnemySquadRole.FlankerRight
+                : EnemySquadRole.FlankerLeft;
     }
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
-        if (!drawGizmos || player == null) return;
+        if (!drawGizmos ||
+            player == null)
+        {
+            return;
+        }
 
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(player.position, playerAggroDistance);
 
-        Gizmos.color = new Color(0f, 1f, 1f, 0.25f);
-        Gizmos.DrawWireSphere(player.position, coverCampingDistance);
+        Gizmos.DrawWireSphere(
+            player.position,
+            playerAggroDistance
+        );
+
+        Gizmos.color =
+            new Color(
+                0f,
+                1f,
+                1f,
+                0.25f
+            );
+
+        Gizmos.DrawWireSphere(
+            player.position,
+            coverCampingDistance
+        );
 
         Gizmos.color = Color.white;
-        Gizmos.DrawSphere(sharedLastSeenPlayerPos, 0.08f);
 
-        // Pressure indicator: draw a pulsing red sphere around player when pressure is high
+        Gizmos.DrawSphere(
+            sharedLastSeenPlayerPos,
+            0.08f
+        );
+
         if (currentPressure01 > 0.05f)
         {
-            Gizmos.color = new Color(1f, 0f, 0f, currentPressure01 * 0.5f);
-            Gizmos.DrawWireSphere(player.position, 0.3f + currentPressure01 * 0.4f);
+            Gizmos.color =
+                new Color(
+                    1f,
+                    0f,
+                    0f,
+                    currentPressure01 *
+                    0.5f
+                );
+
+            Gizmos.DrawWireSphere(
+                player.position,
+                0.3f +
+                currentPressure01 *
+                0.4f
+            );
         }
     }
 #endif

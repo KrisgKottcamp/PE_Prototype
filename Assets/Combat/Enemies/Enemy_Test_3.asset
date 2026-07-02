@@ -10,8 +10,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8648cac9fd919d947b803d738daef8c3, type: 3}
-  m_Name: Enemy_Test
-  m_EditorClassIdentifier: 
-  displayName: Enemy
+  m_Name: Enemy_Test_3
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyDefinition
+  displayName: 
   maxHP: 100
-  prefab: {fileID: 99964620462346716, guid: e6534d0c5dce0f14ea80c1498827bcee, type: 3}
+  prefab: {fileID: 99964620462346716, guid: 04b12c4c752fdfe40bcc9af118969224, type: 3}
