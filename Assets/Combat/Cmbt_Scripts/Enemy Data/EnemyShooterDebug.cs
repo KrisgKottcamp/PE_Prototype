@@ -84,6 +84,9 @@ public class EnemyShooterDebug : MonoBehaviour
     [SerializeField] private bool shootingEnabled = false;
     [SerializeField] private string lastBlockReason = "None";
     [SerializeField] private string cooldownSetBy = "None";
+    [SerializeField] private bool debugLosBlocked = false;
+    [SerializeField] private string debugLosHitObject = "None";
+    [SerializeField] private float lastSuccessfulShotTime = -999f;
 
     private struct TargetSample { public float time; public Vector2 pos; }
     private readonly List<TargetSample> samples = new List<TargetSample>(64);
@@ -102,6 +105,11 @@ public class EnemyShooterDebug : MonoBehaviour
 
     public Transform CurrentTarget => target;
     public string LastBlockReason => lastBlockReason;
+    public bool IsShootingEnabled => shootingEnabled;
+    public bool IsTelegraphing => isTelegraphing;
+    public bool DebugLosBlocked => debugLosBlocked;
+    public string DebugLosHitObject => debugLosHitObject;
+    public float LastSuccessfulShotTime => lastSuccessfulShotTime;
 
     private void OnEnable()
     {
@@ -217,32 +225,171 @@ public class EnemyShooterDebug : MonoBehaviour
         pattern = newPattern;
     }
 
-    private IEnumerator TelegraphAndFireRoutine(Vector2 origin, Vector2 initialDirection, bool fireAsBurstStep)
+    public bool SetPattern(string patternName)
     {
-        if (isTelegraphing) yield break;
-        isTelegraphing = true;
+        if (string.IsNullOrWhiteSpace(patternName))
+            return false;
 
-        EnemyTelegraphProfile profile = GetTelegraphProfile(pattern);
-        Vector2 lockedDirection = initialDirection.sqrMagnitude > 0.0001f ? initialDirection.normalized : Vector2.right;
-
-        if (attackTelegraph != null && profile != null)
-            yield return attackTelegraph.PlayTelegraphRoutine(profile, lockedDirection);
-        else if (profile != null)
-            yield return new WaitForSeconds(Mathf.Max(0.01f, profile.duration));
-
-        if (!shootingEnabled) { isTelegraphing = false; yield break; }
-
-        Vector2 fireDirection = lockedDirection;
-        if (!lockAimDuringTelegraph && TryGetDelayedAimPoint(out Vector2 updatedAimPoint))
+        if (!System.Enum.TryParse(
+                patternName,
+                true,
+                out PatternType parsed))
         {
-            Vector2 currentOrigin = muzzle != null ? (Vector2)muzzle.position : (Vector2)transform.position;
-            Vector2 toUpdatedAim = updatedAimPoint - currentOrigin;
-            if (toUpdatedAim.sqrMagnitude > 0.0001f) fireDirection = toUpdatedAim.normalized;
-            origin = currentOrigin;
+            return false;
         }
 
-        if (fireAsBurstStep) FireBurstStep(origin, fireDirection);
-        else FireSingleTick(origin, fireDirection);
+        SetPattern(parsed);
+        return true;
+    }
+
+    public void SetBurstConfig(
+        int newShotsPerBurst,
+        float newIntraBurstInterval,
+        float newBurstCooldown)
+    {
+        shotsPerBurst =
+            Mathf.Max(1, newShotsPerBurst);
+
+        intraBurstInterval =
+            Mathf.Max(
+                MinInterval,
+                newIntraBurstInterval
+            );
+
+        burstCooldown =
+            Mathf.Max(
+                MinInterval,
+                newBurstCooldown
+            );
+    }
+
+    public void SetBurstQuotaPerEnable(
+        bool enabled,
+        int quota)
+    {
+        limitBurstsPerEnable = enabled;
+        burstsPerEnable = Mathf.Max(1, quota);
+    }
+
+    public void SetFanConfig(
+        int bullets,
+        float arcDegrees)
+    {
+        fanBullets = Mathf.Max(1, bullets);
+        fanArcDegrees = Mathf.Max(0f, arcDegrees);
+    }
+
+    public void SetRingBullets(int bullets)
+    {
+        ringBullets = Mathf.Max(3, bullets);
+    }
+
+    public void SetAngularSpeed(
+        float degreesPerTick)
+    {
+        angularSpeedDegPerTick =
+            degreesPerTick;
+    }
+
+    private IEnumerator TelegraphAndFireRoutine(
+        Vector2 origin,
+        Vector2 initialDirection,
+        bool fireAsBurstStep)
+    {
+        if (isTelegraphing)
+            yield break;
+
+        isTelegraphing = true;
+
+        EnemyTelegraphProfile profile =
+            GetTelegraphProfile(pattern);
+
+        Vector2 lockedDirection =
+            initialDirection.sqrMagnitude > 0.0001f
+                ? initialDirection.normalized
+                : Vector2.right;
+
+        if (attackTelegraph != null &&
+            profile != null)
+        {
+            yield return
+                attackTelegraph.PlayTelegraphRoutine(
+                    profile,
+                    lockedDirection
+                );
+        }
+        else if (profile != null)
+        {
+            yield return new WaitForSeconds(
+                Mathf.Max(
+                    0.01f,
+                    profile.duration
+                )
+            );
+        }
+
+        if (!shootingEnabled ||
+            target == null)
+        {
+            isTelegraphing = false;
+            yield break;
+        }
+
+        Vector2 currentOrigin =
+            muzzle != null
+                ? (Vector2)muzzle.position
+                : (Vector2)transform.position;
+
+        if (requireLineOfSight &&
+            IsLineBlocked(
+                currentOrigin,
+                target.position))
+        {
+            lastBlockReason =
+                "LOSBlockedAfterTelegraph";
+
+            ScheduleNextFire(
+                losRetryDelay,
+                "LOSRetryAfterTelegraph"
+            );
+
+            isTelegraphing = false;
+            yield break;
+        }
+
+        Vector2 fireDirection =
+            lockedDirection;
+
+        if (!lockAimDuringTelegraph &&
+            TryGetDelayedAimPoint(
+                out Vector2 updatedAimPoint))
+        {
+            Vector2 toUpdatedAim =
+                updatedAimPoint -
+                currentOrigin;
+
+            if (toUpdatedAim.sqrMagnitude >
+                0.0001f)
+            {
+                fireDirection =
+                    toUpdatedAim.normalized;
+            }
+        }
+
+        if (fireAsBurstStep)
+        {
+            FireBurstStep(
+                currentOrigin,
+                fireDirection
+            );
+        }
+        else
+        {
+            FireSingleTick(
+                currentOrigin,
+                fireDirection
+            );
+        }
 
         isTelegraphing = false;
     }
@@ -389,7 +536,12 @@ public class EnemyShooterDebug : MonoBehaviour
 
     private void SpawnProjectile(Vector2 origin, Vector2 dir)
     {
-        dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
+        lastSuccessfulShotTime = Time.time;
+
+        dir =
+            dir.sqrMagnitude > 0.0001f
+                ? dir.normalized
+                : Vector2.right;
 
         Vector2 spawnPos = origin + dir * 0.20f;
         Quaternion rot = Quaternion.FromToRotation(Vector3.right, dir);
@@ -476,17 +628,27 @@ public class EnemyShooterDebug : MonoBehaviour
         return true;
     }
 
-    private bool IsLineBlocked(Vector2 origin, Vector2 point)
+    private bool IsLineBlocked(
+        Vector2 origin,
+        Vector2 point)
     {
-        RaycastHit2D[] hits = Physics2D.LinecastAll(origin, point, obstacleMask);
-        for (int i = 0; i < hits.Length; i++)
-        {
-            Collider2D c = hits[i].collider;
-            if (c == null) continue;
-            if (c.transform.root == transform.root) continue;
-            return true;
-        }
-        return false;
+        bool hasLos =
+            CombatLineOfSight2D.HasLineOfSight(
+                this,
+                origin,
+                point,
+                obstacleMask,
+                out Collider2D blocker
+            );
+
+        debugLosBlocked = !hasLos;
+
+        debugLosHitObject =
+            blocker != null
+                ? blocker.gameObject.name
+                : "None";
+
+        return !hasLos;
     }
 
     private static Vector2 Rotate(Vector2 v, float degrees)

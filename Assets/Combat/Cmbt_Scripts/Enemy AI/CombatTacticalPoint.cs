@@ -41,12 +41,40 @@ public class CombatTacticalPoint : MonoBehaviour
     private float cooldownUntil;
 
     public Vector2 Position => transform.position;
-    public bool IsReserved => reservedBy != null;
+    public bool IsReserved
+    {
+        get
+        {
+            CleanupStaleReservation();
+            return reservedBy != null;
+        }
+    }
+
+    public Component ReservedBy
+    {
+        get
+        {
+            CleanupStaleReservation();
+            return reservedBy;
+        }
+    }
+
+    public float CooldownRemaining =>
+        Mathf.Max(0f, cooldownUntil - Time.time);
 
     public bool CanBeUsedBy(Component requester, float now)
     {
-        if (now < cooldownUntil) return false;
-        if (reservedBy != null && reservedBy != requester) return false;
+        CleanupStaleReservation();
+
+        if (now < cooldownUntil)
+            return false;
+
+        if (reservedBy != null &&
+            reservedBy != requester)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -67,6 +95,32 @@ public class CombatTacticalPoint : MonoBehaviour
     {
         reservedBy = null;
         cooldownUntil = 0f;
+    }
+
+    private void CleanupStaleReservation()
+    {
+        if (reservedBy == null)
+            return;
+
+        Behaviour behaviour =
+            reservedBy as Behaviour;
+
+        if (behaviour != null &&
+            (!behaviour.isActiveAndEnabled ||
+             !behaviour.gameObject.activeInHierarchy))
+        {
+            reservedBy = null;
+            return;
+        }
+
+        GameObject ownerObject =
+            reservedBy.gameObject;
+
+        if (ownerObject == null ||
+            !ownerObject.activeInHierarchy)
+        {
+            reservedBy = null;
+        }
     }
 
     public bool HasLineOfSightTo(Vector2 target)
@@ -146,6 +200,13 @@ public class CombatTacticalPoint : MonoBehaviour
 
     private void OnDisable()
     {
+        ForceReleaseNow();
+        allPoints.Remove(this);
+    }
+
+    private void OnDestroy()
+    {
+        ForceReleaseNow();
         allPoints.Remove(this);
     }
 

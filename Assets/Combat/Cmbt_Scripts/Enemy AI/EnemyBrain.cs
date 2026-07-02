@@ -195,6 +195,35 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private float stuckCheckInterval = 0.35f;
     [SerializeField] private float stuckMinTravel = 0.05f;
 
+    [Header("Navigation")]
+    [SerializeField] private ArenaNavigationGrid navigationGrid;
+
+    [SerializeField, Min(0.05f)]
+    private float pathRefreshInterval = 0.35f;
+
+    [SerializeField, Min(0.05f)]
+    private float waypointArrivalRadius = 0.18f;
+
+    [Tooltip(
+        "How long a tactical point is avoided after this enemy fails to reach it."
+    )]
+    [SerializeField, Min(0.1f)]
+    private float failedPointCooldown = 2.0f;
+
+    [Tooltip(
+        "Maximum time movement may make no meaningful progress before replanning."
+    )]
+    [SerializeField, Min(0.2f)]
+    private float progressTimeout = 1.1f;
+
+    [SerializeField, Min(0.01f)]
+    private float progressRequired = 0.12f;
+
+    [Tooltip(
+        "Failsafe for an enemy stuck in Replan or Move without doing anything useful."
+    )]
+    [SerializeField, Min(0.5f)]
+    private float activityWatchdogSeconds = 2.5f;
 
     [Header("Planning")]
     [SerializeField] private Vector2 replanIntervalRange = new Vector2(0.18f, 0.34f);
@@ -325,6 +354,10 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private float debugInWindowTime = 0f;
     [SerializeField] private int debugRepositionsThisWindow = 0;
     [SerializeField] private string debugAdvanceStuck = "";
+    [SerializeField] private string debugPathStatus = "No Path";
+    [SerializeField] private int debugPathWaypoints = 0;
+    [SerializeField] private string debugLastMeaningfulAction = "None";
+    [SerializeField] private int debugFailedPointCount = 0;
 
     // ----------------------------
     // Private runtime state
@@ -374,6 +407,31 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     private Vector2 strafeTarget;
     private float nextStrafePickTime = 0f;
 
+    // Navigation and progress
+    private readonly List<Vector2> navigationPath =
+        new List<Vector2>();
+
+    private int navigationPathIndex = 0;
+    private Vector2 navigationDestination;
+    private bool hasNavigationDestination = false;
+    private float nextPathRefreshTime = 0f;
+
+    private float lastProgressTime = 0f;
+    private float bestRemainingDistance =
+        float.PositiveInfinity;
+
+    private float lastMeaningfulActionTime = 0f;
+    private string lastMeaningfulActionReason = "Spawn";
+
+    private readonly Dictionary<
+        CombatTacticalPoint,
+        float
+    > failedPointUntil =
+        new Dictionary<
+            CombatTacticalPoint,
+            float
+        >();
+
     private enum BrainState { Replan, Move, Settle, AttackWindow }
     private BrainState state = BrainState.Replan;
 
@@ -386,15 +444,35 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     public bool IsRanged => isRanged;
     public bool IsMelee => isMelee;
     public EnemySquadRole CurrentRole => currentRole;
+    public bool HasLineOfSightToPlayer =>
+        HasLineOfSightToPlayerNow();
+    public float LastMeaningfulActionTime =>
+        lastMeaningfulActionTime;
+    public bool IsMovingWithPurpose =>
+        state == BrainState.Move &&
+        hasMoveIntent;
 
     // ----------------------------
     // Unity
     // ----------------------------
     private void Awake()
     {
-        if (enemyHealth == null) enemyHealth = GetComponent<EnemyHealth>();
-        if (shooter == null) shooter = GetComponent<EnemyShooterDebug>();
-        if (rb == null) rb = GetComponent<Rigidbody2D>();
+        if (enemyHealth == null)
+            enemyHealth = GetComponent<EnemyHealth>();
+
+        if (shooter == null)
+            shooter = GetComponent<EnemyShooterDebug>();
+
+        if (rb == null)
+            rb = GetComponent<Rigidbody2D>();
+
+        if (navigationGrid == null)
+        {
+            navigationGrid =
+                FindObjectOfType<
+                    ArenaNavigationGrid
+                >(true);
+        }
     }
 
     private void OnEnable()
@@ -412,6 +490,24 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         underFireUntil = 0f;
         squadPressure01 = 0f;
         lastStuckPos = transform.position;
+
+        if (navigationGrid == null)
+        {
+            navigationGrid =
+                FindObjectOfType<
+                    ArenaNavigationGrid
+                >(true);
+        }
+
+        failedPointUntil.Clear();
+        ClearNavigationPath();
+
+        lastMeaningfulActionTime =
+            Time.time;
+
+        lastMeaningfulActionReason =
+            "Enabled";
+
         ResetAdvanceStuck();
         ResetRepositionState();
         SetShooterGate(false, force: true);
@@ -463,9 +559,44 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             + (usingFallbackChase ? " [CHASE]" : "")
             + (usingEscapeWaypoint ? " [ESCAPE]" : "")
             + (isRepositioning ? " [REPOSITION]" : "");
+        CleanupFailedPointMemory();
+
+        if (playerTransform != null &&
+            (state == BrainState.Move ||
+             state == BrainState.Replan) &&
+            Time.time -
+            lastMeaningfulActionTime >=
+            activityWatchdogSeconds)
+        {
+            MarkCurrentPointFailed();
+            ReleaseCurrentPoint();
+            ClearNavigationPath();
+            MarkMeaningfulAction(
+                "ActivityWatchdog"
+            );
+            EnterReplan(true);
+        }
+
         debugInWindowTime = inWindowTime;
         debugRepositionsThisWindow = repositionsThisWindow;
-        debugAdvanceStuck = advanceStuckCount > 0 ? $"stuck x{advanceStuckCount}" : "";
+        debugAdvanceStuck =
+            advanceStuckCount > 0
+                ? $"stuck x{advanceStuckCount}"
+                : "";
+
+        debugPathWaypoints =
+            Mathf.Max(
+                0,
+                navigationPath.Count -
+                navigationPathIndex
+            );
+
+        debugLastMeaningfulAction =
+            $"{lastMeaningfulActionReason} " +
+            $"{Time.time - lastMeaningfulActionTime:0.0}s ago";
+
+        debugFailedPointCount =
+            failedPointUntil.Count;
     }
 
     private void FixedUpdate()
@@ -483,19 +614,78 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             return;
         }
 
-        var speedMod = GetComponent<SpeedModifier>();
-        float speedMult = speedMod != null ? speedMod.Multiplier : 1f;
+        SpeedModifier speedModifier = null;
+
+        if (enemyHealth != null)
+        {
+            speedModifier =
+                enemyHealth.GetComponent<
+                    SpeedModifier
+                >();
+        }
+
+        if (speedModifier == null)
+        {
+            speedModifier =
+                GetComponentInParent<
+                    SpeedModifier
+                >();
+        }
+
+        float speedMultiplier =
+            speedModifier != null
+                ? speedModifier.Multiplier
+                : 1f;
 
         if (rb != null)
-            rb.MovePosition(rb.position + desiredVelocity * speedMult * Time.fixedDeltaTime);
+        {
+            rb.MovePosition(
+                rb.position +
+                desiredVelocity *
+                speedMultiplier *
+                Time.fixedDeltaTime
+            );
+        }
         else
-            transform.position += (Vector3)(desiredVelocity * speedMult * Time.fixedDeltaTime);
+        {
+            transform.position +=
+                (Vector3)(
+                    desiredVelocity *
+                    speedMultiplier *
+                    Time.fixedDeltaTime
+                );
+        }
     }
 
     // ----------------------------
     // IEnemySquadAgent public hooks
     // ----------------------------
-    public void SetRole(EnemySquadRole role) => currentRole = role;
+    public void SetRole(
+        EnemySquadRole role)
+    {
+        if (currentRole == role)
+            return;
+
+        currentRole = role;
+
+        if (!isActiveAndEnabled)
+            return;
+
+        if (currentPoint != null &&
+            !IsPointCompatibleWithRole(
+                currentPoint,
+                role))
+        {
+            ReleaseCurrentPoint();
+        }
+
+        ClearNavigationPath();
+        MarkMeaningfulAction(
+            $"Role:{role}"
+        );
+
+        EnterReplan(true);
+    }
 
     public void SetSharedPlayerPosition(Vector2 pos)
     {
@@ -532,6 +722,8 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         isRepositioning = false;
         SetShooterGate(false);
         ClearMoveIntent();
+        ClearNavigationPath();
+
         nextReplanTime = immediate
             ? Time.time
             : Time.time + UnityEngine.Random.Range(replanIntervalRange.x, replanIntervalRange.y);
@@ -603,7 +795,14 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             if (currentPoint != null && Time.time < pointLockedUntil && currentPoint.CanBeUsedBy(this, Time.time))
             {
                 state = BrainState.Move;
-                nextStuckCheckTime = Time.time + stuckCheckInterval;
+                nextStuckCheckTime =
+                    Time.time +
+                    stuckCheckInterval;
+
+                PrepareMovementProgress(
+                    currentPoint.Position
+                );
+
                 return;
             }
 
@@ -616,13 +815,30 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
                     return;
                 }
                 currentPoint = best;
-                pointLockedUntil = Time.time + minPointLockTime;
+
+                pointLockedUntil =
+                    Time.time +
+                    minPointLockTime;
+
+                MarkMeaningfulAction(
+                    $"Reserved:{best.name}"
+                );
             }
 
             usingFallbackChase = false;
             state = BrainState.Move;
-            nextStuckCheckTime = Time.time + stuckCheckInterval;
-            lastStuckPos = transform.position;
+
+            nextStuckCheckTime =
+                Time.time +
+                stuckCheckInterval;
+
+            lastStuckPos =
+                transform.position;
+
+            PrepareMovementProgress(
+                currentPoint.Position
+            );
+
             return;
         }
 
@@ -631,12 +847,27 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private void BeginFallbackChase()
     {
+        ReleaseCurrentPoint();
+        ClearNavigationPath();
+
         usingFallbackChase = true;
-        currentPoint = null;
         shooterArmedThisWindow = false;
         state = BrainState.Move;
-        nextStuckCheckTime = Time.time + stuckCheckInterval;
-        lastStuckPos = transform.position;
+
+        nextStuckCheckTime =
+            Time.time +
+            stuckCheckInterval;
+
+        lastStuckPos =
+            transform.position;
+
+        PrepareMovementProgress(
+            GetPlayerPos()
+        );
+
+        MarkMeaningfulAction(
+            "FallbackChase"
+        );
     }
 
     private void TickMove()
@@ -665,22 +896,26 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
                 return;
             }
 
-            MoveTowardTarget(escapeWaypointTarget, moveSpeed);
-
-            // Stuck while even navigating to the escape waypoint — give up and replan normally
-            if (Time.time >= nextStuckCheckTime)
+            if (!MoveTowardTarget(
+                    escapeWaypointTarget,
+                    moveSpeed))
             {
-                float traveled = Vector2.Distance((Vector2)transform.position, lastStuckPos);
-                if (traveled < stuckMinTravel)
-                {
-                    usingEscapeWaypoint = false;
-                    ResetAdvanceStuck();
-                    pointLockedUntil = 0f;
-                    EnterReplan(false);
-                    return;
-                }
-                lastStuckPos = transform.position;
-                nextStuckCheckTime = Time.time + stuckCheckInterval;
+                usingEscapeWaypoint = false;
+                ResetAdvanceStuck();
+                pointLockedUntil = 0f;
+                EnterReplan(false);
+                return;
+            }
+
+            if (HasMovementProgressTimedOut(
+                    escapeWaypointTarget))
+            {
+                usingEscapeWaypoint = false;
+                ResetAdvanceStuck();
+                pointLockedUntil = 0f;
+                ClearNavigationPath();
+                EnterReplan(false);
+                return;
             }
             return;
         }
@@ -708,31 +943,68 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             ClearMoveIntent();
             // Arrived at player position during fallback chase — reset advance stuck since
             // we successfully navigated there
-            if (usingFallbackChase) ResetAdvanceStuck();
+            if (usingFallbackChase)
+                ResetAdvanceStuck();
+
+            MarkMeaningfulAction(
+                "ReachedDestination"
+            );
+
+            ClearNavigationPath();
             EnterSettle();
             return;
         }
 
         float speed = moveSpeed;
         if (currentRole == EnemySquadRole.Retreater) speed *= retreatSpeedMultiplier;
-        MoveTowardTarget(target, speed);
-
-        if (Time.time >= nextStuckCheckTime)
+        if (!MoveTowardTarget(
+                target,
+                speed))
         {
-            float traveled = Vector2.Distance((Vector2)transform.position, lastStuckPos);
-            if (traveled < stuckMinTravel)
+            pointLockedUntil = 0f;
+
+            if (currentPoint != null)
             {
-                pointLockedUntil = 0f;
-
-                // Track how many times we've been stuck during a pressure advance
-                if (usingFallbackChase && squadPressure01 >= advancePressureThreshold)
-                    advanceStuckCount++;
-
-                EnterReplan(true);
-                return;
+                MarkCurrentPointFailed();
+                ReleaseCurrentPoint();
             }
-            lastStuckPos = transform.position;
-            nextStuckCheckTime = Time.time + stuckCheckInterval;
+
+            if (usingFallbackChase &&
+                squadPressure01 >=
+                advancePressureThreshold)
+            {
+                advanceStuckCount++;
+            }
+
+            EnterReplan(true);
+            return;
+        }
+
+        if (HasMovementProgressTimedOut(
+                target))
+        {
+            pointLockedUntil = 0f;
+
+            if (currentPoint != null)
+            {
+                MarkCurrentPointFailed();
+                ReleaseCurrentPoint();
+            }
+
+            if (usingFallbackChase &&
+                squadPressure01 >=
+                advancePressureThreshold)
+            {
+                advanceStuckCount++;
+            }
+
+            ClearNavigationPath();
+            MarkMeaningfulAction(
+                "ProgressTimeout"
+            );
+
+            EnterReplan(true);
+            return;
         }
     }
 
@@ -768,10 +1040,24 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         nextStrafePickTime = Time.time;
         isStrafeMoving = false;
 
-        RoleShooterTuning t = GetRoleTuning();
-        TryCall(shooter, "SetFireInterval", new object[] { t.fireInterval });
-        TryCall(shooter, "SetAimLag", new object[] { t.aimLag });
+        RoleShooterTuning t =
+            GetRoleTuning();
+
+        if (shooter != null)
+        {
+            shooter.SetFireInterval(
+                t.fireInterval
+            );
+
+            shooter.SetAimLag(
+                t.aimLag
+            );
+        }
+
         ApplyFiringStyleForThisWindow();
+        MarkMeaningfulAction(
+            "AttackWindow"
+        );
 
         attackEnableTime = Time.time + Mathf.Max(0f, t.firstShotDelay + UnityEngine.Random.Range(0.04f, 0.16f));
         nextStateTime = Time.time + UnityEngine.Random.Range(t.attackWindow.x, t.attackWindow.y);
@@ -817,11 +1103,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             if (dist > Mathf.Max(profile.preferredMaxRange, 0.01f))
             {
                 SetShooterGate(false);
-                usingFallbackChase = true;
-                currentPoint = null;
-                state = BrainState.Move;
-                nextStuckCheckTime = Time.time + stuckCheckInterval;
-                lastStuckPos = transform.position;
+                BeginFallbackChase();
                 return;
             }
         }
@@ -831,9 +1113,18 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         if (!shooterArmedThisWindow)
         {
             SyncShooterTarget();
-            TryCall(shooter, "ForceReadyToFire", new object[] { 0f });
+
+            if (shooter != null)
+            {
+                shooter.ForceReadyToFire(0f);
+            }
+
             SetShooterGate(true);
             shooterArmedThisWindow = true;
+
+            MarkMeaningfulAction(
+                "ShooterArmed"
+            );
         }
 
         // Miss pressure: track time in window, trigger reposition when player is stationary
@@ -981,8 +1272,34 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
                 Mathf.Cos(angleDeg * Mathf.Deg2Rad),
                 Mathf.Sin(angleDeg * Mathf.Deg2Rad)) * r;
 
-            bool hasLos = !Physics2D.Linecast(candidate, playerPos, losBlockMask);
-            if (!hasLos) continue;
+            bool hasLos =
+                CombatLineOfSight2D.HasLineOfSight(
+                    this,
+                    candidate,
+                    playerPos,
+                    losBlockMask,
+                    out _
+                );
+
+            if (!hasLos)
+                continue;
+
+            if (navigationGrid != null &&
+                navigationGrid.IsBuilt)
+            {
+                if (!navigationGrid.IsPositionWalkable(
+                        candidate))
+                {
+                    continue;
+                }
+
+                if (!navigationGrid.AreConnected(
+                        myPos,
+                        candidate))
+                {
+                    continue;
+                }
+            }
 
             Vector2 newAimDir = (playerPos - candidate).normalized;
             float angleDelta = Vector2.Angle(currentAimDir, newAimDir);
@@ -1027,9 +1344,18 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             ClearMoveIntent();
             ApplyFiringStyleForThisWindow();
             SyncShooterTarget();
-            TryCall(shooter, "ForceReadyToFire", new object[] { 0f });
+
+            if (shooter != null)
+            {
+                shooter.ForceReadyToFire(0f);
+            }
+
             SetShooterGate(true);
             shooterArmedThisWindow = true;
+
+            MarkMeaningfulAction(
+                "RepositionComplete"
+            );
         }
         else
         {
@@ -1065,10 +1391,44 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
                 float r = radius * UnityEngine.Random.Range(0.3f, 1.0f);
                 Vector2 candidate = zoneCenter + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * r;
 
-                // Must have LOS and be meaningfully different from current position
-                bool hasLos = !Physics2D.Linecast(candidate, playerPos, losBlockMask);
-                bool isNovel = Vector2.Distance(candidate, myPos) > 0.2f;
-                if (hasLos && isNovel) { bestCandidate = candidate; found = true; break; }
+                bool hasLos =
+                    CombatLineOfSight2D.HasLineOfSight(
+                        this,
+                        candidate,
+                        playerPos,
+                        losBlockMask,
+                        out _
+                    );
+
+                bool isNovel =
+                    Vector2.Distance(
+                        candidate,
+                        myPos
+                    ) > 0.2f;
+
+                bool navigable = true;
+
+                if (navigationGrid != null &&
+                    navigationGrid.IsBuilt)
+                {
+                    navigable =
+                        navigationGrid.IsPositionWalkable(
+                            candidate
+                        ) &&
+                        navigationGrid.AreConnected(
+                            myPos,
+                            candidate
+                        );
+                }
+
+                if (hasLos &&
+                    isNovel &&
+                    navigable)
+                {
+                    bestCandidate = candidate;
+                    found = true;
+                    break;
+                }
             }
 
             if (found)
@@ -1120,41 +1480,389 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     // ----------------------------
     // Movement helpers
     // ----------------------------
-    private void MoveTowardTarget(Vector2 target, float speed)
+    private bool MoveTowardTarget(
+        Vector2 target,
+        float speed)
     {
-        Vector2 pos = rb != null ? rb.position : (Vector2)transform.position;
-        Vector2 toTarget = target - pos;
-        if (toTarget.sqrMagnitude < 0.0001f) { ClearMoveIntent(); return; }
+        Vector2 position =
+            rb != null
+                ? rb.position
+                : (Vector2)transform.position;
 
-        Vector2 dir = toTarget.normalized;
+        Vector2 steeringTarget =
+            target;
 
-        bool blocked = Physics2D.Raycast(pos, dir, obstacleProbeDistance, losBlockMask);
-        if (blocked)
+        if (navigationGrid != null &&
+            navigationGrid.IsBuilt)
         {
-            if (Time.time >= avoidSideUntil || avoidSideSign == 0)
+            bool destinationChanged =
+                !hasNavigationDestination ||
+                Vector2.Distance(
+                    navigationDestination,
+                    target
+                ) >
+                Mathf.Max(
+                    0.25f,
+                    navigationGrid.CellSize
+                );
+
+            bool needsRefresh =
+                destinationChanged ||
+                navigationPath.Count == 0 ||
+                navigationPathIndex >=
+                navigationPath.Count ||
+                Time.time >=
+                nextPathRefreshTime;
+
+            if (needsRefresh)
             {
-                avoidSideSign = UnityEngine.Random.value < 0.5f ? -1 : 1;
-                avoidSideUntil = Time.time + 0.30f;
+                navigationPath.Clear();
+                navigationPathIndex = 0;
+
+                bool found =
+                    navigationGrid.TryFindPath(
+                        position,
+                        target,
+                        navigationPath
+                    );
+
+                navigationDestination =
+                    target;
+
+                hasNavigationDestination =
+                    true;
+
+                nextPathRefreshTime =
+                    Time.time +
+                    Mathf.Max(
+                        0.05f,
+                        pathRefreshInterval
+                    );
+
+                if (!found ||
+                    navigationPath.Count == 0)
+                {
+                    debugPathStatus =
+                        "Path Failed";
+
+                    ClearMoveIntent();
+                    return false;
+                }
+
+                debugPathStatus =
+                    $"Path {navigationPath.Count}";
             }
-            Vector2 perp = avoidSideSign > 0
-                ? new Vector2(-dir.y, dir.x)
-                : new Vector2(dir.y, -dir.x);
-            dir = (dir * 0.35f + perp * 0.65f).normalized;
-            if (Physics2D.Raycast(pos, dir, obstacleProbeDistance * 0.90f, losBlockMask))
+
+            while (navigationPathIndex <
+                   navigationPath.Count)
+            {
+                Vector2 waypoint =
+                    navigationPath[
+                        navigationPathIndex
+                    ];
+
+                if (Vector2.Distance(
+                        position,
+                        waypoint) >
+                    waypointArrivalRadius)
+                {
+                    break;
+                }
+
+                navigationPathIndex++;
+
+                MarkMeaningfulAction(
+                    "ReachedWaypoint"
+                );
+            }
+
+            if (navigationPathIndex <
+                navigationPath.Count)
+            {
+                steeringTarget =
+                    navigationPath[
+                        navigationPathIndex
+                    ];
+            }
+            else
+            {
+                steeringTarget = target;
+            }
+        }
+        else
+        {
+            debugPathStatus =
+                "Direct Steering";
+        }
+
+        Vector2 toTarget =
+            steeringTarget -
+            position;
+
+        if (toTarget.sqrMagnitude <
+            0.0001f)
+        {
+            ClearMoveIntent();
+            return true;
+        }
+
+        Vector2 direction =
+            toTarget.normalized;
+
+        bool blocked =
+            Physics2D.Raycast(
+                position,
+                direction,
+                obstacleProbeDistance,
+                losBlockMask
+            );
+
+        if (blocked &&
+            (navigationGrid == null ||
+             !navigationGrid.IsBuilt))
+        {
+            if (Time.time >=
+                    avoidSideUntil ||
+                avoidSideSign == 0)
+            {
+                avoidSideSign =
+                    UnityEngine.Random.value <
+                    0.5f
+                        ? -1
+                        : 1;
+
+                avoidSideUntil =
+                    Time.time +
+                    0.30f;
+            }
+
+            Vector2 perpendicular =
+                avoidSideSign > 0
+                    ? new Vector2(
+                        -direction.y,
+                        direction.x
+                    )
+                    : new Vector2(
+                        direction.y,
+                        -direction.x
+                    );
+
+            direction =
+                (
+                    direction *
+                    0.35f +
+                    perpendicular *
+                    0.65f
+                ).normalized;
+
+            if (Physics2D.Raycast(
+                    position,
+                    direction,
+                    obstacleProbeDistance *
+                    0.90f,
+                    losBlockMask))
             {
                 ClearMoveIntent();
-                return;
+                return false;
             }
         }
 
-        desiredVelocity = dir * speed;
+        desiredVelocity =
+            direction *
+            speed;
+
         hasMoveIntent = true;
+
+        UpdateMovementProgress(
+            target
+        );
+
+        return true;
     }
 
     private void ClearMoveIntent()
     {
         desiredVelocity = Vector2.zero;
         hasMoveIntent = false;
+    }
+
+    private void ClearNavigationPath()
+    {
+        navigationPath.Clear();
+        navigationPathIndex = 0;
+        hasNavigationDestination = false;
+        nextPathRefreshTime = 0f;
+        debugPathStatus = "No Path";
+    }
+
+    private void PrepareMovementProgress(
+        Vector2 destination)
+    {
+        lastProgressTime = Time.time;
+
+        bestRemainingDistance =
+            CalculateRemainingDistance(
+                destination
+            );
+    }
+
+    private void UpdateMovementProgress(
+        Vector2 destination)
+    {
+        float remaining =
+            CalculateRemainingDistance(
+                destination
+            );
+
+        if (float.IsInfinity(
+                bestRemainingDistance) ||
+            remaining <=
+            bestRemainingDistance -
+            progressRequired)
+        {
+            bestRemainingDistance =
+                remaining;
+
+            lastProgressTime =
+                Time.time;
+
+            MarkMeaningfulAction(
+                "MovementProgress"
+            );
+        }
+    }
+
+    private bool HasMovementProgressTimedOut(
+        Vector2 destination)
+    {
+        UpdateMovementProgress(
+            destination
+        );
+
+        return
+            Time.time -
+            lastProgressTime >=
+            progressTimeout;
+    }
+
+    private float CalculateRemainingDistance(
+        Vector2 destination)
+    {
+        Vector2 position =
+            rb != null
+                ? rb.position
+                : (Vector2)transform.position;
+
+        if (navigationPath.Count == 0 ||
+            navigationPathIndex >=
+            navigationPath.Count)
+        {
+            return Vector2.Distance(
+                position,
+                destination
+            );
+        }
+
+        float total =
+            Vector2.Distance(
+                position,
+                navigationPath[
+                    navigationPathIndex
+                ]
+            );
+
+        for (int i =
+                 navigationPathIndex + 1;
+             i < navigationPath.Count;
+             i++)
+        {
+            total += Vector2.Distance(
+                navigationPath[i - 1],
+                navigationPath[i]
+            );
+        }
+
+        return total;
+    }
+
+    private void MarkMeaningfulAction(
+        string reason)
+    {
+        lastMeaningfulActionTime =
+            Time.time;
+
+        lastMeaningfulActionReason =
+            reason;
+    }
+
+    private void MarkCurrentPointFailed()
+    {
+        if (currentPoint == null)
+            return;
+
+        failedPointUntil[currentPoint] =
+            Time.time +
+            Mathf.Max(
+                0.1f,
+                failedPointCooldown
+            );
+    }
+
+    private bool IsPointTemporarilyFailed(
+        CombatTacticalPoint point)
+    {
+        if (point == null)
+            return false;
+
+        if (!failedPointUntil.TryGetValue(
+                point,
+                out float until))
+        {
+            return false;
+        }
+
+        if (Time.time >= until)
+        {
+            failedPointUntil.Remove(point);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void CleanupFailedPointMemory()
+    {
+        if (failedPointUntil.Count == 0)
+            return;
+
+        List<CombatTacticalPoint> remove =
+            null;
+
+        foreach (var pair in failedPointUntil)
+        {
+            if (pair.Key == null ||
+                Time.time >= pair.Value)
+            {
+                remove ??=
+                    new List<
+                        CombatTacticalPoint
+                    >();
+
+                remove.Add(pair.Key);
+            }
+        }
+
+        if (remove == null)
+            return;
+
+        for (int i = 0;
+             i < remove.Count;
+             i++)
+        {
+            failedPointUntil.Remove(
+                remove[i]
+            );
+        }
     }
 
     // ----------------------------
@@ -1178,9 +1886,33 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         for (int i = 0; i < points.Count; i++)
         {
             var p = points[i];
-            if (p == null || !p.CanBeUsedBy(this, Time.time)) continue;
+
+            if (p == null ||
+                !p.CanBeUsedBy(
+                    this,
+                    Time.time) ||
+                IsPointTemporarilyFailed(p))
+            {
+                continue;
+            }
+
+            float travel =
+                navigationGrid != null &&
+                navigationGrid.IsBuilt
+                    ? navigationGrid.EstimatePathCost(
+                        myPos,
+                        p.Position
+                    )
+                    : Vector2.Distance(
+                        myPos,
+                        p.Position
+                    );
+
+            if (float.IsInfinity(travel))
+                continue;
 
             float score = 0f;
+            score += p.baseScoreBias;
             score += ScoreRoleTypeFit(p.pointType);
             score += ScorePersonalityBias(p);
 
@@ -1197,18 +1929,48 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
                 if (p.pointType == TacticalPointType.Fire) score -= 0.25f;
             }
 
-            bool pointHasLos = !Physics2D.Linecast(p.Position, playerPos, losBlockMask);
+            bool pointHasLos =
+                CombatLineOfSight2D.HasLineOfSight(
+                    this,
+                    p.Position,
+                    playerPos,
+                    losBlockMask,
+                    out _
+                );
             if (currentRole == EnemySquadRole.Anchor || currentRole == EnemySquadRole.Suppressor)
                 score += pointHasLos ? 1.2f : -2.4f;
 
             float distToPlayer = Vector2.Distance(p.Position, playerPos);
             score += ScoreRangeFit(distToPlayer) * rangeFitWeight;
 
-            if (currentRole == EnemySquadRole.FlankerLeft || currentRole == EnemySquadRole.FlankerRight)
-                score += ScoreFlankSide(p.Position, playerPos) * flankWeight;
+            if (currentRole ==
+                    EnemySquadRole.FlankerLeft ||
+                currentRole ==
+                    EnemySquadRole.FlankerRight)
+            {
+                score +=
+                    ScoreFlankSide(
+                        p.Position,
+                        playerPos
+                    ) *
+                    flankWeight;
 
-            float travel = Vector2.Distance(myPos, p.Position);
-            score -= travel * travelCostWeight * 0.2f;
+                int desiredLane =
+                    currentRole ==
+                    EnemySquadRole.FlankerLeft
+                        ? -1
+                        : 1;
+
+                if (p.laneTag == desiredLane)
+                    score += 0.75f;
+                else if (p.laneTag == -desiredLane)
+                    score -= 0.75f;
+            }
+
+            score -=
+                travel *
+                travelCostWeight *
+                0.2f;
             if (p.IsReserved && p != currentPoint) score -= occupiedPenalty;
             if (p == currentPoint) score += 0.45f;
 
@@ -1306,6 +2068,55 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         return 0f;
     }
 
+    private bool IsPointCompatibleWithRole(
+        CombatTacticalPoint point,
+        EnemySquadRole role)
+    {
+        if (point == null)
+            return false;
+
+        switch (role)
+        {
+            case EnemySquadRole.Suppressor:
+                return
+                    point.pointType ==
+                        TacticalPointType.Fire ||
+                    point.pointType ==
+                        TacticalPointType.Cover;
+
+            case EnemySquadRole.FlankerLeft:
+                return
+                    point.pointType ==
+                        TacticalPointType.FlankLeft ||
+                    point.pointType ==
+                        TacticalPointType.Cover;
+
+            case EnemySquadRole.FlankerRight:
+                return
+                    point.pointType ==
+                        TacticalPointType.FlankRight ||
+                    point.pointType ==
+                        TacticalPointType.Cover;
+
+            case EnemySquadRole.Retreater:
+                return
+                    point.pointType ==
+                        TacticalPointType.Retreat ||
+                    point.pointType ==
+                        TacticalPointType.Cover;
+
+            case EnemySquadRole.Anchor:
+                return
+                    point.pointType ==
+                        TacticalPointType.Cover ||
+                    point.pointType ==
+                        TacticalPointType.Fire;
+
+            default:
+                return true;
+        }
+    }
+
     private void ReleaseCurrentPoint()
     {
         if (currentPoint == null) return;
@@ -1326,7 +2137,9 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             return;
 
         shooterGateEnabled = finalEnabled;
-        TryCall(shooter, "SetShootingEnabled", new object[] { finalEnabled });
+        shooter.SetShootingEnabled(
+            finalEnabled
+        );
     }
 
     private void SyncShooterTarget()
@@ -1334,35 +2147,76 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         if (shooter == null || playerTransform == null) return;
         if (lastSyncedShooterTarget != playerTransform)
         {
-            TryCall(shooter, "SetTarget", new object[] { playerTransform });
-            lastSyncedShooterTarget = playerTransform;
+            shooter.SetTarget(
+                playerTransform
+            );
+
+            lastSyncedShooterTarget =
+                playerTransform;
         }
     }
 
     private void ApplyFiringStyleForThisWindow()
     {
-        if (shooter == null) return;
+        if (shooter == null)
+            return;
 
-        TryCall(shooter, "SetBurstConfig", new object[] { profile.shotsPerBurst, profile.intraBurstInterval, profile.burstCooldown });
-        TryCall(shooter, "SetBurstQuotaPerEnable", new object[] { true, Mathf.Max(1, profile.burstsPerEnable) });
+        shooter.SetBurstConfig(
+            profile.shotsPerBurst,
+            profile.intraBurstInterval,
+            profile.burstCooldown
+        );
 
-        float dist = Vector2.Distance(transform.position, GetPlayerPos());
+        shooter.SetBurstQuotaPerEnable(
+            true,
+            Mathf.Max(
+                1,
+                profile.burstsPerEnable
+            )
+        );
 
-        // Close-range pattern forcing
-        string chosen;
-        if (dist < closeRangeOverrideDistance)
-            chosen = "BoI_8Way";
+        float distance =
+            Vector2.Distance(
+                transform.position,
+                GetPlayerPos()
+            );
+
+        string chosenPattern;
+
+        if (distance <
+            closeRangeOverrideDistance)
+        {
+            chosenPattern =
+                "BoI_8Way";
+        }
         else
-            chosen = dist < profile.preferredMinRange ? profile.closePattern
-                   : dist > profile.preferredMaxRange ? profile.farPattern
-                   : profile.midPattern;
+        {
+            chosenPattern =
+                distance <
+                profile.preferredMinRange
+                    ? profile.closePattern
+                    : distance >
+                      profile.preferredMaxRange
+                        ? profile.farPattern
+                        : profile.midPattern;
+        }
 
-        TrySetShooterPatternByName(chosen);
+        shooter.SetPattern(
+            chosenPattern
+        );
 
-        TrySetFieldOrProperty(shooter, "fanBullets", profile.fanBullets);
-        TrySetFieldOrProperty(shooter, "fanArcDegrees", profile.fanArcDegrees);
-        TrySetFieldOrProperty(shooter, "ringBullets", profile.ringBullets);
-        TrySetFieldOrProperty(shooter, "angularSpeedDegPerTick", profile.angularSpeedDegPerTick);
+        shooter.SetFanConfig(
+            profile.fanBullets,
+            profile.fanArcDegrees
+        );
+
+        shooter.SetRingBullets(
+            profile.ringBullets
+        );
+
+        shooter.SetAngularSpeed(
+            profile.angularSpeedDegPerTick
+        );
     }
 
     private bool TrySetShooterPatternByName(string patternName)
@@ -1395,15 +2249,16 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private bool HasLineOfSightToPlayerNow()
     {
-        if (playerTransform == null) return false;
-        RaycastHit2D[] hits = Physics2D.LinecastAll(transform.position, playerTransform.position, losBlockMask);
-        foreach (var hit in hits)
-        {
-            if (hit.collider == null) continue;
-            if (hit.collider.transform.root == transform.root) continue;
-            return hit.collider.transform.root == playerTransform.root;
-        }
-        return true;
+        if (playerTransform == null)
+            return false;
+
+        return CombatLineOfSight2D.HasLineOfSight(
+            this,
+            transform.position,
+            playerTransform,
+            losBlockMask,
+            out _
+        );
     }
 
     private bool ShouldFlee(out bool panicFight)
