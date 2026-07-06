@@ -468,6 +468,8 @@ MonoBehaviour:
   combatPlayerPawnPrefab: {fileID: 6170445591022180168, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
   playerSpawn: {fileID: 75719374}
   enemySpawnsParent: {fileID: 2053632814}
+  proceduralArenaGenerator: {fileID: 0}
+  logProceduralGeneration: 1
   attackMomentum: {fileID: 142555496}
   enemyDefeatMomentumBoost: 12
   rankSettings: {fileID: 11400000, guid: 3d81c1dc55072b14c9b5e79e3a153fbe, type: 2}
@@ -1210,10 +1212,17 @@ MonoBehaviour:
   slowTimeScale: 0.12
   skillPanelRoot: {fileID: 1937567685}
   listText: {fileID: 1700314454}
-  partyTargetMenu: {fileID: 206606213}
+  showNoApTag: 1
+  blockUnavailableSkillConfirm: 1
+  selectedAffordableSkillColor: {r: 1, g: 1, b: 1, a: 1}
+  unselectedAffordableSkillColor: {r: 0.8679245, g: 0.8679245, b: 0.8679245, a: 1}
+  unavailableSkillColor: {r: 0.28, g: 0.28, b: 0.28, a: 1}
+  boldSelectedSkill: 0
+  openPanelRefreshInterval: 0.08
+  partyTargetPanel: {fileID: 0}
   placement: {fileID: 1774833438}
   attackMomentum: {fileID: 0}
-  closeMenuAfterCast: 1
+  closePanelAfterCast: 1
 --- !u!114 &206606213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1236,6 +1245,16 @@ MonoBehaviour:
   altUpKey: 119
   altDownKey: 115
   openInputLockSeconds: 0.12
+  preventSelectingFullHealthTargets: 1
+  lowHealthThreshold: 0.5
+  criticalHealthThreshold: 0.25
+  highHealthColor: {r: 1, g: 1, b: 1, a: 1}
+  lowHealthColor: {r: 1, g: 0.85, b: 0.1, a: 1}
+  criticalHealthColor: {r: 1, g: 0.2, b: 0.2, a: 1}
+  fullHealthUnavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 1}
+  fullHealthTag: '[FULL]'
+  showHealthConditionTags: 0
+  openMenuRefreshInterval: 0.1
 --- !u!1 &238885541
 GameObject:
   m_ObjectHideFlags: 0
@@ -7034,16 +7053,26 @@ MonoBehaviour:
   maxSuppressors: 2
   maxFlankers: 2
   forceAtLeastOneAnchor: 1
+  minimumRoleDuration: 2
+  emergencyRoleOverridePressure: 0.85
   losBlockMask:
     serializedVersion: 2
     m_Bits: 128
+  useTrueLastSeenPosition: 1
+  lastSeenMemorySeconds: 3
   stalemateGracePeriod: 3.5
   pressureRampDuration: 4
   playerMoveResetThreshold: 0.6
   pressureDecayRate: 0.4
+  idleAgentGrace: 1.8
+  blockedLosPressureWeight: 0.65
+  idleAgentPressureWeight: 0.45
   debugLogs: 1
   drawGizmos: 1
   debugCurrentPressure: 0
+  debugBlockedLosRatio: 0
+  debugIdleAgentRatio: 0
+  debugAnyEnemySeesPlayer: 0
 --- !u!1 &2033796758
 GameObject:
   m_ObjectHideFlags: 0
