@@ -4262,8 +4262,8 @@ MonoBehaviour:
   encounterMode: 1
   proceduralProfile: {fileID: 11400000, guid: 6c6da09371bdb664090658fd81d809aa, type: 2}
   proceduralSeed: 0
-  testEnemy: {fileID: 0}
-  enemyCount: 3
+  testEnemy: {fileID: 11400000, guid: 20c4d7a6ffbdf1f4da0b3d6122f1c200, type: 2}
+  enemyCount: 1
 --- !u!4 &1122620619
 Transform:
   m_ObjectHideFlags: 0
@@ -4477,7 +4477,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1208084824
 Transform:
   m_ObjectHideFlags: 0
