@@ -273,12 +273,25 @@ MonoBehaviour:
   coverCancelRecoveryBonusSeconds: 0.35
   wallCrashRecoveryBonusSeconds: 0.5
   forceOppositeSideProwlAfterFailedLunge: 1
+  requireClearLungeStartBeforeTelegraph: 1
+  lungeStartClearanceDistance: 0.85
+  blockedTelegraphRetryDelay: 0.7
+  blockedTelegraphRetargetDelay: 0.25
+  queueSideProwlWhenTelegraphBlocked: 1
+  enableBlockedMoveRescue: 1
+  blockedMoveEscapeAfterSeconds: 0.22
+  blockedMoveNudgeDistance: 0.16
+  holdNearPlayerBlockedCooldown: 1.25
+  targetFailureEscapeThreshold: 2
+  targetFailureEscapeCooldown: 0.45
   showLungeHitboxVisual: 1
   lungeHitboxVisualObject: {fileID: 8816470005859452560}
+  lungeDamageHitbox: {fileID: 8592273085017307801}
+  autoFindLungeDamageHitbox: 1
   showLungeHitboxVisualDuringTelegraph: 1
   telegraphVisualTracksUntilAimLock: 1
-  autoScaleLungeHitboxVisual: 1
-  lungeHitboxVisualScaleMultiplier: 0.18
+  autoScaleLungeHitboxVisual: 0
+  lungeHitboxVisualScaleMultiplier: 1
   rotateLungeHitboxVisualToDirection: 0
   lungeHitboxVisualOffset: {x: 0, y: 0}
   lungeHitboxVisualUseExactDamageCenter: 1
@@ -323,7 +336,7 @@ MonoBehaviour:
     m_Bits: 128
   playerHitMask:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 256
   bodyRadius: 0.32
   obstacleSkinWidth: 0.03
   debugFacing: Right
@@ -342,6 +355,9 @@ MonoBehaviour:
   debugSpeedModifierMultiplier: 1
   debugQueuedIntent: None
   debugFullRetreatCooldownRemaining: 0
+  debugHoldNearPlayerBlockedRemaining: 0
+  debugBlockedMoveSeconds: 0
+  debugConsecutiveTargetFailures: 0
 --- !u!114 &1399411042261430556
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -517,6 +533,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8136194706104347492}
   - component: {fileID: 5362404977702218517}
+  - component: {fileID: 3150254859076979929}
+  - component: {fileID: 8592273085017307801}
   m_Layer: 10
   m_Name: Lunge HHitbox Visual Object
   m_TagString: Untagged
@@ -534,7 +552,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.12, y: 0.12, z: 0.12}
+  m_LocalScale: {x: 0.34, y: 0.34, z: 0.34}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 7405864415099457163}
@@ -598,3 +616,60 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!58 &3150254859076979929
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8816470005859452560}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_Radius: 0.61
+--- !u!114 &8592273085017307801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8816470005859452560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b61cd007e602df4c831366ce72e5c57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AttackDogLungeHitbox
+  hitboxCollider: {fileID: 3150254859076979929}
+  visualRenderer: {fileID: 5362404977702218517}
+  forceTrigger: 1
+  autoFitColliderToSpriteOnAwake: 0
+  colliderFitMultiplier: 1
+  drawColliderGizmo: 1
+  logAcceptedHits: 0
+  debugDamageActive: 0
+  debugLastHit: None

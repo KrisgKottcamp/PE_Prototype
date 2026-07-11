@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// AttackDogBrain v17
+/// AttackDogBrain v22
 ///
 /// Purpose:
 /// A melee harasser enemy for Project Eri.
@@ -26,6 +26,12 @@ using UnityEngine;
 /// - v17 separates the dog's damageable hurtbox from its lunge attack hitbox. A larger child
 ///   EnemyHurtbox trigger can make the dog easier to hit while a smaller lunge radius keeps the attack fair.
 /// - v18 allows the damageable hurtbox to be either a CircleCollider2D or CapsuleCollider2D.
+/// - v19 adds telegraph anti-stall checks so the dog does not warn a lunge while wedged into cover.
+/// - v20 adds blocked-move rescue and HoldNearPlayer cooldowns so the dog can unpin itself from cover/walls
+///   instead of repeatedly choosing invalid hold/prowl targets until the player drags it away.
+/// - v22 makes the visible red lunge object the authoritative damage hitbox. Its own Collider2D is
+///   disabled during telegraph/fade-out, armed only during the active lunge, and swept to prevent tunneling.
+///   This is a corrected rebuild based on the stable v20 script so no movement/utility methods are lost.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -252,12 +258,53 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     [Tooltip("After a missed, cancelled, or wall-crashed lunge, make the next prowl move continue from the opposite side of the player.")]
     [SerializeField] private bool forceOppositeSideProwlAfterFailedLunge = true;
 
+    [Header("Telegraph Anti-Stall")]
+    [Tooltip("Before the red telegraph appears, do a radius-based clearance check. This prevents the dog from warning an attack while wedged against cover that blocks the lunge body.")]
+    [SerializeField] private bool requireClearLungeStartBeforeTelegraph = true;
+
+    [Tooltip("How far forward from the dog to check with Body Radius before allowing the telegraph to begin. Raise this if the dog still warns attacks while pressed into cover.")]
+    [SerializeField, Min(0.05f)] private float lungeStartClearanceDistance = 0.85f;
+
+    [Tooltip("When the dog wants to attack but cover/body clearance blocks the start, delay the next attack attempt by this many seconds.")]
+    [SerializeField, Min(0.05f)] private float blockedTelegraphRetryDelay = 0.70f;
+
+    [Tooltip("After a blocked telegraph attempt, wait this long before choosing a new prowl target.")]
+    [SerializeField, Min(0.05f)] private float blockedTelegraphRetargetDelay = 0.25f;
+
+    [Tooltip("If an attack warning is blocked by cover, queue an opposite-side prowl so the dog routes around the obstacle instead of repeatedly warning into the wall.")]
+    [SerializeField] private bool queueSideProwlWhenTelegraphBlocked = true;
+
+    [Header("Blocked Move Rescue")]
+    [Tooltip("When normal movement is blocked by cover/walls, temporarily abandon the current hold/prowl target and force a safer side prowl.")]
+    [SerializeField] private bool enableBlockedMoveRescue = true;
+
+    [Tooltip("How long the dog may keep hitting a wall before it performs a small emergency nudge away from the blocker.")]
+    [SerializeField, Min(0.02f)] private float blockedMoveEscapeAfterSeconds = 0.22f;
+
+    [Tooltip("Small physical correction used to pull the dog away from cover when it is wedged. Keep this low so it does not look like teleporting.")]
+    [SerializeField, Min(0.01f)] private float blockedMoveNudgeDistance = 0.16f;
+
+    [Tooltip("After HoldNearPlayer gets blocked, temporarily forbid HoldNearPlayer so the dog chooses a side prowl instead of repeating the same bad wall-side hold.")]
+    [SerializeField, Min(0.05f)] private float holdNearPlayerBlockedCooldown = 1.25f;
+
+    [Tooltip("How many consecutive target-pick failures are allowed before the dog performs an emergency nudge and forces a side prowl.")]
+    [SerializeField, Min(1)] private int targetFailureEscapeThreshold = 2;
+
+    [Tooltip("Minimum delay between no-path/target-failure emergency nudges.")]
+    [SerializeField, Min(0.05f)] private float targetFailureEscapeCooldown = 0.45f;
+
     [Header("Lunge Hitbox Visual")]
     [Tooltip("Shows a visible object at the dog's active lunge hitbox. Use a red enemy-projectile-style SpriteRenderer child or prefab instance.")]
     [SerializeField] private bool showLungeHitboxVisual = true;
 
-    [Tooltip("Assign a disabled child GameObject with a SpriteRenderer. The script enables it during the telegraph/lunge and disables it after.")]
+    [Tooltip("Assign a disabled child GameObject with a SpriteRenderer, Collider2D, and AttackDogLungeHitbox. This object is both the warning visual and the real lunge damage hitbox.")]
     [SerializeField] private GameObject lungeHitboxVisualObject;
+
+    [Tooltip("AttackDogLungeHitbox component on the same visible child. Leave empty to auto-find it.")]
+    [SerializeField] private AttackDogLungeHitbox lungeDamageHitbox;
+
+    [Tooltip("Automatically find AttackDogLungeHitbox on the visible lunge object when the reference is empty.")]
+    [SerializeField] private bool autoFindLungeDamageHitbox = true;
 
     [Tooltip("Fade/show the danger marker during the telegraph instead of waiting until the active lunge starts.")]
     [SerializeField] private bool showLungeHitboxVisualDuringTelegraph = true;
@@ -265,7 +312,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     [Tooltip("Before Aim Lock, the telegraph marker follows the current player direction. After Aim Lock, it freezes to the committed lunge direction.")]
     [SerializeField] private bool telegraphVisualTracksUntilAimLock = true;
 
-    [Tooltip("Automatically scales the visual to match Lunge Hit Radius. Works best if the visual sprite is roughly 1 Unity unit wide.")]
+    [Tooltip("Automatically scales the visible object and its Collider2D together from Lunge Hit Radius. Turn this off when sizing the sprite and collider manually.")]
     [SerializeField] private bool autoScaleLungeHitboxVisual = true;
 
     [SerializeField, Min(0.01f)] private float lungeHitboxVisualScaleMultiplier = 1.0f;
@@ -273,7 +320,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     [Tooltip("Rotates the visual to face the lunge direction. Turn this off for circular sprites.")]
     [SerializeField] private bool rotateLungeHitboxVisualToDirection = false;
 
-    [Tooltip("Optional local offset from the real hitbox center. X = sideways, Y = forward along lunge direction. Leave this at 0,0 when the visual should perfectly match the real damage hitbox.")]
+    [Tooltip("Optional offset for the entire visible damage object. Since its Collider2D is on the same object, the sprite and damaging shape stay aligned. Leave at 0,0 for normal setup.")]
     [SerializeField] private Vector2 lungeHitboxVisualOffset = Vector2.zero;
 
     [Tooltip("When enabled, the visual is placed using the exact same circle center used by the lunge damage check. This should stay ON for a true gameplay hitbox marker.")]
@@ -400,6 +447,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private float debugSpeedModifierMultiplier = 1f;
     [SerializeField] private string debugQueuedIntent = "None";
     [SerializeField] private float debugFullRetreatCooldownRemaining;
+    [SerializeField] private float debugHoldNearPlayerBlockedRemaining;
+    [SerializeField] private float debugBlockedMoveSeconds;
+    [SerializeField] private int debugConsecutiveTargetFailures;
 
     private readonly struct BlockedTargetMemory
     {
@@ -428,6 +478,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     private float aimLockTime;
     private float backstepEndTime;
     private float nextAllowedRetargetTime;
+    private float nextBlockedTelegraphHandleTime;
 
     private Vector2 desiredVelocity;
     private int movementFacingSign = 1;
@@ -479,6 +530,12 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     private readonly List<BlockedTargetMemory> blockedTargets = new List<BlockedTargetMemory>();
     private readonly RaycastHit2D[] castResults = new RaycastHit2D[8];
 
+    private float blockedMoveStartedAt = -1f;
+    private Collider2D lastMoveBlocker;
+    private float holdNearPlayerForbiddenUntil;
+    private int consecutiveTargetPickFailures;
+    private float nextTargetFailureEscapeTime;
+
     public Transform Transform => transform;
 
     public bool IsAlive =>
@@ -515,6 +572,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         ResolveMovementFacingSprite();
         ResetMovementFacingToDefault();
         ConfigureDamageableHurtbox();
+        CacheLungeHitboxVisual();
+        ResolveLungeDamageHitbox();
+        ConfigureLungeDamageHitbox();
 
         if (rb != null)
         {
@@ -535,6 +595,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         playerTransformFallbackExtraRadius = Mathf.Max(0f, playerTransformFallbackExtraRadius);
 
         ConfigureDamageableHurtbox();
+        CacheLungeHitboxVisual();
+        ResolveLungeDamageHitbox();
+        ConfigureLungeDamageHitbox();
     }
 
     [ContextMenu("Configure Damageable Hurtbox")]
@@ -604,6 +667,10 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         ClearMovement();
         RestoreTelegraphColor();
         CacheLungeHitboxVisual();
+        ResolveLungeDamageHitbox();
+        ConfigureLungeDamageHitbox();
+        ValidateLungeDamageHitboxSetup();
+        DisarmLungeDamageHitbox();
         ForceHideLungeHitboxVisual();
         blockedTargets.Clear();
         forcedAggressionUntil = 0f;
@@ -613,6 +680,11 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         hasQueuedIntent = false;
         queuedIntent = HarassIntent.None;
         queuedIntentReason = "";
+        blockedMoveStartedAt = -1f;
+        lastMoveBlocker = null;
+        holdNearPlayerForbiddenUntil = 0f;
+        consecutiveTargetPickFailures = 0;
+        nextTargetFailureEscapeTime = 0f;
 
         ResolvePlayerTransform(force: true);
         ScheduleNextAttack(initialAttackDelayRange);
@@ -633,6 +705,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         ClearPath();
         ClearMovement();
         RestoreTelegraphColor();
+        DisarmLungeDamageHitbox();
         ForceHideLungeHitboxVisual();
     }
 
@@ -656,6 +729,14 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             0f,
             nextFullRetreatAllowedTime - Time.time
         );
+        debugHoldNearPlayerBlockedRemaining = Mathf.Max(
+            0f,
+            holdNearPlayerForbiddenUntil - Time.time
+        );
+        debugBlockedMoveSeconds = blockedMoveStartedAt >= 0f
+            ? Mathf.Max(0f, Time.time - blockedMoveStartedAt)
+            : 0f;
+        debugConsecutiveTargetFailures = consecutiveTargetPickFailures;
 
         if (!IsAlive)
         {
@@ -755,6 +836,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
         float allowedDistance = distance;
         Collider2D blocker = null;
+        Vector2 blockerNormal = Vector2.zero;
 
         if (obstacleMask.value != 0)
         {
@@ -785,6 +867,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
                 {
                     bestDistance = castResults[i].distance;
                     blocker = hitCollider;
+                    blockerNormal = castResults[i].normal;
                 }
             }
 
@@ -801,7 +884,10 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         Vector2 appliedMovement = nextPosition - startPosition;
 
         if (appliedMovement.sqrMagnitude > 0.000001f)
+        {
             UpdateMovementFacing(appliedMovement);
+            ResetBlockedMoveTracker();
+        }
 
         if (rb != null)
             rb.MovePosition(nextPosition);
@@ -813,11 +899,18 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             // Keep the red visual glued to the exact active hitbox center for
             // the position the dog is moving to this physics step. This avoids
             // a visible one-frame offset from Rigidbody2D.MovePosition timing.
-            UpdateLungeHitboxVisualAt(nextPosition, lungeDirection);
-            CheckLungeHitSwept(startPosition, nextPosition);
+            // Sweep the exact visible Collider2D through this movement step before
+            // the Rigidbody applies MovePosition. This keeps fast lunges from tunneling.
+            SweepVisibleLungeHitboxTo(nextPosition, lungeDirection);
 
-            // A successful hit may have already moved the dog into Recovery.
-            // Do not also process the same frame as a wall crash.
+            // A successful hit may already have moved the dog into Recovery.
+            if (state != DogState.Lunge)
+                return;
+
+            // Keep the visible damage object at the same local offset from the dog.
+            UpdateLungeHitboxVisualAt(nextPosition, lungeDirection);
+            CheckVisibleLungeHitboxOverlap();
+
             if (state != DogState.Lunge)
                 return;
 
@@ -828,13 +921,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         }
         else if (blocker != null)
         {
-            debugBlockedBy = blocker.name;
-            RememberBlockedTarget(currentTarget);
-            debugLastTargetReason = "Blocked Move";
-            nextAllowedRetargetTime = Time.time + blockedMoveRetryDelay;
-            ClearPath();
-            ClearMovement();
-            EnterState(DogState.ChooseIntent);
+            HandleBlockedMove(blocker, blockerNormal, direction);
         }
     }
 
@@ -861,7 +948,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
                 break;
 
             case EnemySquadRole.Anchor:
-                roleIntent = HarassIntent.HoldNearPlayer;
+                roleIntent = Time.time < holdNearPlayerForbiddenUntil
+                    ? (prowlSideSign < 0 ? HarassIntent.ProwlLeft : HarassIntent.ProwlRight)
+                    : HarassIntent.HoldNearPlayer;
                 break;
 
             case EnemySquadRole.Retreater:
@@ -1129,6 +1218,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
         if (TryPickTargetForIntent(intent, out Vector2 target, out string reason))
         {
+            consecutiveTargetPickFailures = 0;
             currentTarget = target;
             hasCurrentTarget = true;
             debugLastTargetReason = reason;
@@ -1137,7 +1227,19 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         }
         else
         {
+            consecutiveTargetPickFailures++;
             debugLastTargetReason = reason;
+
+            if (enableBlockedMoveRescue &&
+                consecutiveTargetPickFailures >= targetFailureEscapeThreshold &&
+                Time.time >= nextTargetFailureEscapeTime)
+            {
+                nextTargetFailureEscapeTime = Time.time + targetFailureEscapeCooldown;
+                TryEmergencyNudge(GetPosition() - GetPlayerPosition());
+                ForbidHoldNearPlayer("Target failure rescue");
+                QueueSideProwlAroundBlocker("Target failure rescue", overwrite: true);
+            }
+
             nextAllowedRetargetTime = Time.time + invalidTargetRetryDelay;
             EnterState(DogState.ChooseIntent);
         }
@@ -1183,7 +1285,14 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             return HarassIntent.ProwlRight;
 
         if (currentRole == EnemySquadRole.Anchor)
-            return HarassIntent.HoldNearPlayer;
+        {
+            if (Time.time >= holdNearPlayerForbiddenUntil)
+                return HarassIntent.HoldNearPlayer;
+
+            return prowlSideSign < 0
+                ? HarassIntent.ProwlLeft
+                : HarassIntent.ProwlRight;
+        }
 
         bool playerMoving = smoothedPlayerVelocity.magnitude >= playerMovingSpeedThreshold;
 
@@ -1204,6 +1313,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
     private bool CanHoldThreatNow()
     {
+        if (Time.time < holdNearPlayerForbiddenUntil)
+            return false;
+
         float distance = Vector2.Distance(GetPosition(), GetPlayerPosition());
         return distance >= preferredMinimumLungeRange && distance <= attackRange + 0.6f;
     }
@@ -1468,11 +1580,22 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         if (!inNormalRange && !inCloseThreat)
             return false;
 
-        return HasClearLungeLine();
+        if (!HasClearLungeLine())
+            return false;
+
+        if (requireClearLungeStartBeforeTelegraph &&
+            !HasClearLungeStart(out Collider2D startBlocker))
+        {
+            HandleBlockedTelegraphAttempt(startBlocker);
+            return false;
+        }
+
+        return true;
     }
 
     private void EnterTelegraph()
     {
+        DisarmLungeDamageHitbox();
         EnterState(DogState.Telegraph);
 
         ClearPath();
@@ -1556,6 +1679,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         }
 
         UpdateLungeHitboxVisual();
+        ArmLungeDamageHitbox();
+        CheckVisibleLungeHitboxOverlap();
     }
 
     private void EnterRecovery(
@@ -1832,6 +1957,183 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         );
     }
 
+    private void HandleBlockedMove(Collider2D blocker, Vector2 blockerNormal, Vector2 attemptedDirection)
+    {
+        debugBlockedBy = blocker != null ? blocker.name : "Collider";
+        debugLastTargetReason = "Blocked Move";
+
+        if (hasCurrentTarget)
+            RememberBlockedTarget(currentTarget);
+
+        if (lastMoveBlocker != blocker || blockedMoveStartedAt < 0f)
+        {
+            lastMoveBlocker = blocker;
+            blockedMoveStartedAt = Time.time;
+        }
+
+        if (enableBlockedMoveRescue)
+        {
+            if (intent == HarassIntent.HoldNearPlayer || state == DogState.HoldThreat)
+                ForbidHoldNearPlayer("Blocked hold");
+
+            if (Time.time - blockedMoveStartedAt >= blockedMoveEscapeAfterSeconds)
+            {
+                Vector2 preferredEscape = blockerNormal.sqrMagnitude > 0.0001f
+                    ? blockerNormal
+                    : -attemptedDirection;
+
+                TryEmergencyNudge(preferredEscape);
+                ResetBlockedMoveTracker();
+            }
+
+            QueueSideProwlAroundBlocker("Blocked move side prowl", overwrite: true);
+        }
+
+        nextAllowedRetargetTime = Time.time + blockedMoveRetryDelay;
+        ClearPath();
+        ClearMovement();
+        hasCurrentTarget = false;
+        EnterState(DogState.ChooseIntent);
+    }
+
+    private void ResetBlockedMoveTracker()
+    {
+        blockedMoveStartedAt = -1f;
+        lastMoveBlocker = null;
+    }
+
+    private void ForbidHoldNearPlayer(string reason)
+    {
+        holdNearPlayerForbiddenUntil = Mathf.Max(
+            holdNearPlayerForbiddenUntil,
+            Time.time + holdNearPlayerBlockedCooldown
+        );
+
+        if (!string.IsNullOrEmpty(reason))
+            debugLastTargetReason = reason;
+    }
+
+    private void QueueSideProwlAroundBlocker(string reason, bool overwrite)
+    {
+        if (prowlSideSign == 0)
+            prowlSideSign = Random.value < 0.5f ? -1 : 1;
+
+        prowlSideSign *= -1;
+
+        QueueNextIntent(
+            prowlSideSign < 0 ? HarassIntent.ProwlLeft : HarassIntent.ProwlRight,
+            reason,
+            overwrite
+        );
+    }
+
+    private bool TryEmergencyNudge(Vector2 preferredDirection)
+    {
+        if (!enableBlockedMoveRescue || blockedMoveNudgeDistance <= 0f)
+            return false;
+
+        Vector2 position = GetPosition();
+        Vector2 preferred = preferredDirection.sqrMagnitude > 0.0001f
+            ? preferredDirection.normalized
+            : Random.insideUnitCircle.normalized;
+
+        Collider2D overlap = FindBlockingOverlap(position);
+        if (overlap != null)
+        {
+            Vector2 closest = overlap.ClosestPoint(position);
+            Vector2 away = position - closest;
+            if (away.sqrMagnitude > 0.0001f)
+                preferred = away.normalized;
+        }
+
+        Vector2[] directions = new Vector2[]
+        {
+            preferred,
+            RotateVector(preferred, 35f).normalized,
+            RotateVector(preferred, -35f).normalized,
+            Perpendicular(preferred).normalized,
+            -Perpendicular(preferred).normalized,
+            -preferred,
+            Vector2.up,
+            Vector2.down,
+            Vector2.left,
+            Vector2.right
+        };
+
+        for (int i = 0; i < directions.Length; i++)
+        {
+            Vector2 dir = directions[i];
+            if (dir.sqrMagnitude <= 0.0001f)
+                continue;
+
+            if (!WouldNudgeHitObstacle(position, dir.normalized))
+            {
+                Vector2 newPosition = position + dir.normalized * blockedMoveNudgeDistance;
+
+                if (rb != null)
+                    rb.MovePosition(newPosition);
+                else
+                    transform.position = newPosition;
+
+                UpdateMovementFacing(dir);
+                debugLastTargetReason = "Emergency Wall Nudge";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Collider2D FindBlockingOverlap(Vector2 position)
+    {
+        if (obstacleMask.value == 0)
+            return null;
+
+        Collider2D[] overlaps = Physics2D.OverlapCircleAll(position, bodyRadius, obstacleMask);
+        for (int i = 0; i < overlaps.Length; i++)
+        {
+            Collider2D overlap = overlaps[i];
+            if (overlap == null)
+                continue;
+
+            if (overlap.transform == transform || overlap.transform.IsChildOf(transform))
+                continue;
+
+            return overlap;
+        }
+
+        return null;
+    }
+
+    private bool WouldNudgeHitObstacle(Vector2 position, Vector2 direction)
+    {
+        if (obstacleMask.value == 0)
+            return false;
+
+        int hitCount = Physics2D.CircleCastNonAlloc(
+            position,
+            bodyRadius,
+            direction,
+            castResults,
+            blockedMoveNudgeDistance + obstacleSkinWidth,
+            obstacleMask
+        );
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D candidate = castResults[i].collider;
+            if (candidate == null)
+                continue;
+
+            if (candidate.transform == transform || candidate.transform.IsChildOf(transform))
+                continue;
+
+            return true;
+        }
+
+        return false;
+    }
+
     private void MoveTowardPoint(Vector2 target, float speed, float arrivalRadius)
     {
         Vector2 myPosition = GetPosition();
@@ -1915,90 +2217,113 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         );
     }
 
-    private void CheckLungeHitSwept(Vector2 startPosition, Vector2 endPosition)
+    private bool HasClearLungeStart(out Collider2D blocker)
     {
-        if (lungeHasHit)
-            return;
+        blocker = null;
 
-        CombatPawn pawn = null;
+        if (obstacleMask.value == 0)
+            return true;
 
-        Vector2 start = GetLungeHitboxCenter(startPosition, lungeDirection);
-        Vector2 end = GetLungeHitboxCenter(endPosition, lungeDirection);
-        Vector2 delta = end - start;
-        float distance = delta.magnitude;
+        Vector2 start = GetPosition();
+        Vector2 target = GetPlayerPosition();
+        Vector2 delta = target - start;
+        float distanceToTarget = delta.magnitude;
 
-        if (playerHitMask.value != 0)
+        if (distanceToTarget <= 0.001f)
+            return true;
+
+        Vector2 direction = delta / distanceToTarget;
+        float checkDistance = Mathf.Min(
+            distanceToTarget,
+            Mathf.Max(0.05f, lungeStartClearanceDistance)
+        );
+
+        int hitCount = Physics2D.CircleCastNonAlloc(
+            start,
+            bodyRadius,
+            direction,
+            castResults,
+            checkDistance + obstacleSkinWidth,
+            obstacleMask
+        );
+
+        float nearestDistance = float.PositiveInfinity;
+
+        for (int i = 0; i < hitCount; i++)
         {
-            if (distance > 0.0001f)
+            Collider2D candidate = castResults[i].collider;
+
+            if (candidate == null)
+                continue;
+
+            if (candidate.transform == transform ||
+                candidate.transform.IsChildOf(transform))
             {
-                RaycastHit2D[] hits = Physics2D.CircleCastAll(
-                    start,
-                    lungeHitRadius,
-                    delta / distance,
-                    distance,
-                    playerHitMask
-                );
-
-                for (int i = 0; i < hits.Length; i++)
-                {
-                    if (hits[i].collider == null)
-                        continue;
-
-                    pawn = hits[i].collider.GetComponentInParent<CombatPawn>();
-                    if (pawn != null)
-                        break;
-                }
+                continue;
             }
-            else
+
+            if (castResults[i].distance < nearestDistance)
             {
-                Collider2D[] overlaps = Physics2D.OverlapCircleAll(
-                    end,
-                    lungeHitRadius,
-                    playerHitMask
-                );
-
-                for (int i = 0; i < overlaps.Length; i++)
-                {
-                    if (overlaps[i] == null)
-                        continue;
-
-                    pawn = overlaps[i].GetComponentInParent<CombatPawn>();
-                    if (pawn != null)
-                        break;
-                }
+                nearestDistance = castResults[i].distance;
+                blocker = candidate;
             }
         }
 
-        if (pawn == null &&
-            usePlayerTransformFallbackHitCheck &&
-            playerTransform != null)
-        {
-            float playerDistance = DistancePointToSegment(
-                playerTransform.position,
-                start,
-                end
-            );
+        return blocker == null;
+    }
 
-            float fallbackRadius =
-                lungeHitRadius +
-                Mathf.Max(0f, playerTransformFallbackExtraRadius);
-
-            if (playerDistance <= fallbackRadius)
-                pawn = playerTransform.GetComponentInParent<CombatPawn>();
-        }
-
-        if (pawn == null)
-        {
-            previousLungePosition = endPosition;
+    private void HandleBlockedTelegraphAttempt(Collider2D blocker)
+    {
+        if (Time.time < nextBlockedTelegraphHandleTime)
             return;
+
+        nextBlockedTelegraphHandleTime =
+            Time.time + Mathf.Max(0.05f, blockedTelegraphRetargetDelay);
+
+        debugBlockedBy = blocker != null
+            ? blocker.name
+            : "Cover";
+
+        debugLastTargetReason = "Telegraph Blocked By Cover";
+
+        nextAttackTime = Time.time +
+            Mathf.Max(0.05f, blockedTelegraphRetryDelay);
+
+        nextAllowedRetargetTime = Time.time +
+            Mathf.Max(0.05f, blockedTelegraphRetargetDelay);
+
+        if (hasCurrentTarget)
+            RememberBlockedTarget(currentTarget);
+        else
+            RememberBlockedTarget(GetPlayerPosition());
+
+        ClearPath();
+        ClearMovement();
+        RestoreTelegraphColor();
+        ForceHideLungeHitboxVisual();
+
+        if (queueSideProwlWhenTelegraphBlocked)
+            QueueOppositeSideProwl("Telegraph blocked by cover");
+    }
+
+    public bool TryApplyLungeDamageFromVisibleHitbox(CombatPawn pawn)
+    {
+        if (pawn == null ||
+            state != DogState.Lunge ||
+            lungeHasHit)
+        {
+            return false;
         }
 
         pawn.ApplyDamage(lungeDamage);
         lungeHasHit = true;
         lastLungeHitPlayer = true;
+        debugLastTargetReason = "Visible Lunge Hitbox Hit Player";
 
         if (endLungeOnHit)
             EnterRecovery();
+
+        return true;
     }
 
     private void HandleHealthChanged(int current, int maximum)
@@ -2198,6 +2523,109 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         lungeDirection = toTarget.normalized;
     }
 
+    private void ResolveLungeDamageHitbox()
+    {
+        if (lungeDamageHitbox != null)
+            return;
+
+        if (!autoFindLungeDamageHitbox ||
+            lungeHitboxVisualObject == null)
+        {
+            return;
+        }
+
+        lungeDamageHitbox =
+            lungeHitboxVisualObject.GetComponent<AttackDogLungeHitbox>();
+
+        if (lungeDamageHitbox == null)
+        {
+            lungeDamageHitbox =
+                lungeHitboxVisualObject.GetComponentInChildren<AttackDogLungeHitbox>(true);
+        }
+    }
+
+    private void ConfigureLungeDamageHitbox()
+    {
+        ResolveLungeDamageHitbox();
+
+        if (lungeDamageHitbox == null)
+            return;
+
+        lungeDamageHitbox.Configure(this, playerHitMask);
+    }
+
+    private void ValidateLungeDamageHitboxSetup()
+    {
+        if (!showLungeHitboxVisual)
+            return;
+
+        if (lungeHitboxVisualObject == null)
+        {
+            Debug.LogError(
+                "AttackDogBrain: Lunge Hitbox Visual Object is missing.",
+                this
+            );
+            return;
+        }
+
+        if (lungeDamageHitbox == null)
+        {
+            Debug.LogError(
+                "AttackDogBrain: Add AttackDogLungeHitbox and a Collider2D to the visible red lunge object.",
+                this
+            );
+            return;
+        }
+
+        if (playerHitMask.value == 0)
+        {
+            Debug.LogWarning(
+                "AttackDogBrain: Player Hit Mask is empty, so the visible lunge collider cannot damage the player.",
+                this
+            );
+        }
+    }
+
+    private void ArmLungeDamageHitbox()
+    {
+        ConfigureLungeDamageHitbox();
+
+        if (lungeDamageHitbox != null)
+            lungeDamageHitbox.SetDamageActive(true);
+    }
+
+    private void DisarmLungeDamageHitbox()
+    {
+        if (lungeDamageHitbox != null)
+            lungeDamageHitbox.SetDamageActive(false);
+    }
+
+    private void SweepVisibleLungeHitboxTo(
+        Vector2 nextDogPosition,
+        Vector2 direction)
+    {
+        if (lungeDamageHitbox == null ||
+            lungeHitboxVisualTransform == null)
+        {
+            return;
+        }
+
+        Vector2 targetPosition =
+            GetLungeHitboxWorldPosition(nextDogPosition, direction);
+
+        Vector2 delta =
+            targetPosition -
+            (Vector2)lungeHitboxVisualTransform.position;
+
+        lungeDamageHitbox.SweepForDamage(delta);
+    }
+
+    private void CheckVisibleLungeHitboxOverlap()
+    {
+        if (lungeDamageHitbox != null)
+            lungeDamageHitbox.CheckCurrentOverlap();
+    }
+
     private void CacheLungeHitboxVisual()
     {
         if (lungeHitboxVisualObject == null)
@@ -2209,6 +2637,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         }
 
         lungeHitboxVisualTransform = lungeHitboxVisualObject.transform;
+        ResolveLungeDamageHitbox();
 
         SpriteRenderer[] renderers =
             lungeHitboxVisualObject.GetComponentsInChildren<SpriteRenderer>(true);
@@ -2255,6 +2684,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
     private void HideLungeHitboxVisual()
     {
+        DisarmLungeDamageHitbox();
+
         if (lungeHitboxVisualObject == null)
             return;
 
@@ -2275,6 +2706,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
     private void ForceHideLungeHitboxVisual()
     {
+        DisarmLungeDamageHitbox();
+
         if (lungeHitboxVisualObject == null)
             return;
 
@@ -2361,12 +2794,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             ? direction.normalized
             : Vector2.right;
 
-        Vector2 center = GetLungeHitboxCenter(bodyPosition, forward);
-
-        if (!lungeHitboxVisualUseExactDamageCenter)
-        {
-            center += LocalOffsetToWorld(lungeHitboxVisualOffset, forward);
-        }
+        Vector2 center =
+            GetLungeHitboxWorldPosition(bodyPosition, forward);
 
         if (autoScaleLungeHitboxVisual)
         {
@@ -2381,74 +2810,63 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
         if (rotateLungeHitboxVisualToDirection)
         {
-            float angle = Mathf.Atan2(forward.y, forward.x) * Mathf.Rad2Deg;
-            lungeHitboxVisualTransform.rotation = Quaternion.Euler(0f, 0f, angle);
+            float angle =
+                Mathf.Atan2(forward.y, forward.x) * Mathf.Rad2Deg;
+
+            lungeHitboxVisualTransform.rotation =
+                Quaternion.Euler(0f, 0f, angle);
         }
 
-        Vector3 oldPosition = lungeHitboxVisualTransform.position;
-        lungeHitboxVisualTransform.position = new Vector3(
-            center.x,
-            center.y,
-            oldPosition.z
-        );
+        if (lungeHitboxVisualTransform.parent == transform)
+        {
+            Vector2 worldOffset = center - bodyPosition;
+            Vector3 localOffset =
+                transform.InverseTransformVector(worldOffset);
 
-        if (centerVisualRendererBoundsOnHitbox)
-            CenterVisualRendererBoundsOn(center);
+            Vector3 oldLocal =
+                lungeHitboxVisualTransform.localPosition;
+
+            lungeHitboxVisualTransform.localPosition =
+                new Vector3(
+                    localOffset.x,
+                    localOffset.y,
+                    oldLocal.z
+                );
+        }
+        else
+        {
+            Vector3 oldWorld =
+                lungeHitboxVisualTransform.position;
+
+            lungeHitboxVisualTransform.position =
+                new Vector3(center.x, center.y, oldWorld.z);
+        }
     }
 
-    private Vector2 GetLungeHitboxCenter(Vector2 bodyPosition, Vector2 direction)
+    private Vector2 GetLungeHitboxWorldPosition(
+        Vector2 bodyPosition,
+        Vector2 direction)
     {
         Vector2 forward = direction.sqrMagnitude > 0.0001f
             ? direction.normalized
             : Vector2.right;
 
-        return bodyPosition + forward * lungeHitForwardOffset;
+        Vector2 center =
+            bodyPosition + forward * lungeHitForwardOffset;
+
+        center += LocalOffsetToWorld(
+            lungeHitboxVisualOffset,
+            forward
+        );
+
+        return center;
     }
 
-    private void CenterVisualRendererBoundsOn(Vector2 desiredCenter)
+    private Vector2 GetLungeHitboxCenter(
+        Vector2 bodyPosition,
+        Vector2 direction)
     {
-        if (lungeHitboxVisualTransform == null ||
-            lungeHitboxVisualRenderers == null ||
-            lungeHitboxVisualRenderers.Length == 0)
-        {
-            return;
-        }
-
-        bool hasBounds = false;
-        Bounds combinedBounds = default;
-
-        for (int i = 0; i < lungeHitboxVisualRenderers.Length; i++)
-        {
-            SpriteRenderer renderer = lungeHitboxVisualRenderers[i];
-            if (renderer == null || !renderer.enabled)
-                continue;
-
-            if (!hasBounds)
-            {
-                combinedBounds = renderer.bounds;
-                hasBounds = true;
-            }
-            else
-            {
-                combinedBounds.Encapsulate(renderer.bounds);
-            }
-        }
-
-        if (!hasBounds)
-            return;
-
-        Vector2 currentVisualCenter = combinedBounds.center;
-        Vector2 correction = desiredCenter - currentVisualCenter;
-
-        if (correction.sqrMagnitude <= 0.0000001f)
-            return;
-
-        Vector3 oldPosition = lungeHitboxVisualTransform.position;
-        lungeHitboxVisualTransform.position = new Vector3(
-            oldPosition.x + correction.x,
-            oldPosition.y + correction.y,
-            oldPosition.z
-        );
+        return GetLungeHitboxWorldPosition(bodyPosition, direction);
     }
 
     private void EnterState(DogState newState)
@@ -2773,9 +3191,14 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
             if (drawActualLungeHitboxGizmo)
             {
-                Vector2 hitCenter = GetLungeHitboxCenter(pos, lungeDirection);
-                Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(hitCenter, lungeHitRadius);
+                if (lungeDamageHitbox != null)
+                    lungeDamageHitbox.DrawColliderGizmo();
+                else
+                {
+                    Vector2 hitCenter = GetLungeHitboxCenter(pos, lungeDirection);
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawWireSphere(hitCenter, lungeHitRadius);
+                }
             }
         }
         else if (Application.isPlaying && state == DogState.Telegraph && drawActualLungeHitboxGizmo)
@@ -2784,9 +3207,14 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
                 ? lungeDirection.normalized
                 : Vector2.right;
 
-            Vector2 hitCenter = GetLungeHitboxCenter(pos, previewDirection);
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(hitCenter, lungeHitRadius);
+            if (lungeDamageHitbox != null)
+                lungeDamageHitbox.DrawColliderGizmo();
+            else
+            {
+                Vector2 hitCenter = GetLungeHitboxCenter(pos, previewDirection);
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(hitCenter, lungeHitRadius);
+            }
         }
 
         if (Application.isPlaying && state == DogState.Retreat)
