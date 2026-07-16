@@ -7,6 +7,17 @@ public class CombatPawn : MonoBehaviour
     [SerializeField] private float invulnSeconds = 0.6f;
     [SerializeField] private MonoBehaviour[] disableOnDeath;
 
+    [Header("Hit Reaction Flow")]
+    [Tooltip("Briefly prevents starting new basic attacks after accepted damage. Movement still works.")]
+    [SerializeField] private bool applyActionLockoutOnDamage = true;
+
+    [SerializeField, Min(0f)] private float actionLockoutOnDamage = 0.15f;
+
+    [Tooltip("Cancels active basic attack coroutines/bursts when the player takes accepted damage.")]
+    [SerializeField] private bool cancelCurrentAttackOnDamage = true;
+
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
+
     [Header("Momentum Damage Penalty")]
     [Tooltip(
         "How much Momentum would be lost from taking damage equal to 100% " +
@@ -38,6 +49,12 @@ public class CombatPawn : MonoBehaviour
     public bool IsInvulnerable { get; private set; }
 
     private Coroutine flashRoutine;
+
+    private void Awake()
+    {
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+    }
 
     public void ApplyDamage(int amount)
     {
@@ -88,6 +105,8 @@ public class CombatPawn : MonoBehaviour
             active.def.maxHP
         );
 
+        ApplyHitReactionFlow(actualDamage);
+
         if (active.currentHP <= 0)
         {
             OnDeath();
@@ -95,6 +114,31 @@ public class CombatPawn : MonoBehaviour
         }
 
         StartCoroutine(InvulnWindow());
+    }
+
+    private void ApplyHitReactionFlow(int actualDamage)
+    {
+        if (actualDamage <= 0)
+            return;
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (applyActionLockoutOnDamage &&
+            attackCommitment != null)
+        {
+            attackCommitment.ApplyActionLockout(
+                actionLockoutOnDamage
+            );
+        }
+
+        if (cancelCurrentAttackOnDamage)
+        {
+            SendMessage(
+                "CancelCurrentAttack",
+                SendMessageOptions.DontRequireReceiver
+            );
+        }
     }
 
     private void ApplyMomentumDamagePenalty(

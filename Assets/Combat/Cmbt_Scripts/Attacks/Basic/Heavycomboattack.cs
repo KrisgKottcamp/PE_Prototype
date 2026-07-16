@@ -10,11 +10,9 @@ using static CharacterDefinition;
 ///   Hit 2: After comboPunchDelay seconds. Damage + stun + knockback away from player.
 /// After hit 2 completes there is a comboCooldown before the player can attack again.
 ///
-/// AP and enemy-hit Attack Momentum are granted independently per hit, but only
-/// if that hit connects with at least one enemy.
-///
-/// Destroying enemy projectiles also grants a very small amount of Momentum per
-/// unique projectile, capped separately for each punch.
+/// Phase 2 aggression change:
+/// - Each punch has a short movement commitment.
+/// - Taking accepted damage cancels the current combo through CancelCurrentAttack().
 /// </summary>
 public class HeavyComboAttack : MonoBehaviour
 {
@@ -29,6 +27,18 @@ public class HeavyComboAttack : MonoBehaviour
 
     [Tooltip("Cooldown in seconds after the combo finishes before the player can attack again.")]
     [SerializeField] private float comboCooldown = 0.9f;
+
+    [Header("Commitment")]
+    [SerializeField, Range(0.1f, 1f)] private float hit1MoveMultiplier = 0.60f;
+    [SerializeField, Min(0f)] private float hit1CommitmentDuration = 0.14f;
+
+    [SerializeField, Range(0.1f, 1f)] private float hit2MoveMultiplier = 0.45f;
+    [SerializeField, Min(0f)] private float hit2CommitmentDuration = 0.20f;
+
+    [Tooltip("Small recovery applied if the player is hit and the combo is canceled.")]
+    [SerializeField, Min(0f)] private float damageCancelRecovery = 0.25f;
+
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
 
     [Header("Hit 1")]
     [Tooltip("Damage dealt by the first punch.")]
@@ -111,6 +121,7 @@ public class HeavyComboAttack : MonoBehaviour
 
     private float cooldownTimer;
     private bool comboRunning;
+    private Coroutine comboRoutine;
 
     private readonly Collider2D[] hitCols = new Collider2D[16];
     private readonly EnemyHealth[] uniqueEnemies = new EnemyHealth[16];
@@ -120,6 +131,8 @@ public class HeavyComboAttack : MonoBehaviour
     {
         if (hitOrigin == null)
             hitOrigin = transform;
+
+        ResolveAttackCommitment();
     }
 
     private void Update()
@@ -156,14 +169,84 @@ public class HeavyComboAttack : MonoBehaviour
         if (!pressed)
             return;
 
+        if (!CanStartAttack())
+            return;
+
         // Both hits use the direction committed when the combo begins.
         comboAimDir = lastAimDir;
-        StartCoroutine(ComboRoutine());
+        comboRoutine = StartCoroutine(ComboRoutine());
+    }
+
+    private void ResolveAttackCommitment()
+    {
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponentInParent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+        {
+            CombatPawn pawn = GetComponentInParent<CombatPawn>();
+
+            if (pawn != null)
+            {
+                attackCommitment = pawn.GetComponent<PlayerAttackCommitment>();
+
+                if (attackCommitment == null)
+                    attackCommitment = pawn.gameObject.AddComponent<PlayerAttackCommitment>();
+            }
+        }
+
+        if (attackCommitment == null)
+            attackCommitment = gameObject.AddComponent<PlayerAttackCommitment>();
+    }
+
+    private bool CanStartAttack()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        return attackCommitment == null || attackCommitment.CanStartAttack;
+    }
+
+    private void ApplyAttackCommitment(float multiplier, float duration)
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        if (attackCommitment != null)
+        {
+            attackCommitment.ApplyMovementCommitment(
+                multiplier,
+                duration
+            );
+        }
+    }
+
+    public void CancelCurrentAttack()
+    {
+        if (comboRoutine != null)
+        {
+            StopCoroutine(comboRoutine);
+            comboRoutine = null;
+        }
+
+        comboRunning = false;
+        cooldownTimer = Mathf.Max(
+            cooldownTimer,
+            damageCancelRecovery
+        );
     }
 
     private IEnumerator ComboRoutine()
     {
         comboRunning = true;
+
+        ApplyAttackCommitment(
+            hit1MoveMultiplier,
+            hit1CommitmentDuration
+        );
 
         DoHit(
             hit1Damage,
@@ -175,6 +258,11 @@ public class HeavyComboAttack : MonoBehaviour
 
         yield return new WaitForSeconds(comboPunchDelay);
 
+        ApplyAttackCommitment(
+            hit2MoveMultiplier,
+            hit2CommitmentDuration
+        );
+
         DoHit(
             hit2Damage,
             hit2StunSeconds,
@@ -185,6 +273,7 @@ public class HeavyComboAttack : MonoBehaviour
 
         cooldownTimer = comboCooldown;
         comboRunning = false;
+        comboRoutine = null;
     }
 
     private void DoHit(

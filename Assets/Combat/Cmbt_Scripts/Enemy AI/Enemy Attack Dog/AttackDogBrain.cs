@@ -213,6 +213,30 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     [Tooltip("While holding threat, dog may start a lunge immediately if ready and in range.")]
     [SerializeField] private bool allowHoldThreatToAttack = true;
 
+    [Header("Squad Attack Slots / Rhythm v1")]
+    [Tooltip("If true, the dog must claim a squad attack slot before entering its lunge telegraph.")]
+    [SerializeField] private bool useSquadAttackSlots = true;
+
+    [Tooltip("How often the dog retries an attack-slot request while in range.")]
+    [SerializeField, Min(0.03f)] private float attackSlotRetryDelay = 0.16f;
+
+    [Tooltip("If true, squad threat-gap urgency can bypass some of the dog's random attack cooldown.")]
+    [SerializeField] private bool threatGapCanHurryLunge = true;
+
+    [SerializeField] private string debugAttackSlot = "None";
+
+    [Header("Pincer Positioning / Escape Denial v1")]
+    [Tooltip("If true, the dog asks the squad coordinator for escape-cutoff and side-pressure targets so it helps box the player in.")]
+    [SerializeField] private bool useSquadPincerTargets = true;
+
+    [Tooltip("Scoring weight for sampled dog prowl targets that create better side pressure / avoid clumping.")]
+    [SerializeField, Min(0f)] private float pincerTargetScoreWeight = 1.25f;
+
+    [Tooltip("When true, CutOffEscape targets use the squad's smoothed player velocity instead of only the dog's local velocity sample.")]
+    [SerializeField] private bool useSquadEscapeCutoffPrediction = true;
+
+    [SerializeField] private string debugPincerTarget = "None";
+
     [Header("Telegraph")]
     [Tooltip("Total visible tell before the dog lunges.")]
     [SerializeField, Min(0.05f)] private float telegraphSeconds = 0.68f;
@@ -493,6 +517,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     private Vector2 sharedPlayerPosition;
     private bool hasSharedPlayerPosition;
     private float squadPressure01;
+    private bool ownsSquadAttackSlot;
+    private float nextSquadAttackSlotRequestTime;
+    private float lastMeaningfulActionTime;
 
     private Vector2 lockedLungeTarget;
     private bool hasLockedLungeTarget;
@@ -557,6 +584,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
     public bool IsRanged => false;
     public bool IsMelee => countAsMeleeAgent;
     public EnemySquadRole CurrentRole => currentRole;
+
+    public float LastMeaningfulActionTime => lastMeaningfulActionTime;
 
     private void Awake()
     {
@@ -685,6 +714,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         holdNearPlayerForbiddenUntil = 0f;
         consecutiveTargetPickFailures = 0;
         nextTargetFailureEscapeTime = 0f;
+        ownsSquadAttackSlot = false;
+        nextSquadAttackSlotRequestTime = 0f;
+        lastMeaningfulActionTime = Time.time;
 
         ResolvePlayerTransform(force: true);
         ScheduleNextAttack(initialAttackDelayRange);
@@ -698,6 +730,8 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             enemyHealth.OnHealthChanged -= HandleHealthChanged;
             enemyHealth.OnDied -= HandleDied;
         }
+
+        ReleaseSquadAttackSlot("Disabled");
 
         if (squad != null)
             squad.Unregister(this);
@@ -1406,6 +1440,15 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
             float score = rangeScore + movementScore + blockedPenalty + Random.Range(-0.2f, 0.2f);
 
+            if (useSquadPincerTargets && squad != null && pincerTargetScoreWeight > 0f)
+            {
+                score += squad.ScorePincerCandidate(
+                    this,
+                    validated,
+                    currentRole
+                ) * pincerTargetScoreWeight;
+            }
+
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1431,6 +1474,52 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         Vector2 playerPosition = GetPlayerPosition();
         Vector2 myPosition = GetPosition();
         float radius = Random.Range(comfortMinDistance, comfortMaxDistance);
+
+        if (useSquadPincerTargets && squad != null)
+        {
+            if (selectedIntent == HarassIntent.CutOffEscape &&
+                useSquadEscapeCutoffPrediction)
+            {
+                Vector2 cutoff = squad.GetEscapeCutoffPosition(
+                    this,
+                    interceptAheadDistance,
+                    interceptSideOffset,
+                    radius
+                );
+
+                debugPincerTarget = "Squad Cutoff";
+                return cutoff;
+            }
+
+            if (selectedIntent == HarassIntent.DirectPressure)
+            {
+                Vector2 pressure = squad.GetPressurePositionForAgent(
+                    this,
+                    playerPosition,
+                    Mathf.Max(comfortMinDistance, preferredMinimumLungeRange + 0.35f)
+                );
+
+                debugPincerTarget = "Squad Direct Pressure";
+                return pressure;
+            }
+
+            if (selectedIntent == HarassIntent.ProwlLeft ||
+                selectedIntent == HarassIntent.ProwlRight)
+            {
+                float sideBias = selectedIntent == HarassIntent.ProwlLeft ? -1f : 1f;
+                Vector2 pressureSide = squad.GetPressurePositionForAgent(
+                    this,
+                    playerPosition,
+                    radius,
+                    sideBias
+                );
+
+                debugPincerTarget = selectedIntent == HarassIntent.ProwlLeft
+                    ? "Squad Left"
+                    : "Squad Right";
+                return pressureSide;
+            }
+        }
 
         if (useArcProwlMovement &&
             (selectedIntent == HarassIntent.ProwlLeft ||
@@ -1564,7 +1653,9 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         if (intent == HarassIntent.BackOff || state == DogState.Retreat || state == DogState.HitReact)
             return false;
 
-        if (Time.time < nextAttackTime)
+        bool forceByThreatGap = threatGapCanHurryLunge && squad != null && squad.ShouldForceAttack(this);
+
+        if (Time.time < nextAttackTime && !forceByThreatGap)
             return false;
 
         float distance = Vector2.Distance(GetPosition(), GetPlayerPosition());
@@ -1590,11 +1681,15 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             return false;
         }
 
+        if (!TryClaimSquadAttackSlotForLunge())
+            return false;
+
         return true;
     }
 
     private void EnterTelegraph()
     {
+        MarkMeaningfulAction("DogTelegraph");
         DisarmLungeDamageHitbox();
         EnterState(DogState.Telegraph);
 
@@ -1632,6 +1727,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
     private void EnterLunge()
     {
+        MarkMeaningfulAction("DogLunge");
         RestoreTelegraphColor();
 
         if (!hasLockedLungeTarget)
@@ -1687,6 +1783,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         float extraBonusSeconds = 0f,
         string reason = null)
     {
+        ReleaseSquadAttackSlot("Recovery");
         RestoreTelegraphColor();
         HideLungeHitboxVisual();
 
@@ -1723,6 +1820,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         float retreatSeconds,
         bool retreatAfterReact = true)
     {
+        ReleaseSquadAttackSlot("HitReact");
         RestoreTelegraphColor();
         HideLungeHitboxVisual();
 
@@ -1759,6 +1857,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
 
     private void EnterRetreat(float seconds)
     {
+        ReleaseSquadAttackSlot("Retreat");
         ClearPath();
 
         if (retreatTarget == Vector2.zero)
@@ -1803,6 +1902,57 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
             Time.time + reengageAggressionSeconds
         );
 
+        debugLastTargetReason = reason;
+    }
+
+
+    private bool TryClaimSquadAttackSlotForLunge()
+    {
+        if (!useSquadAttackSlots || squad == null)
+        {
+            debugAttackSlot = "Slots disabled";
+            return true;
+        }
+
+        if (ownsSquadAttackSlot || squad.IsAttackSlotOwner(this))
+        {
+            ownsSquadAttackSlot = true;
+            debugAttackSlot = "Owned";
+            return true;
+        }
+
+        if (Time.time < nextSquadAttackSlotRequestTime)
+        {
+            debugAttackSlot = "Waiting retry";
+            return false;
+        }
+
+        bool urgent = squad.ShouldForceAttack(this);
+        string reason = urgent ? "ThreatGap Dog Lunge" : "Dog Lunge";
+
+        if (squad.TryRequestAttackSlot(this, reason))
+        {
+            ownsSquadAttackSlot = true;
+            debugAttackSlot = reason;
+            return true;
+        }
+
+        nextSquadAttackSlotRequestTime = Time.time + Mathf.Max(0.03f, attackSlotRetryDelay);
+        debugAttackSlot = "Waiting for slot";
+        return false;
+    }
+
+    private void ReleaseSquadAttackSlot(string reason)
+    {
+        if (squad != null && (ownsSquadAttackSlot || squad.IsAttackSlotOwner(this)))
+            squad.ReleaseAttackSlot(this, reason);
+
+        ownsSquadAttackSlot = false;
+    }
+
+    private void MarkMeaningfulAction(string reason)
+    {
+        lastMeaningfulActionTime = Time.time;
         debugLastTargetReason = reason;
     }
 
@@ -2409,6 +2559,7 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         ClearMovement();
         RestoreTelegraphColor();
         HideLungeHitboxVisual();
+        ReleaseSquadAttackSlot("Died");
 
         if (squad != null)
             squad.Unregister(this);
@@ -3225,3 +3376,4 @@ public class AttackDogBrain : MonoBehaviour, IEnemySquadAgent
         }
     }
 }
+

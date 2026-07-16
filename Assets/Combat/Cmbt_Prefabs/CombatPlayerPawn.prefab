@@ -423,6 +423,7 @@ GameObject:
   - component: {fileID: -4198285968471152950}
   - component: {fileID: -8863248767788800456}
   - component: {fileID: -3508966444783571563}
+  - component: {fileID: 4013914058372065684}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -607,6 +608,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   invulnSeconds: 0.6
   disableOnDeath: []
+  applyActionLockoutOnDamage: 1
+  actionLockoutOnDamage: 0.15
+  cancelCurrentAttackOnDamage: 1
+  attackCommitment: {fileID: 4013914058372065684}
   momentumLossPerFullHealthBar: 30
   minimumMomentumLossPerHit: 2
   maximumMomentumLossPerHit: 8
@@ -625,7 +630,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b92c10177b9f1a4d8c025ff98a28d9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lockoutSeconds: 0.4
+  lockoutSeconds: 0.6
   disableScripts:
   - {fileID: -4474884750905616783}
   - {fileID: 191217448221442475}
@@ -685,6 +690,10 @@ MonoBehaviour:
   swingCooldown: 0.05
   swingsPerBurst: 3
   burstRecoveryCooldown: 0.6
+  swingMoveMultiplier: 0.7
+  swingCommitmentDuration: 0.1
+  damageCancelRecovery: 0.18
+  attackCommitment: {fileID: 0}
   stunSeconds: 0.25
   momentumGainOnSuccessfulSwing: 2
   attackVfxPrefab: {fileID: 2055744915509529528, guid: 76c08226e6716d24e81adeccf16b4425, type: 3}
@@ -750,6 +759,10 @@ MonoBehaviour:
   shotsPerBurst: 3
   shotCooldown: 0.12
   burstRecovery: 0.6
+  shotMoveMultiplier: 0.82
+  shotCommitmentDuration: 0.07
+  damageCancelRecovery: 0.18
+  attackCommitment: {fileID: 0}
   muzzle: {fileID: 4624380704858928614}
   projectilePrefab: {fileID: 6862829599791500612, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
   projectileSpeed: 10
@@ -805,6 +818,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   muzzle: {fileID: 4624380704858928614}
   muzzleForwardOffset: 0.15
+  useSafeProjectileSpawn: 1
+  spawnObstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  spawnClearanceRadius: 0.14
+  safeSpawnSearchDistance: 0.85
+  safeSpawnStep: 0.04
+  requireClearPathToSpawn: 1
+  forwardPathRadiusMultiplier: 0.22
+  minimumForwardPathRadius: 0.015
+  forwardPathStartNudge: 0.035
+  forwardBlockNormalDot: 0.5
+  armProjectileSpawnClipProtection: 1
+  projectileClipProtectionTravelDistance: 0.6
+  projectileClipForwardDot: 0.55
+  projectileClipMinimumForwardDistance: 0.06
+  logSafeSpawn: 0
 --- !u!114 &5707082373590522217
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -818,8 +848,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatPawnMover
   moveSpeed: 6
-  focusMode: {fileID: 0}
+  focusMode: {fileID: 7425956223361028359}
+  attackCommitment: {fileID: 4013914058372065684}
   logEffectiveSpeed: 0
+  debugAttackCommitmentMultiplier: 1
+  debugFinalSpeed: 0
 --- !u!114 &-2685741132705113101
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -883,6 +916,12 @@ MonoBehaviour:
   keyboardAttackKey: 106
   comboPunchDelay: 0.4
   comboCooldown: 0.1
+  hit1MoveMultiplier: 0.6
+  hit1CommitmentDuration: 0.14
+  hit2MoveMultiplier: 0.45
+  hit2CommitmentDuration: 0.2
+  damageCancelRecovery: 0.25
+  attackCommitment: {fileID: 0}
   hit1Damage: 1
   hit1StunSeconds: 0
   hit2Damage: 2
@@ -964,6 +1003,10 @@ MonoBehaviour:
   extendTime: 0.05
   activeHoldTime: 0.05
   retractTime: 0.8
+  swingMoveMultiplier: 0.55
+  movementCommitmentExtra: 0.04
+  damageCancelRecovery: 0.2
+  attackCommitment: {fileID: 0}
   apGainOnHit: 9
   momentumGainOnSuccessfulSwing: 4
   whipLine: {fileID: 8395828035147948469}
@@ -1011,3 +1054,18 @@ MonoBehaviour:
   ghostMaterial: {fileID: 0}
   useUnscaledDuration: 0
   logActivation: 0
+--- !u!114 &4013914058372065684
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0461702e1ce16294b977599069411fdc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerAttackCommitment
+  debugMovementMultiplier: 1
+  debugMovementCommitmentRemaining: 0
+  debugActionLockoutRemaining: 0

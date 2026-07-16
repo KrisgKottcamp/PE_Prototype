@@ -8,9 +8,12 @@ public class CombatPawnMover : MonoBehaviour
 
     [Header("Optional Modifiers")]
     [SerializeField] private PlayerFocusMode focusMode;
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
 
     [Header("Debug")]
     [SerializeField] private bool logEffectiveSpeed = false;
+    [SerializeField] private float debugAttackCommitmentMultiplier = 1f;
+    [SerializeField] private float debugFinalSpeed;
 
     private Rigidbody2D rb;
     private Vector2 input;
@@ -27,6 +30,9 @@ public class CombatPawnMover : MonoBehaviour
 
         if (focusMode == null)
             focusMode = GetComponent<PlayerFocusMode>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
     }
 
     private void Update()
@@ -50,16 +56,36 @@ public class CombatPawnMover : MonoBehaviour
         if (focusMode != null)
             focusMultiplier = focusMode.MoveMultiplier;
 
-        float finalSpeed = moveSpeed * speedModifierMultiplier * focusMultiplier;
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        float attackCommitmentMultiplier =
+            attackCommitment != null
+                ? attackCommitment.MovementMultiplier
+                : 1f;
+
+        debugAttackCommitmentMultiplier = attackCommitmentMultiplier;
+
+        float finalSpeed =
+            moveSpeed *
+            speedModifierMultiplier *
+            focusMultiplier *
+            attackCommitmentMultiplier;
+
+        debugFinalSpeed = finalSpeed;
 
         if (logEffectiveSpeed && input.sqrMagnitude > 0.001f)
         {
             Debug.Log(
-                $"CombatPawnMover speed: base={moveSpeed}, speedMod={speedModifierMultiplier}, focus={focusMultiplier}, final={finalSpeed}"
+                $"CombatPawnMover speed: base={moveSpeed}, speedMod={speedModifierMultiplier}, " +
+                $"focus={focusMultiplier}, attackCommitment={attackCommitmentMultiplier}, final={finalSpeed}",
+                this
             );
         }
 
-        rb.MovePosition(rb.position + input * finalSpeed * Time.fixedDeltaTime);
+        rb.MovePosition(
+            rb.position + input * finalSpeed * Time.fixedDeltaTime
+        );
     }
 
     private void OnDisable()

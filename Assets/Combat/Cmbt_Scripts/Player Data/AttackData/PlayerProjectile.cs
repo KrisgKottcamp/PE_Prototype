@@ -13,7 +13,7 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private float stunSeconds = 0.15f;
 
     [Header("Projectile Breaking")]
-    [Tooltip("If true, destroys enemy projectiles on contact and keeps flying. Enable on the Power Shot prefab.")]
+    [Tooltip("If true, destroys enemy projectiles on contact and keeps flying. Enable on the Power Shot prefab only if desired.")]
     [SerializeField] private bool breaksEnemyProjectiles = false;
 
     [Header("Close-Range Aim Assist")]
@@ -37,8 +37,8 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private bool logCloseRangeAssist = false;
 
     [Header("Spawn Overlap Protection")]
-    [Tooltip("Prevents the projectile's normal trigger collision from hitting enemies behind the committed aim direction when the projectile first spawns.")]
-    [SerializeField] private bool protectAgainstRearSpawnHits = true;
+    [Tooltip("Prevents the projectile's normal trigger collision from hitting enemies behind the committed aim direction when the projectile first spawns. This is off by default and only needed for special skill projectiles.")]
+    [SerializeField] private bool protectAgainstRearSpawnHits = false;
 
     [Tooltip("How far the projectile travels before normal collision no longer needs the strict spawn-direction check.")]
     [SerializeField] private float spawnProtectionTravelDistance = 0.45f;
@@ -46,6 +46,29 @@ public class PlayerProjectile : MonoBehaviour
     [Tooltip("During spawn protection, enemy centers must be at least this aligned with the shot direction. Usually match the close-range aim dot.")]
     [Range(0f, 1f)]
     [SerializeField] private float spawnCollisionMinimumAimDot = 0.8f;
+
+    [Header("Spawn Wall/Cover Clip Protection")]
+    [Tooltip("Off by default so normal basic projectiles such as Phil's are not affected. ProjectileShooter arms this only for Power Shot-style skill projectiles.")]
+    [SerializeField] private bool protectAgainstSpawnObstacleClips = false;
+
+    [Tooltip("Solid wall/cover layers ignored only when they are side/back spawn clips during the first small distance of travel.")]
+    [SerializeField] private LayerMask spawnObstacleProtectionMask;
+
+    [Tooltip("How far the projectile may travel before side-wall spawn clip protection expires.")]
+    [SerializeField] private float spawnObstacleProtectionTravelDistance = 0.55f;
+
+    [Tooltip("If the obstacle lies this far forward in the shot direction, it is treated as a real wall hit and is not ignored.")]
+    [Range(-1f, 1f)]
+    [SerializeField] private float spawnObstacleForwardDotThreshold = 0.55f;
+
+    [Tooltip("Obstacle contacts closer than this forward distance from the muzzle are treated as side/back spawn clips, not real forward wall hits.")]
+    [SerializeField] private float spawnObstacleMinimumForwardDistance = 0.05f;
+
+    [Tooltip("Prints whether a first-frame wall/cover contact was ignored or accepted.")]
+    [SerializeField] private bool logSpawnObstacleProtection = false;
+
+    [Header("Debug")]
+    [SerializeField] private bool logHits = false;
 
     private Rigidbody2D rb;
     private Vector2 dir;
@@ -60,23 +83,70 @@ public class PlayerProjectile : MonoBehaviour
     private bool hasLaunchOrigin;
     private bool hitResolved;
 
-    private readonly RaycastHit2D[] closeRangeHits = new RaycastHit2D[24];
+    private Vector2 spawnObstacleLaunchOrigin;
+    private Vector2 spawnObstacleLaunchDirection = Vector2.up;
+
+    private readonly RaycastHit2D[] closeRangeHits =
+        new RaycastHit2D[24];
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
-        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.collisionDetectionMode =
+            CollisionDetectionMode2D.Continuous;
     }
 
     /// <summary>
     /// Called by ProjectileShooter before Fire().
-    /// Preserves the true muzzle position even though the projectile is instantiated forward.
+    /// Preserves the true muzzle position even though the projectile may be
+    /// instantiated forward for safe wall-hug spawning.
     /// </summary>
     public void SetLaunchOrigin(Vector2 origin)
     {
         launchOrigin = origin;
         hasLaunchOrigin = true;
+    }
+
+    /// <summary>
+    /// Compatibility entry point. This arms temporary obstacle-clip protection
+    /// only when a shooter explicitly calls it. The prefab default remains off,
+    /// so normal projectile basics such as Phil's are unaffected.
+    /// </summary>
+    public void SetSpawnObstacleProtection(
+        LayerMask obstacleMask,
+        float travelDistance)
+    {
+        ArmSpawnObstacleClipProtection(
+            obstacleMask,
+            hasLaunchOrigin ? launchOrigin : (Vector2)transform.position,
+            dir.sqrMagnitude > 0.0001f ? dir : Vector2.up,
+            travelDistance,
+            spawnObstacleForwardDotThreshold,
+            spawnObstacleMinimumForwardDistance
+        );
+    }
+
+    public void ArmSpawnObstacleClipProtection(
+        LayerMask obstacleMask,
+        Vector2 origin,
+        Vector2 direction,
+        float travelDistance,
+        float forwardDotThreshold,
+        float minimumForwardDistance)
+    {
+        if (obstacleMask.value == 0)
+            return;
+
+        protectAgainstSpawnObstacleClips = true;
+        spawnObstacleProtectionMask = obstacleMask;
+        spawnObstacleLaunchOrigin = origin;
+        spawnObstacleLaunchDirection = direction.sqrMagnitude > 0.0001f
+            ? direction.normalized
+            : Vector2.up;
+        spawnObstacleProtectionTravelDistance = Mathf.Max(0f, travelDistance);
+        spawnObstacleForwardDotThreshold = Mathf.Clamp(forwardDotThreshold, -1f, 1f);
+        spawnObstacleMinimumForwardDistance = Mathf.Max(0f, minimumForwardDistance);
     }
 
     public void Fire(
@@ -102,10 +172,8 @@ public class PlayerProjectile : MonoBehaviour
         lifetime = Mathf.Max(0.05f, life);
         hitMask = mask;
         awardApOnHit = awardAp;
-        momentumGainOnHit =
-            Mathf.Max(0f, momentumGain);
-        startsActiveScoringOnHit =
-            startActiveScoringOnHit;
+        momentumGainOnHit = Mathf.Max(0f, momentumGain);
+        startsActiveScoringOnHit = startActiveScoringOnHit;
 
         if (!hasLaunchOrigin)
         {
@@ -113,8 +181,18 @@ public class PlayerProjectile : MonoBehaviour
             hasLaunchOrigin = true;
         }
 
-        if (enableCloseRangeAimAssist && TryResolveCloseRangeEnemy())
+        if (protectAgainstSpawnObstacleClips &&
+            spawnObstacleLaunchDirection.sqrMagnitude <= 0.0001f)
+        {
+            spawnObstacleLaunchOrigin = launchOrigin;
+            spawnObstacleLaunchDirection = dir;
+        }
+
+        if (enableCloseRangeAimAssist &&
+            TryResolveCloseRangeEnemy())
+        {
             return;
+        }
 
         Destroy(gameObject, lifetime);
     }
@@ -124,7 +202,10 @@ public class PlayerProjectile : MonoBehaviour
         if (hitResolved)
             return;
 
-        rb.MovePosition(rb.position + dir * speed * Time.fixedDeltaTime);
+        rb.MovePosition(
+            rb.position +
+            dir * speed * Time.fixedDeltaTime
+        );
     }
 
     private bool TryResolveCloseRangeEnemy()
@@ -152,14 +233,19 @@ public class PlayerProjectile : MonoBehaviour
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D col = closeRangeHits[i].collider;
+
             if (col == null)
                 continue;
 
             EnemyHealth enemy = col.GetComponentInParent<EnemyHealth>();
+
             if (enemy == null)
                 continue;
 
-            if (!IsEnemyClearlyInAimDirection(col, minimumForwardAimDot, out float aimDot))
+            if (!IsEnemyClearlyInAimDirection(
+                    col,
+                    minimumForwardAimDot,
+                    out float aimDot))
             {
                 LogAssist($"Rejected {enemy.name}: outside committed aim direction.");
                 continue;
@@ -174,7 +260,8 @@ public class PlayerProjectile : MonoBehaviour
             float candidateDistance = Mathf.Max(0f, closeRangeHits[i].distance);
 
             if (candidateDistance < bestDistance ||
-                (Mathf.Approximately(candidateDistance, bestDistance) && aimDot > bestAimDot))
+                (Mathf.Approximately(candidateDistance, bestDistance) &&
+                 aimDot > bestAimDot))
             {
                 bestEnemy = enemy;
                 bestCollider = col;
@@ -186,7 +273,11 @@ public class PlayerProjectile : MonoBehaviour
         if (bestEnemy == null)
             return false;
 
-        LogAssist($"Accepted {bestEnemy.name}. Distance={bestDistance:0.00}, AimDot={bestAimDot:0.00}");
+        LogAssist(
+            $"Accepted {bestEnemy.name}. " +
+            $"Distance={bestDistance:0.00}, AimDot={bestAimDot:0.00}"
+        );
+
         ResolveEnemyHit(bestEnemy, bestCollider);
         return true;
     }
@@ -207,8 +298,8 @@ public class PlayerProjectile : MonoBehaviour
         if (toEnemy.sqrMagnitude <= 0.0001f)
             return false;
 
-        // The enemy's center must actually be in front of Audrey's committed aim.
         float forwardDistance = Vector2.Dot(toEnemy, dir);
+
         if (forwardDistance <= 0.01f)
             return false;
 
@@ -221,8 +312,93 @@ public class PlayerProjectile : MonoBehaviour
         if (!protectAgainstRearSpawnHits || !hasLaunchOrigin)
             return false;
 
-        float forwardTravel = Vector2.Dot((Vector2)transform.position - launchOrigin, dir);
-        return forwardTravel <= Mathf.Max(0f, spawnProtectionTravelDistance);
+        float forwardTravel = Vector2.Dot(
+            (Vector2)transform.position - launchOrigin,
+            dir
+        );
+
+        return forwardTravel <=
+               Mathf.Max(0f, spawnProtectionTravelDistance);
+    }
+
+    private bool IsInsideSpawnObstacleProtectionWindow()
+    {
+        if (!protectAgainstSpawnObstacleClips ||
+            spawnObstacleProtectionMask.value == 0)
+        {
+            return false;
+        }
+
+        Vector2 activeDir = spawnObstacleLaunchDirection.sqrMagnitude > 0.0001f
+            ? spawnObstacleLaunchDirection.normalized
+            : dir;
+
+        float forwardTravel = Vector2.Dot(
+            (Vector2)transform.position - spawnObstacleLaunchOrigin,
+            activeDir
+        );
+
+        return forwardTravel <=
+               Mathf.Max(0f, spawnObstacleProtectionTravelDistance);
+    }
+
+    private bool ShouldIgnoreSpawnObstacleClip(Collider2D obstacleCollider)
+    {
+        if (!IsInsideSpawnObstacleProtectionWindow() ||
+            obstacleCollider == null)
+        {
+            return false;
+        }
+
+        if (((1 << obstacleCollider.gameObject.layer) &
+             spawnObstacleProtectionMask.value) == 0)
+        {
+            return false;
+        }
+
+        Vector2 activeDir = spawnObstacleLaunchDirection.sqrMagnitude > 0.0001f
+            ? spawnObstacleLaunchDirection.normalized
+            : dir;
+
+        Vector2 closestPoint = obstacleCollider.ClosestPoint(spawnObstacleLaunchOrigin);
+        Vector2 toObstacle = closestPoint - spawnObstacleLaunchOrigin;
+
+        if (toObstacle.sqrMagnitude <= 0.000001f)
+            toObstacle = (Vector2)obstacleCollider.bounds.center - spawnObstacleLaunchOrigin;
+
+        float forwardDistance = Vector2.Dot(toObstacle, activeDir);
+        float alignment = toObstacle.sqrMagnitude > 0.000001f
+            ? Vector2.Dot(activeDir, toObstacle.normalized)
+            : -1f;
+
+        bool directForwardWall =
+            forwardDistance >= spawnObstacleMinimumForwardDistance &&
+            alignment >= spawnObstacleForwardDotThreshold;
+
+        if (directForwardWall)
+        {
+            if (logSpawnObstacleProtection)
+            {
+                Debug.Log(
+                    $"PlayerProjectile: accepted direct wall hit '{obstacleCollider.name}'. " +
+                    $"Forward={forwardDistance:0.00}, Dot={alignment:0.00}",
+                    this
+                );
+            }
+
+            return false;
+        }
+
+        if (logSpawnObstacleProtection)
+        {
+            Debug.Log(
+                $"PlayerProjectile: ignored side/back spawn clip '{obstacleCollider.name}'. " +
+                $"Forward={forwardDistance:0.00}, Dot={alignment:0.00}",
+                this
+            );
+        }
+
+        return true;
     }
 
     private bool ShouldRejectSpawnOverlapEnemy(Collider2D enemyCollider)
@@ -243,9 +419,11 @@ public class PlayerProjectile : MonoBehaviour
                 : null;
 
             string enemyName = enemy != null ? enemy.name : "Unknown enemy";
+
             LogAssist(
                 $"Ignored spawn-overlap collision with {enemyName}. " +
-                $"The enemy is behind or outside the committed aim cone. AimDot={aimDot:0.00}"
+                $"The enemy is behind or outside the committed aim cone. " +
+                $"AimDot={aimDot:0.00}"
             );
 
             return true;
@@ -288,7 +466,8 @@ public class PlayerProjectile : MonoBehaviour
         {
             Projectile enemyProj = other.GetComponentInParent<Projectile>();
 
-            if (enemyProj != null && enemyProj.Team == Projectile.ProjectileTeam.Enemy)
+            if (enemyProj != null &&
+                enemyProj.Team == Projectile.ProjectileTeam.Enemy)
             {
                 Destroy(enemyProj.gameObject);
                 return;
@@ -302,9 +481,6 @@ public class PlayerProjectile : MonoBehaviour
 
         if (enemyHealth != null)
         {
-            // This closes the loophole left by the earlier fix:
-            // normal trigger collisions at spawn must obey the same committed
-            // cursor direction as the close-range assist.
             if (ShouldRejectSpawnOverlapEnemy(other))
                 return;
 
@@ -312,11 +488,25 @@ public class PlayerProjectile : MonoBehaviour
             return;
         }
 
+        if (ShouldIgnoreSpawnObstacleClip(other))
+            return;
+
+        if (logHits)
+        {
+            Debug.Log(
+                $"PlayerProjectile destroyed by {other.name} on layer " +
+                $"{LayerMask.LayerToName(other.gameObject.layer)}.",
+                this
+            );
+        }
+
         hitResolved = true;
         Destroy(gameObject);
     }
 
-    private void ResolveEnemyHit(EnemyHealth enemyHealth, Collider2D hitCollider)
+    private void ResolveEnemyHit(
+        EnemyHealth enemyHealth,
+        Collider2D hitCollider)
     {
         if (hitResolved || enemyHealth == null)
             return;
@@ -341,24 +531,15 @@ public class PlayerProjectile : MonoBehaviour
         if (momentumGainOnHit <= 0f)
             return;
 
-        AttackMomentumManager manager =
-            AttackMomentumManager.Instance;
+        AttackMomentumManager manager = AttackMomentumManager.Instance;
 
         if (manager == null)
             return;
 
         if (startsActiveScoringOnHit)
-        {
-            manager.RegisterSuccessfulSkill(
-                momentumGainOnHit
-            );
-        }
+            manager.RegisterSuccessfulSkill(momentumGainOnHit);
         else
-        {
-            manager.RegisterMomentum(
-                momentumGainOnHit
-            );
-        }
+            manager.RegisterMomentum(momentumGainOnHit);
     }
 
     private void GrantApIfAllowed()
@@ -374,8 +555,11 @@ public class PlayerProjectile : MonoBehaviour
         if (pm.activeIndex != ownerCharacterIndex)
             return;
 
-        if (ownerCharacterIndex < 0 || ownerCharacterIndex >= pm.party.Count)
+        if (ownerCharacterIndex < 0 ||
+            ownerCharacterIndex >= pm.party.Count)
+        {
             return;
+        }
 
         PartyManager.CharacterState owner = pm.party[ownerCharacterIndex];
 
@@ -384,7 +568,12 @@ public class PlayerProjectile : MonoBehaviour
 
         int maxAP = Mathf.Max(0, owner.def.maxAP);
         int gain = Mathf.Max(0, owner.def.apGainOnBasicHit);
-        owner.currentAP = Mathf.Clamp(owner.currentAP + gain, 0, maxAP);
+
+        owner.currentAP = Mathf.Clamp(
+            owner.currentAP + gain,
+            0,
+            maxAP
+        );
     }
 
     private void LogAssist(string message)

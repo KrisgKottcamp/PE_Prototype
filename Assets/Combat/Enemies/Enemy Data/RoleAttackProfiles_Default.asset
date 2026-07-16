@@ -1,0 +1,223 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f775ff06d14d15458633a0c2aa1c7c1, type: 3}
+  m_Name: RoleAttackProfiles_Default
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyRoleAttackProfiles
+  fanBulletDensityMultiplier: 0.65
+  ringBulletDensityMultiplier: 0.65
+  fanArcMultiplier: 0.82
+  maxFanBulletsForBasicEnemies: 4
+  maxRingBulletsForBasicEnemies: 8
+  suppressor:
+    displayName: Suppressor
+    projectileTint: {r: 0.5283019, g: 0.2768438, b: 0.08721964, a: 1}
+    low:
+      pattern: 7
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 46
+      minRingBullets: 5
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 0.95
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.18
+    medium:
+      pattern: 11
+      minShotsPerBurst: 2
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 52
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 0.95
+      burstCooldownMultiplier: 0.9
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.18
+    high:
+      pattern: 9
+      minShotsPerBurst: 2
+      minBurstsPerEnable: 1
+      minFanBullets: 7
+      fanArcDegrees: 62
+      minRingBullets: 12
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 0.85
+      burstCooldownMultiplier: 0.86
+      pressureRearmDelayMultiplier: 0.85
+      minimumPostBurstReplanDelay: 0.24
+    close:
+      pattern: 12
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 58
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.24
+  flanker:
+    displayName: Flanker
+    projectileTint: {r: 0.4716981, g: 0.09567462, b: 0.39989448, a: 1}
+    low:
+      pattern: 0
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 3
+      fanArcDegrees: 24
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 0.85
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.1
+    medium:
+      pattern: 8
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 4
+      fanArcDegrees: 28
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 0.86
+      burstCooldownMultiplier: 0.78
+      pressureRearmDelayMultiplier: 0.85
+      minimumPostBurstReplanDelay: 0.1
+    high:
+      pattern: 16
+      minShotsPerBurst: 2
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 34
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 0.82
+      burstCooldownMultiplier: 0.72
+      pressureRearmDelayMultiplier: 0.75
+      minimumPostBurstReplanDelay: 0.1
+    close:
+      pattern: 15
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 4
+      fanArcDegrees: 36
+      minRingBullets: 8
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.18
+  anchor:
+    displayName: Anchor
+    projectileTint: {r: 0.10212708, g: 0.36376154, b: 0.4245283, a: 1}
+    low:
+      pattern: 15
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 4
+      fanArcDegrees: 40
+      minRingBullets: 8
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.24
+    medium:
+      pattern: 10
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 44
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1.1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.34
+    high:
+      pattern: 14
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 46
+      minRingBullets: 14
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1.12
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.38
+    close:
+      pattern: 10
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 5
+      fanArcDegrees: 44
+      minRingBullets: 12
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.34
+  retreater:
+    displayName: Retreater
+    projectileTint: {r: 0.31728375, g: 0.33186856, b: 0.4339623, a: 1}
+    low:
+      pattern: 0
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 3
+      fanArcDegrees: 24
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1.05
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.2
+    medium:
+      pattern: 7
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 3
+      fanArcDegrees: 28
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1.08
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.22
+    high:
+      pattern: 12
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 4
+      fanArcDegrees: 36
+      minRingBullets: 10
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1.1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.24
+    close:
+      pattern: 15
+      minShotsPerBurst: 1
+      minBurstsPerEnable: 1
+      minFanBullets: 4
+      fanArcDegrees: 36
+      minRingBullets: 8
+      angularSpeedDegPerTick: -1
+      intraBurstIntervalMultiplier: 1
+      burstCooldownMultiplier: 1
+      pressureRearmDelayMultiplier: 1
+      minimumPostBurstReplanDelay: 0.26

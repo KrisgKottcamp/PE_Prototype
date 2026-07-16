@@ -19,7 +19,19 @@ public class EnemyShooterDebug : MonoBehaviour
         Spiral,
         BoI_4Way,
         BoI_8Way,
-        SweepFan
+        SweepFan,
+
+        // Pretty danmaku / tactical patterns v2
+        PetalFan,
+        ButterflySpread,
+        ClosingBlossom,
+        RotatingFlowerRing,
+        StaggeredRosette,
+        CrescentSweep,
+        BraidedStream,
+        HaloSpear,
+        CloseCross,
+        EscapeCutoff
     }
 
     [Header("Projectile")]
@@ -74,11 +86,79 @@ public class EnemyShooterDebug : MonoBehaviour
     [Tooltip("If true, Spiral is centered on aim direction. If false, it rotates globally.")]
     [SerializeField] private bool spiralCenteredOnAim = true;
 
+    [Header("Pretty Danmaku Patterns v4")]
+    [Tooltip("Extra rotation applied to flower/ring patterns every time this enemy emits a pattern. Higher = more pinwheel motion.")]
+    [SerializeField] private float prettyPatternRotationStep = 11f;
+
+    [Tooltip("Center gap in degrees for Butterfly Spread. Larger = safer middle lane, stronger side pincer.")]
+    [SerializeField] private float butterflyCenterGapDegrees = 18f;
+
+    [Tooltip("Used by Halo Spear. The spear projectile fires after the decorative halo by this many seconds.")]
+    [SerializeField, Min(0f)] private float haloSpearDelay = 0.11f;
+
+    [Tooltip("Used by Escape Cutoff. This aims ahead of the player's recent movement, making repeated dodge directions less safe.")]
+    [SerializeField] private float escapeCutoffLeadDistance = 1.15f;
+
+    [Tooltip("If true, role/identity code may tint projectile sprites. Leave on for Touhou-style readability.")]
+    [SerializeField] private bool allowProjectileTint = true;
+
+    [Tooltip("If false, pretty patterns do not add a bonus direct center bullet on top of their shape. Recommended false for regular enemies.")]
+    [SerializeField] private bool guaranteeCenterBulletOnPrettyPatterns = false;
+
+    [Tooltip("Maximum halo bullets used by HaloSpear before the delayed spear. Keeps basic enemy halo patterns readable.")]
+    [SerializeField, Min(6)] private int haloSpearMaxHaloBullets = 10;
+
+    [Tooltip("Maximum visible projectile directions used by rotating flower rings on regular enemies.")]
+    [SerializeField, Min(4)] private int rotatingFlowerMaxProjectiles = 8;
+
+    [Tooltip("Current tint applied to spawned projectile SpriteRenderers when tinting is enabled by EnemyBrain.")]
+    [SerializeField] private Color projectileTint = Color.white;
+
+    [Tooltip("Runtime/debug. EnemyBrain toggles this when role tinting is enabled.")]
+    [SerializeField] private bool projectileTintEnabled = false;
+
     [Header("Attack Telegraph")]
     [SerializeField] private EnemyAttackTelegraph attackTelegraph;
     [SerializeField] private PatternTelegraph[] patternTelegraphs;
     [SerializeField] private EnemyTelegraphProfile fallbackTelegraphProfile;
     [SerializeField] private bool lockAimDuringTelegraph = true;
+
+    [Header("Pretty Pattern Telegraph Reuse v4")]
+    [Tooltip("If a new pretty pattern has no exact telegraph assigned, reuse an older pattern telegraph with a similar shape.")]
+    [SerializeField] private bool reuseLegacyTelegraphsForPrettyPatterns = true;
+
+    [Tooltip("Runtime/debug: shows which telegraph profile was selected for the current pattern.")]
+    [SerializeField] private string debugTelegraphProfileSource = "None";
+
+    [Header("Aggression / Burst Flow v1")]
+    [Tooltip(
+        "If true, burst attacks telegraph once and then fire all burst shots quickly. " +
+        "This removes the old slow loop where every single burst shot had its own full telegraph."
+    )]
+    [SerializeField] private bool telegraphOnlyOncePerBurst = true;
+
+    [Tooltip("Optional logs for burst-flow testing.")]
+    [SerializeField] private bool debugBurstFlowLogs = false;
+
+
+    [Header("Projectile Readability Startup v1")]
+    [Tooltip("If true, enemy projectiles spawn in their full pattern first, linger/creep briefly, then accelerate to normal speed.")]
+    [SerializeField] private bool useProjectileStartupMotion = true;
+
+    [Tooltip("Seconds the spawned pattern stays almost still before the acceleration ramp begins.")]
+    [SerializeField, Min(0f)] private float projectileStartupHoldTime = 0.06f;
+
+    [Tooltip("Seconds spent accelerating from the initial multiplier to full projectile speed.")]
+    [SerializeField, Min(0f)] private float projectileStartupRampDuration = 0.28f;
+
+    [Tooltip("Speed multiplier during the initial readable startup. 0 = frozen, 0.05 = tiny creep.")]
+    [SerializeField, Range(0f, 1f)] private float projectileStartupInitialSpeedMultiplier = 0.05f;
+
+    [Tooltip("Higher values stay slower for longer, then snap closer to full speed near the end. 1 = linear.")]
+    [SerializeField, Min(0.1f)] private float projectileStartupEasePower = 2.0f;
+
+    [Tooltip("When a bullet is reflected by Push Back, remove this startup slow so the reflected bullet immediately travels normally.")]
+    [SerializeField] private bool removeStartupRampWhenReflected = true;
 
     [Header("Runtime")]
     [SerializeField] private bool shootingEnabled = false;
@@ -98,6 +178,10 @@ public class EnemyShooterDebug : MonoBehaviour
     private float spiralAngleDeg = 0f;
     private float sweepAngleDeg = 0f;
     private int sweepDir = 1;
+    private int prettyPatternPulseIndex = 0;
+    private Vector2 lastTargetPosition;
+    private Vector2 estimatedTargetVelocity;
+    private bool hasLastTargetPosition = false;
     private bool isTelegraphing = false;
 
     private const float TargetSearchInterval = 0.20f;
@@ -110,6 +194,13 @@ public class EnemyShooterDebug : MonoBehaviour
     public bool DebugLosBlocked => debugLosBlocked;
     public string DebugLosHitObject => debugLosHitObject;
     public float LastSuccessfulShotTime => lastSuccessfulShotTime;
+    public bool BurstQuotaReached =>
+        limitBurstsPerEnable &&
+        useBurstFire &&
+        burstsPerEnable > 0 &&
+        burstsFiredThisEnable >= burstsPerEnable;
+    public int BurstsFiredThisEnable => burstsFiredThisEnable;
+    public int BurstQuota => burstsPerEnable;
 
     private void OnEnable()
     {
@@ -139,7 +230,7 @@ public class EnemyShooterDebug : MonoBehaviour
             return;
         }
 
-        if (limitBurstsPerEnable && useBurstFire && burstsPerEnable > 0 && burstsFiredThisEnable >= burstsPerEnable)
+        if (BurstQuotaReached)
         {
             lastBlockReason = "BurstQuotaReached";
             return;
@@ -291,6 +382,18 @@ public class EnemyShooterDebug : MonoBehaviour
             degreesPerTick;
     }
 
+    public void SetProjectileTint(Color tint, bool enabled)
+    {
+        projectileTint = tint;
+        projectileTintEnabled = enabled;
+    }
+
+    public void ClearProjectileTint()
+    {
+        projectileTint = Color.white;
+        projectileTintEnabled = false;
+    }
+
     private IEnumerator TelegraphAndFireRoutine(
         Vector2 origin,
         Vector2 initialDirection,
@@ -376,7 +479,14 @@ public class EnemyShooterDebug : MonoBehaviour
             }
         }
 
-        if (fireAsBurstStep)
+        if (fireAsBurstStep && telegraphOnlyOncePerBurst)
+        {
+            yield return FireBurstSequenceAfterTelegraph(
+                currentOrigin,
+                fireDirection
+            );
+        }
+        else if (fireAsBurstStep)
         {
             FireBurstStep(
                 currentOrigin,
@@ -394,18 +504,190 @@ public class EnemyShooterDebug : MonoBehaviour
         isTelegraphing = false;
     }
 
-    private EnemyTelegraphProfile GetTelegraphProfile(PatternType requestedPattern)
+    private IEnumerator FireBurstSequenceAfterTelegraph(
+        Vector2 firstOrigin,
+        Vector2 initialDirection)
     {
-        if (patternTelegraphs != null)
+        int shots =
+            Mathf.Max(1, shotsPerBurst);
+
+        bool firedAnyShot = false;
+
+        for (int i = 0; i < shots; i++)
         {
-            for (int i = 0; i < patternTelegraphs.Length; i++)
+            if (!shootingEnabled || target == null)
+                break;
+
+            Vector2 shotOrigin =
+                muzzle != null
+                    ? (Vector2)muzzle.position
+                    : (Vector2)transform.position;
+
+            Vector2 shotDirection =
+                initialDirection.sqrMagnitude > 0.0001f
+                    ? initialDirection.normalized
+                    : Vector2.right;
+
+            if (!lockAimDuringTelegraph &&
+                TryGetDelayedAimPoint(out Vector2 aimPoint))
             {
-                PatternTelegraph entry = patternTelegraphs[i];
-                if (entry != null && entry.pattern == requestedPattern && entry.profile != null)
-                    return entry.profile;
+                Vector2 toAim =
+                    aimPoint - shotOrigin;
+
+                if (toAim.sqrMagnitude > 0.0001f)
+                    shotDirection = toAim.normalized;
+            }
+
+            if (requireLineOfSight &&
+                IsLineBlocked(shotOrigin, target.position))
+            {
+                lastBlockReason =
+                    firedAnyShot
+                        ? "LOSBlockedDuringBurst"
+                        : "LOSBlockedBeforeBurstShot";
+
+                ScheduleNextFire(
+                    losRetryDelay,
+                    "LOSRetryDuringBurst"
+                );
+
+                break;
+            }
+
+            EmitPattern(shotOrigin, shotDirection);
+            firedAnyShot = true;
+
+            if (debugBurstFlowLogs)
+            {
+                Debug.Log(
+                    $"EnemyShooterDebug: {name} burst shot {i + 1}/{shots}",
+                    this
+                );
+            }
+
+            if (i < shots - 1)
+            {
+                yield return new WaitForSeconds(
+                    Mathf.Max(MinInterval, intraBurstInterval)
+                );
             }
         }
+
+        if (firedAnyShot)
+        {
+            burstsFiredThisEnable++;
+            burstShotsRemaining = 0;
+            ScheduleNextFire(
+                Mathf.Max(MinInterval, burstCooldown),
+                "BurstSequenceCooldown"
+            );
+        }
+    }
+
+    private EnemyTelegraphProfile GetTelegraphProfile(PatternType requestedPattern)
+    {
+        EnemyTelegraphProfile exact = FindTelegraphProfile(requestedPattern);
+        if (exact != null)
+        {
+            debugTelegraphProfileSource = $"Exact:{requestedPattern}";
+            return exact;
+        }
+
+        if (reuseLegacyTelegraphsForPrettyPatterns &&
+            TryGetLegacyTelegraphAlias(
+                requestedPattern,
+                out PatternType aliasPattern))
+        {
+            EnemyTelegraphProfile alias =
+                FindTelegraphProfile(aliasPattern);
+
+            if (alias != null)
+            {
+                debugTelegraphProfileSource =
+                    $"Alias:{requestedPattern}->{aliasPattern}";
+
+                return alias;
+            }
+        }
+
+        debugTelegraphProfileSource =
+            fallbackTelegraphProfile != null
+                ? $"Fallback:{requestedPattern}"
+                : $"None:{requestedPattern}";
+
         return fallbackTelegraphProfile;
+    }
+
+    private EnemyTelegraphProfile FindTelegraphProfile(
+        PatternType requestedPattern)
+    {
+        if (patternTelegraphs == null)
+            return null;
+
+        for (int i = 0; i < patternTelegraphs.Length; i++)
+        {
+            PatternTelegraph entry = patternTelegraphs[i];
+
+            if (entry != null &&
+                entry.pattern == requestedPattern &&
+                entry.profile != null)
+            {
+                return entry.profile;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetLegacyTelegraphAlias(
+        PatternType requestedPattern,
+        out PatternType aliasPattern)
+    {
+        switch (requestedPattern)
+        {
+            case PatternType.PetalFan:
+                aliasPattern = PatternType.AimedFan;
+                return true;
+
+            case PatternType.ButterflySpread:
+                aliasPattern = PatternType.AimedFan;
+                return true;
+
+            case PatternType.ClosingBlossom:
+                aliasPattern = PatternType.SweepFan;
+                return true;
+
+            case PatternType.RotatingFlowerRing:
+                aliasPattern = PatternType.Ring;
+                return true;
+
+            case PatternType.StaggeredRosette:
+                aliasPattern = PatternType.Spiral;
+                return true;
+
+            case PatternType.CrescentSweep:
+                aliasPattern = PatternType.SweepFan;
+                return true;
+
+            case PatternType.BraidedStream:
+                aliasPattern = PatternType.Spiral;
+                return true;
+
+            case PatternType.HaloSpear:
+                aliasPattern = PatternType.Ring;
+                return true;
+
+            case PatternType.CloseCross:
+                aliasPattern = PatternType.BoI_4Way;
+                return true;
+
+            case PatternType.EscapeCutoff:
+                aliasPattern = PatternType.AimedSingle;
+                return true;
+        }
+
+        aliasPattern = requestedPattern;
+        return false;
     }
 
     private void FireSingleTick(Vector2 origin, Vector2 baseDir)
@@ -434,6 +716,7 @@ public class EnemyShooterDebug : MonoBehaviour
     private void EmitPattern(Vector2 origin, Vector2 baseDir)
     {
         lastBlockReason = $"Pattern:{pattern}";
+        prettyPatternPulseIndex++;
 
         switch (pattern)
         {
@@ -457,6 +740,36 @@ public class EnemyShooterDebug : MonoBehaviour
                 break;
             case PatternType.SweepFan:
                 EmitSweepFan(origin, baseDir);
+                break;
+            case PatternType.PetalFan:
+                EmitPetalFan(origin, baseDir);
+                break;
+            case PatternType.ButterflySpread:
+                EmitButterflySpread(origin, baseDir);
+                break;
+            case PatternType.ClosingBlossom:
+                EmitClosingBlossom(origin, baseDir);
+                break;
+            case PatternType.RotatingFlowerRing:
+                EmitRotatingFlowerRing(origin, baseDir);
+                break;
+            case PatternType.StaggeredRosette:
+                EmitStaggeredRosette(origin, baseDir);
+                break;
+            case PatternType.CrescentSweep:
+                EmitCrescentSweep(origin, baseDir);
+                break;
+            case PatternType.BraidedStream:
+                EmitBraidedStream(origin, baseDir);
+                break;
+            case PatternType.HaloSpear:
+                EmitHaloSpear(origin, baseDir);
+                break;
+            case PatternType.CloseCross:
+                EmitCloseCross(origin, baseDir);
+                break;
+            case PatternType.EscapeCutoff:
+                EmitEscapeCutoff(origin, baseDir);
                 break;
         }
     }
@@ -534,6 +847,213 @@ public class EnemyShooterDebug : MonoBehaviour
         EmitFan(origin, centerDir, Mathf.Max(1, fanBullets), fanArcDegrees);
     }
 
+    private void EmitPetalFan(Vector2 origin, Vector2 baseDir)
+    {
+        int count = Mathf.Max(3, fanBullets);
+        float half = Mathf.Max(8f, fanArcDegrees) * 0.5f;
+
+        if (count == 1)
+        {
+            SpawnProjectile(origin, baseDir);
+            return;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = count == 1
+                ? 0f
+                : (i / (float)(count - 1)) * 2f - 1f;
+
+            // Curve the spacing so the outer bullets look like petals instead of a flat cone.
+            float curved = Mathf.Sign(t) * Mathf.Pow(Mathf.Abs(t), 0.72f);
+            float decorativeWave = Mathf.Sin((prettyPatternPulseIndex + i) * 0.85f) * 2.0f;
+            float angle = curved * half + decorativeWave;
+
+            SpawnProjectile(origin, Rotate(baseDir, angle));
+        }
+
+        if (guaranteeCenterBulletOnPrettyPatterns && guaranteeCenterBullet && target != null)
+        {
+            Vector2 toTarget = (Vector2)target.position - origin;
+            if (toTarget.sqrMagnitude > 0.0001f)
+                SpawnProjectile(origin, toTarget.normalized);
+        }
+    }
+
+    private void EmitButterflySpread(Vector2 origin, Vector2 baseDir)
+    {
+        int total = Mathf.Max(4, fanBullets);
+        int perWing = Mathf.Max(2, total / 2);
+        float outer = Mathf.Max(20f, fanArcDegrees * 0.5f);
+        float gap = Mathf.Clamp(butterflyCenterGapDegrees, 4f, outer - 2f);
+
+        for (int side = -1; side <= 1; side += 2)
+        {
+            for (int i = 0; i < perWing; i++)
+            {
+                float t = perWing == 1 ? 0f : i / (float)(perWing - 1);
+                float wingCurve = Mathf.Lerp(gap, outer, Mathf.Pow(t, 0.82f));
+                float feather = Mathf.Sin((prettyPatternPulseIndex + i) * 0.65f) * 1.5f;
+                SpawnProjectile(origin, Rotate(baseDir, side * (wingCurve + feather)));
+            }
+        }
+    }
+
+    private void EmitClosingBlossom(Vector2 origin, Vector2 baseDir)
+    {
+        int perSide = Mathf.Max(2, fanBullets / 2);
+        float outer = Mathf.Max(24f, fanArcDegrees * 0.5f);
+        float inner = Mathf.Clamp(outer * 0.25f, 7f, outer - 4f);
+
+        // Two curved petal walls. They visually suggest a gate closing around the player.
+        for (int side = -1; side <= 1; side += 2)
+        {
+            for (int i = 0; i < perSide; i++)
+            {
+                float t = perSide == 1 ? 0f : i / (float)(perSide - 1);
+                float angle = Mathf.Lerp(outer, inner, t);
+                float petalBend = Mathf.Sin(t * Mathf.PI) * 4.0f;
+                SpawnProjectile(origin, Rotate(baseDir, side * (angle + petalBend)));
+            }
+        }
+    }
+
+    private void EmitRotatingFlowerRing(Vector2 origin, Vector2 baseDir)
+    {
+        int total = Mathf.Clamp(
+            Mathf.Max(4, ringBullets),
+            4,
+            Mathf.Max(4, rotatingFlowerMaxProjectiles)
+        );
+
+        float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
+        float rotation = prettyPatternPulseIndex * prettyPatternRotationStep;
+
+        // v4: one clean flower ring instead of multiple bullets per petal.
+        // This keeps the pattern pretty without overwhelming basic enemy fights.
+        for (int i = 0; i < total; i++)
+        {
+            float petalWave = Mathf.Sin((i / (float)total) * Mathf.PI * 2f) * 3.0f;
+            float angle = baseAngle + rotation + 360f * i / total + petalWave;
+            SpawnProjectile(origin, AngleToDir(angle));
+        }
+    }
+
+    private void EmitStaggeredRosette(Vector2 origin, Vector2 baseDir)
+    {
+        int count = Mathf.Max(4, fanBullets);
+        float half = Mathf.Max(14f, fanArcDegrees) * 0.5f;
+        float centerRotation = prettyPatternPulseIndex * prettyPatternRotationStep;
+        Vector2 centerDir = Rotate(baseDir, centerRotation);
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = count == 1 ? 0f : (i / (float)(count - 1)) * 2f - 1f;
+            float angle = t * half;
+            SpawnProjectile(origin, Rotate(centerDir, angle));
+        }
+    }
+
+    private void EmitCrescentSweep(Vector2 origin, Vector2 baseDir)
+    {
+        int count = Mathf.Max(4, fanBullets);
+        float arc = Mathf.Max(34f, fanArcDegrees);
+        float half = arc * 0.5f;
+        float sweep = Mathf.Sin(prettyPatternPulseIndex * 0.55f) * Mathf.Min(18f, half * 0.35f);
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = count == 1 ? 0f : (i / (float)(count - 1)) * 2f - 1f;
+            float crescent = t * half + Mathf.Sin((t + 1f) * Mathf.PI) * 5f;
+            SpawnProjectile(origin, Rotate(baseDir, crescent + sweep));
+        }
+    }
+
+    private void EmitBraidedStream(Vector2 origin, Vector2 baseDir)
+    {
+        float wave = Mathf.Sin(prettyPatternPulseIndex * 0.75f) * Mathf.Max(8f, fanArcDegrees * 0.25f);
+        float mirror = Mathf.Cos(prettyPatternPulseIndex * 0.75f) * 5f;
+
+        SpawnProjectile(origin, Rotate(baseDir, wave + mirror));
+        SpawnProjectile(origin, Rotate(baseDir, -wave + mirror));
+
+        if (fanBullets >= 5)
+            SpawnProjectile(origin, baseDir);
+    }
+
+    private void EmitHaloSpear(Vector2 origin, Vector2 baseDir)
+    {
+        int haloCount = Mathf.Clamp(
+            Mathf.Max(6, ringBullets),
+            6,
+            Mathf.Max(6, haloSpearMaxHaloBullets)
+        );
+        float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
+        float rotation = prettyPatternPulseIndex * prettyPatternRotationStep;
+
+        for (int i = 0; i < haloCount; i++)
+        {
+            float angle = baseAngle + rotation + 360f * i / haloCount;
+            SpawnProjectile(origin, AngleToDir(angle));
+        }
+
+        StartCoroutine(SpawnDelayedProjectile(origin, baseDir, haloSpearDelay));
+    }
+
+    private void EmitCloseCross(Vector2 origin, Vector2 baseDir)
+    {
+        float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg;
+        float offset = (prettyPatternPulseIndex % 2 == 0) ? 0f : 45f;
+        int ways = Mathf.Max(4, ringBullets >= 10 ? 6 : 4);
+
+        for (int i = 0; i < ways; i++)
+        {
+            float angle = baseAngle + offset + 360f * i / ways;
+            SpawnProjectile(origin, AngleToDir(angle));
+        }
+    }
+
+    private void EmitEscapeCutoff(Vector2 origin, Vector2 baseDir)
+    {
+        Vector2 cutoffDir = baseDir;
+
+        if (target != null && estimatedTargetVelocity.sqrMagnitude > 0.0001f)
+        {
+            Vector2 predictedPoint =
+                (Vector2)target.position +
+                estimatedTargetVelocity.normalized * Mathf.Max(0.1f, escapeCutoffLeadDistance);
+
+            Vector2 toPredicted = predictedPoint - origin;
+            if (toPredicted.sqrMagnitude > 0.0001f)
+                cutoffDir = toPredicted.normalized;
+        }
+
+        SpawnProjectile(origin, cutoffDir);
+
+        if (fanBullets >= 3)
+        {
+            float narrow = Mathf.Clamp(fanArcDegrees * 0.18f, 6f, 14f);
+            SpawnProjectile(origin, Rotate(cutoffDir, narrow));
+            SpawnProjectile(origin, Rotate(cutoffDir, -narrow));
+        }
+    }
+
+    private IEnumerator SpawnDelayedProjectile(Vector2 origin, Vector2 dir, float delay)
+    {
+        if (delay > 0f)
+            yield return new WaitForSeconds(delay);
+
+        if (!shootingEnabled)
+            yield break;
+
+        Vector2 spawnOrigin =
+            muzzle != null
+                ? (Vector2)muzzle.position
+                : origin;
+
+        SpawnProjectile(spawnOrigin, dir);
+    }
+
     private void SpawnProjectile(Vector2 origin, Vector2 dir)
     {
         lastSuccessfulShotTime = Time.time;
@@ -555,17 +1075,88 @@ public class EnemyShooterDebug : MonoBehaviour
                 if (ownerCols[i] != null && projCols[j] != null)
                     Physics2D.IgnoreCollision(ownerCols[i], projCols[j], true);
 
-        if (spawned.TryGetComponent<Projectile>(out Projectile p))
+        ApplyProjectileTint(spawned);
+
+        bool hasProjectile =
+            spawned.TryGetComponent<Projectile>(
+                out Projectile p
+            );
+
+        if (hasProjectile)
             p.Initialize(dir, projectileSpeed);
 
-        if (applyVelocityToRigidbody && spawned.TryGetComponent<Rigidbody2D>(out Rigidbody2D prb))
+        if (useProjectileStartupMotion)
+            AttachProjectileStartupRamp(spawned, dir);
+
+        if (applyVelocityToRigidbody &&
+            spawned.TryGetComponent<Rigidbody2D>(
+                out Rigidbody2D prb))
         {
+            float initialMultiplier =
+                useProjectileStartupMotion
+                    ? Mathf.Clamp01(
+                        projectileStartupInitialSpeedMultiplier)
+                    : 1f;
+
+            Vector2 velocity =
+                dir * projectileSpeed * initialMultiplier;
+
 #if UNITY_6000_0_OR_NEWER
-            prb.linearVelocity = dir * projectileSpeed;
+            prb.linearVelocity = velocity;
 #else
-            prb.velocity = dir * projectileSpeed;
+            prb.velocity = velocity;
 #endif
         }
+    }
+
+    private void ApplyProjectileTint(GameObject spawned)
+    {
+        if (!allowProjectileTint || !projectileTintEnabled || spawned == null)
+            return;
+
+        SpriteRenderer[] renderers =
+            spawned.GetComponentsInChildren<SpriteRenderer>(true);
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+                renderers[i].color = projectileTint;
+        }
+    }
+
+    private void AttachProjectileStartupRamp(
+        GameObject spawned,
+        Vector2 dir)
+    {
+        if (spawned == null)
+            return;
+
+        float hold =
+            Mathf.Max(0f, projectileStartupHoldTime);
+
+        float ramp =
+            Mathf.Max(0f, projectileStartupRampDuration);
+
+        if (hold <= 0f && ramp <= 0f)
+            return;
+
+        EnemyProjectileStartupRamp startup =
+            spawned.GetComponent<EnemyProjectileStartupRamp>();
+
+        if (startup == null)
+            startup =
+                spawned.AddComponent<EnemyProjectileStartupRamp>();
+
+        startup.Configure(
+            dir,
+            projectileSpeed,
+            hold,
+            ramp,
+            Mathf.Clamp01(
+                projectileStartupInitialSpeedMultiplier),
+            Mathf.Max(0.1f, projectileStartupEasePower),
+            removeStartupRampWhenReflected
+        );
     }
 
     private void ResetBurstStateForEnable()
@@ -599,7 +1190,19 @@ public class EnemyShooterDebug : MonoBehaviour
     {
         if (target == null) return;
 
-        samples.Add(new TargetSample { time = Time.time, pos = target.position });
+        Vector2 currentTargetPos = target.position;
+
+        if (hasLastTargetPosition)
+        {
+            float dt = Mathf.Max(0.0001f, Time.deltaTime);
+            Vector2 rawVelocity = (currentTargetPos - lastTargetPosition) / dt;
+            estimatedTargetVelocity = Vector2.Lerp(estimatedTargetVelocity, rawVelocity, 0.25f);
+        }
+
+        lastTargetPosition = currentTargetPos;
+        hasLastTargetPosition = true;
+
+        samples.Add(new TargetSample { time = Time.time, pos = currentTargetPos });
 
         float keepFrom = Time.time - Mathf.Max(aimLagSeconds + 0.75f, 1.0f);
         int removeCount = 0;

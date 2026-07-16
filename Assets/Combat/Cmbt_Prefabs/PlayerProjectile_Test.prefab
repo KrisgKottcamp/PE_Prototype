@@ -177,3 +177,18 @@ MonoBehaviour:
   damage: 1
   stunSeconds: 0.15
   breaksEnemyProjectiles: 0
+  enableCloseRangeAimAssist: 0
+  closeRangeAssistDistance: 1
+  closeRangeAssistRadius: 0.18
+  minimumForwardAimDot: 0.8
+  closeRangeObstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  logCloseRangeAssist: 0
+  protectAgainstRearSpawnHits: 0
+  spawnProtectionTravelDistance: 0.45
+  spawnCollisionMinimumAimDot: 0.8
+  protectAgainstSpawnObstacleClips: 0
+  spawnObstacleForwardDotThreshold: 0.55
+  spawnObstacleMinimumForwardDistance: 0.05
+  logSpawnObstacleProtection: 0

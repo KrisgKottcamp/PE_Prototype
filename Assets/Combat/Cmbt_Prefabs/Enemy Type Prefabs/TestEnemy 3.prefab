@@ -219,6 +219,13 @@ MonoBehaviour:
   angularSpeedDegPerTick: 12
   spiralBulletsPerTick: 2
   spiralCenteredOnAim: 1
+  prettyPatternRotationStep: 11
+  butterflyCenterGapDegrees: 18
+  haloSpearDelay: 0.11
+  escapeCutoffLeadDistance: 1.15
+  allowProjectileTint: 1
+  projectileTint: {r: 1, g: 1, b: 1, a: 1}
+  projectileTintEnabled: 0
   attackTelegraph: {fileID: 148304592467341021}
   patternTelegraphs:
   - pattern: 0
@@ -233,9 +240,20 @@ MonoBehaviour:
     profile: {fileID: 11400000, guid: ddc6aaa2c5718464090881ecf6d59f46, type: 2}
   fallbackTelegraphProfile: {fileID: 0}
   lockAimDuringTelegraph: 1
+  telegraphOnlyOncePerBurst: 1
+  debugBurstFlowLogs: 0
+  useProjectileStartupMotion: 1
+  projectileStartupHoldTime: 0.06
+  projectileStartupRampDuration: 0.28
+  projectileStartupInitialSpeedMultiplier: 0.05
+  projectileStartupEasePower: 2
+  removeStartupRampWhenReflected: 1
   shootingEnabled: 1
   lastBlockReason: None
   cooldownSetBy: None
+  debugLosBlocked: 0
+  debugLosHitObject: None
+  lastSuccessfulShotTime: -999
 --- !u!114 &273839630491619014
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -268,10 +286,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaultStunSeconds: 1.5
+  disableConfiguredScriptsDuringStun: 0
+  freezeRigidbodyDuringStun: 0
   disableScripts:
   - {fileID: 3715463728703913041}
   - {fileID: -3799086166338868606}
   rb2d: {fileID: 0}
+  debugLogs: 0
+  debugLastStunType: None
+  debugStunRemaining: 0
 --- !u!114 &7665401624113410786
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -409,6 +432,7 @@ MonoBehaviour:
   enemyHealth: {fileID: 5696765117373536081}
   shooter: {fileID: 3715463728703913041}
   rb: {fileID: 9072718850780085983}
+  stunnable: {fileID: 0}
   autoFindPlayerByTag: 1
   playerTag: PlayerCombatPawn
   playerSearchInterval: 0.2
@@ -417,6 +441,13 @@ MonoBehaviour:
   obstacleProbeDistance: 0.35
   stuckCheckInterval: 0.35
   stuckMinTravel: 0.08
+  navigationGrid: {fileID: 0}
+  pathRefreshInterval: 0.35
+  waypointArrivalRadius: 0.18
+  failedPointCooldown: 2
+  progressTimeout: 1.1
+  progressRequired: 0.12
+  activityWatchdogSeconds: 2.5
   replanIntervalRange: {x: 0.2, y: 0.4}
   minPointLockTime: 0.45
   replanHardTimeout: 0.35
@@ -472,6 +503,61 @@ MonoBehaviour:
   playerStationaryThreshold: 0.5
   maxRepositionsPerWindow: 2
   closeRangeOverrideDistance: 2.5
+  pauseMovementWhileStunned: 0
+  endAttackWindowWhenBurstQuotaReached: 1
+  postBurstReplanDelay: 0.15
+  continuePressureAfterBurstQuota: 1
+  continuousPressureThreshold: 0.55
+  continuousPressureRearmDelay: 0.22
+  closeRangePressureRepeatDistance: 3.25
+  maxContinuousPressureBurstsBeforeReplan: 2
+  continuousPressureWindowExtension: 0.75
+  debugAggressionFlow: 0
+  moveBetweenPressureBursts: 1
+  pressureBurstStepDuration: 0.55
+  pressureBurstMinStepDistance: 0.55
+  pressureBurstReadyDistance: 0.85
+  pressureStepPrefersLineOfSight: 1
+  debugPressureBurstStep: None
+  useSquadAttackSlots: 1
+  attackSlotRetryDelay: 0.12
+  threatGapCanHurryAttack: 1
+  allowOpportunityAttackWhileMoving: 1
+  opportunityAttackCooldown: 1.1
+  attackInsteadOfHuggingPlayer: 1
+  closeAttackStartDistance: 2.35
+  closeAttackLineOfSightGrace: 0.1
+  closeAttackForceReadyDelay: 0
+  skipSettleWhenCloseChasing: 1
+  debugAttackSlot: None
+  debugCloseRangeAntiHug: None
+  usePincerPositioning: 1
+  usePincerFallbackChase: 1
+  pincerFallbackRadius: 2.9
+  pincerTargetRefreshInterval: 0.22
+  pincerTacticalPointWeight: 1.15
+  pincerMicroRepositionWeight: 1
+  debugPincerPositioning: None
+  useRoleSpecificAttackIdentity: 1
+  roleAttackProfiles: {fileID: 11400000, guid: 09248fbe024d64c4699baf7abeaeb72f, type: 2}
+  useRoleAttackProfiles: 1
+  usePressureAttackIntensity: 1
+  mediumAttackIntensityPressure: 0.35
+  highAttackIntensityPressure: 0.72
+  identityCloseRangeDistance: 2.55
+  highPressureExtraFanBullets: 1
+  highPressureExtraRingBullets: 4
+  highPressureExtraBurstShots: 1
+  dangerousAttackPunishDelay: 0.34
+  quickAttackPunishDelay: 0.1
+  debugAttackIdentity: None
+  usePrettyDanmakuPatterns: 1
+  useRoleProjectileTint: 1
+  suppressorTint: {r: 1, g: 0.52, b: 0.16, a: 1}
+  flankerTint: {r: 1, g: 0.22, b: 0.85, a: 1}
+  anchorTint: {r: 0.25, g: 0.86, b: 1, a: 1}
+  aggressiveTint: {r: 1, g: 0.12, b: 0.2, a: 1}
+  retreaterTint: {r: 0.75, g: 0.78, b: 1, a: 1}
   drawDebug: 0
   debugState: 
   effectivePersonality: 0
@@ -482,6 +568,11 @@ MonoBehaviour:
   debugInWindowTime: 0
   debugRepositionsThisWindow: 0
   debugAdvanceStuck: 
+  debugPathStatus: No Path
+  debugPathWaypoints: 0
+  debugLastMeaningfulAction: None
+  debugFailedPointCount: 0
+  debugAggressionState: None
 --- !u!114 &-7750794609725175976
 MonoBehaviour:
   m_ObjectHideFlags: 0

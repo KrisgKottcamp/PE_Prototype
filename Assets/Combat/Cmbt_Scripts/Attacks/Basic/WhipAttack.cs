@@ -14,6 +14,10 @@ using static CharacterDefinition;
 /// - AP is granted per unique enemy hit.
 /// - Attack Momentum is granted once per successful swing, regardless of
 ///   how many enemies that swing hits.
+///
+/// Phase 2 aggression change:
+/// - The whip has movement commitment during windup/extension/active time.
+/// - Taking accepted damage cancels the swing through CancelCurrentAttack().
 /// </summary>
 public class WhipAttack : MonoBehaviour
 {
@@ -60,6 +64,17 @@ public class WhipAttack : MonoBehaviour
 
     [Tooltip("How long the visual takes to retract toward the player.")]
     [SerializeField] private float retractTime = 0.05f;
+
+    [Header("Commitment")]
+    [SerializeField, Range(0.1f, 1f)] private float swingMoveMultiplier = 0.55f;
+
+    [Tooltip("Extra movement commitment after the active part of the whip.")]
+    [SerializeField, Min(0f)] private float movementCommitmentExtra = 0.04f;
+
+    [Tooltip("Small recovery applied if the player is hit and the whip is canceled.")]
+    [SerializeField, Min(0f)] private float damageCancelRecovery = 0.20f;
+
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
 
     [Header("AP")]
     [Tooltip("AP gained for each unique enemy hit by one whip swing.")]
@@ -118,6 +133,7 @@ public class WhipAttack : MonoBehaviour
         if (hitOrigin == null)
             hitOrigin = transform;
 
+        ResolveAttackCommitment();
         SetupWhipLine();
     }
 
@@ -172,6 +188,9 @@ public class WhipAttack : MonoBehaviour
         if (!pressed)
             return;
 
+        if (!CanStartAttack())
+            return;
+
         if (cooldownTimer > 0f || swingRunning)
             return;
 
@@ -185,9 +204,82 @@ public class WhipAttack : MonoBehaviour
 
         cooldownTimer = attackCooldown;
 
+        ApplySwingCommitment();
+
         swingRoutine = StartCoroutine(
             WhipSwingRoutine(dir, desiredReach)
         );
+    }
+
+    private void ResolveAttackCommitment()
+    {
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponentInParent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+        {
+            CombatPawn pawn = GetComponentInParent<CombatPawn>();
+
+            if (pawn != null)
+            {
+                attackCommitment = pawn.GetComponent<PlayerAttackCommitment>();
+
+                if (attackCommitment == null)
+                    attackCommitment = pawn.gameObject.AddComponent<PlayerAttackCommitment>();
+            }
+        }
+
+        if (attackCommitment == null)
+            attackCommitment = gameObject.AddComponent<PlayerAttackCommitment>();
+    }
+
+    private bool CanStartAttack()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        return attackCommitment == null || attackCommitment.CanStartAttack;
+    }
+
+    private void ApplySwingCommitment()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        if (attackCommitment == null)
+            return;
+
+        float duration =
+            Mathf.Max(0f, windupDelay) +
+            Mathf.Max(0f, extendTime) +
+            Mathf.Max(0f, activeHoldTime) +
+            Mathf.Max(0f, movementCommitmentExtra);
+
+        attackCommitment.ApplyMovementCommitment(
+            swingMoveMultiplier,
+            duration
+        );
+    }
+
+    public void CancelCurrentAttack()
+    {
+        if (swingRoutine != null)
+        {
+            StopCoroutine(swingRoutine);
+            swingRoutine = null;
+        }
+
+        swingRunning = false;
+        cooldownTimer = Mathf.Max(
+            cooldownTimer,
+            damageCancelRecovery
+        );
+
+        if (whipLine != null)
+            whipLine.enabled = false;
     }
 
     private void UpdateMouseAim()

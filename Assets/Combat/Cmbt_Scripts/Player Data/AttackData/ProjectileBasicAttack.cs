@@ -11,6 +11,18 @@ public class ProjectileBasicAttack : MonoBehaviour
     [SerializeField] private float shotCooldown = 0.12f;
     [SerializeField] private float burstRecovery = 0.6f;
 
+    [Header("Commitment")]
+    [Tooltip("Brief movement multiplier applied when Eri fires. 1 = no movement penalty.")]
+    [SerializeField, Range(0.1f, 1f)] private float shotMoveMultiplier = 0.82f;
+
+    [Tooltip("How long the movement commitment lasts after each projectile shot.")]
+    [SerializeField, Min(0f)] private float shotCommitmentDuration = 0.07f;
+
+    [Tooltip("Small recovery applied if the player is hit and the current burst chain is canceled.")]
+    [SerializeField, Min(0f)] private float damageCancelRecovery = 0.18f;
+
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
+
     [Header("Projectile")]
     [SerializeField] private Transform muzzle;
     [SerializeField] private PlayerProjectile projectilePrefab;
@@ -47,6 +59,7 @@ public class ProjectileBasicAttack : MonoBehaviour
             muzzle = transform;
 
         shotsRemaining = Mathf.Max(1, shotsPerBurst);
+        ResolveAttackCommitment();
     }
 
     private void OnEnable()
@@ -97,6 +110,7 @@ public class ProjectileBasicAttack : MonoBehaviour
             Input.GetKeyDown(fireKey);
 
         if (!pressed ||
+            !CanStartAttack() ||
             recoveryTimer > 0f ||
             shotTimer > 0f ||
             shotsRemaining <= 0 ||
@@ -105,6 +119,7 @@ public class ProjectileBasicAttack : MonoBehaviour
             return;
         }
 
+        ApplyAttackCommitment();
         Fire();
 
         shotsRemaining--;
@@ -112,6 +127,63 @@ public class ProjectileBasicAttack : MonoBehaviour
 
         if (shotsRemaining <= 0)
             recoveryTimer = burstRecovery;
+    }
+
+    private void ResolveAttackCommitment()
+    {
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponentInParent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+        {
+            CombatPawn pawn = GetComponentInParent<CombatPawn>();
+
+            if (pawn != null)
+            {
+                attackCommitment = pawn.GetComponent<PlayerAttackCommitment>();
+
+                if (attackCommitment == null)
+                    attackCommitment = pawn.gameObject.AddComponent<PlayerAttackCommitment>();
+            }
+        }
+
+        if (attackCommitment == null)
+            attackCommitment = gameObject.AddComponent<PlayerAttackCommitment>();
+    }
+
+    private bool CanStartAttack()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        return attackCommitment == null || attackCommitment.CanStartAttack;
+    }
+
+    private void ApplyAttackCommitment()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        if (attackCommitment != null)
+        {
+            attackCommitment.ApplyMovementCommitment(
+                shotMoveMultiplier,
+                shotCommitmentDuration
+            );
+        }
+    }
+
+    public void CancelCurrentAttack()
+    {
+        shotsRemaining = Mathf.Max(1, shotsPerBurst);
+        shotTimer = 0f;
+        recoveryTimer = Mathf.Max(
+            recoveryTimer,
+            damageCancelRecovery
+        );
     }
 
     private void UpdateMouseAim()

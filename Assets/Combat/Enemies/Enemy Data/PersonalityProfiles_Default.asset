@@ -28,9 +28,9 @@ MonoBehaviour:
     intraBurstInterval: 0.11
     burstCooldown: 0.75
     burstsPerEnable: 1
-    farPattern: 1
-    midPattern: 3
-    closePattern: 5
+    farPattern: 12
+    midPattern: 12
+    closePattern: 15
     fanBullets: 5
     fanArc: 28
     ringBullets: 12

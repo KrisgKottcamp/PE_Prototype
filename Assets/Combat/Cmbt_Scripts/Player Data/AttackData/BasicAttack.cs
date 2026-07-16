@@ -20,6 +20,18 @@ public class BasicAttack : MonoBehaviour
     [SerializeField] private int swingsPerBurst = 3;            // 3-hit limit
     [SerializeField] private float burstRecoveryCooldown = 0.6f; // extra cooldown after 3rd swing
 
+    [Header("Commitment")]
+    [Tooltip("Brief movement multiplier applied when Audrey swings. 1 = no movement penalty.")]
+    [SerializeField, Range(0.1f, 1f)] private float swingMoveMultiplier = 0.70f;
+
+    [Tooltip("How long the movement commitment lasts after each swing.")]
+    [SerializeField, Min(0f)] private float swingCommitmentDuration = 0.10f;
+
+    [Tooltip("Small recovery applied if the player is hit and the current attack chain is canceled.")]
+    [SerializeField, Min(0f)] private float damageCancelRecovery = 0.18f;
+
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
+
     [Header("Stun")]
     [SerializeField] private float stunSeconds = 0.25f;
 
@@ -47,6 +59,7 @@ public class BasicAttack : MonoBehaviour
     {
         if (hitOrigin == null) hitOrigin = transform;
         swingsRemaining = Mathf.Max(1, swingsPerBurst);
+        ResolveAttackCommitment();
     }
 
     private void Update()
@@ -54,7 +67,6 @@ public class BasicAttack : MonoBehaviour
         var pm = PartyManager.Instance;
         if (pm == null || pm.Active == null || pm.Active.def == null) return;
         if (pm.Active.def.basicAttackType != BasicAttackType.Melee) return;
-
 
         if (cam == null) cam = Camera.main;
 
@@ -73,10 +85,12 @@ public class BasicAttack : MonoBehaviour
 
         if (!pressed) return;
 
+        if (!CanStartAttack()) return;
         if (recoveryTimer > 0f) return;
         if (swingCdTimer > 0f) return;
         if (swingsRemaining <= 0) return;
 
+        ApplyAttackCommitment();
         DoAttack(lastAimDir);
 
         swingsRemaining--;
@@ -86,13 +100,68 @@ public class BasicAttack : MonoBehaviour
             recoveryTimer = burstRecoveryCooldown;
     }
 
+    private void ResolveAttackCommitment()
+    {
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponentInParent<PlayerAttackCommitment>();
+
+        if (attackCommitment == null)
+        {
+            CombatPawn pawn = GetComponentInParent<CombatPawn>();
+
+            if (pawn != null)
+            {
+                attackCommitment = pawn.GetComponent<PlayerAttackCommitment>();
+
+                if (attackCommitment == null)
+                    attackCommitment = pawn.gameObject.AddComponent<PlayerAttackCommitment>();
+            }
+        }
+
+        if (attackCommitment == null)
+            attackCommitment = gameObject.AddComponent<PlayerAttackCommitment>();
+    }
+
+    private bool CanStartAttack()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        return attackCommitment == null || attackCommitment.CanStartAttack;
+    }
+
+    private void ApplyAttackCommitment()
+    {
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+
+        if (attackCommitment != null)
+        {
+            attackCommitment.ApplyMovementCommitment(
+                swingMoveMultiplier,
+                swingCommitmentDuration
+            );
+        }
+    }
+
+    public void CancelCurrentAttack()
+    {
+        swingsRemaining = Mathf.Max(1, swingsPerBurst);
+        swingCdTimer = 0f;
+        recoveryTimer = Mathf.Max(
+            recoveryTimer,
+            damageCancelRecovery
+        );
+    }
+
     private void UpdateMouseAim()
     {
         if (cam == null) return;
 
         Vector3 mouse = Input.mousePosition;
-
-        // For ortho camera, z is ignored, but setting it makes ScreenToWorldPoint reliable.
         mouse.z = -cam.transform.position.z;
 
         Vector3 world = cam.ScreenToWorldPoint(mouse);
@@ -124,7 +193,6 @@ public class BasicAttack : MonoBehaviour
             var enemy = col.GetComponentInParent<EnemyHealth>();
             if (enemy == null) continue;
 
-            // dedup per swing
             bool already = false;
             for (int j = 0; j < uniqueCount; j++)
             {

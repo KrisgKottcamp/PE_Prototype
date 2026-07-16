@@ -182,6 +182,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private EnemyHealth enemyHealth;
     [SerializeField] private EnemyShooterDebug shooter;
     [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private EnemyStunnable stunnable;
 
     [Header("Player Tracking")]
     [SerializeField] private bool autoFindPlayerByTag = true;
@@ -339,6 +340,370 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [Header("Close-Range Pattern Override")]
     [SerializeField] private float closeRangeOverrideDistance = 2.5f;
 
+    // ----------------------------
+    // Aggression / Flow v1
+    // ----------------------------
+    [Header("Aggression / Flow v1")]
+    [Tooltip(
+        "If true, EnemyBrain movement pauses while EnemyStunnable.IsStunned. " +
+        "Default OFF for Phase 1 so basic attacks do not freeze enemies."
+    )]
+    [SerializeField] private bool pauseMovementWhileStunned = false;
+
+    [Tooltip(
+        "If true, the enemy leaves AttackWindow shortly after its configured burst quota is spent. " +
+        "This removes dead air where the shooter is enabled but stuck on BurstQuotaReached."
+    )]
+    [SerializeField] private bool endAttackWindowWhenBurstQuotaReached = true;
+
+    [SerializeField, Min(0f)] private float postBurstReplanDelay = 0.15f;
+
+    [Header("Continuous Pressure Anti-Idle v2")]
+    [Tooltip(
+        "If true, a ranged enemy that has just spent its burst quota may quickly re-arm another burst " +
+        "instead of leaving AttackWindow and looping through Replan. This prevents aggressive enemies " +
+        "from standing near the player after one burst when the squad is trying to overwhelm the player."
+    )]
+    [SerializeField] private bool continuePressureAfterBurstQuota = true;
+
+    [Tooltip(
+        "Minimum squad pressure needed before a burst-spent enemy repeats pressure from the same attack window. " +
+        "Close range and urgent threat-gap can also trigger the repeat."
+    )]
+    [SerializeField, Range(0f, 1f)] private float continuousPressureThreshold = 0.55f;
+
+    [Tooltip("Delay before a pressure-repeat burst becomes eligible. Keep short so enemies do not look idle.")]
+    [SerializeField, Min(0f)] private float continuousPressureRearmDelay = 0.22f;
+
+    [Tooltip(
+        "If the enemy is this close to the player, it may continue pressure even below the pressure threshold. " +
+        "This is the anti-hug safety valve."
+    )]
+    [SerializeField, Min(0.1f)] private float closeRangePressureRepeatDistance = 3.25f;
+
+    [Tooltip(
+        "How many repeated pressure bursts are allowed inside one AttackWindow before the enemy is forced to replan " +
+        "for a new pincer/crossfire position. 0 means unlimited repeats until the normal attack window timer expires."
+    )]
+    [SerializeField, Min(0)] private int maxContinuousPressureBurstsBeforeReplan = 2;
+
+    [Tooltip(
+        "Minimum extra time added to AttackWindow when a pressure-repeat burst is queued. " +
+        "Prevents the state timer from expiring before the next burst can start."
+    )]
+    [SerializeField, Min(0.05f)] private float continuousPressureWindowExtension = 0.75f;
+
+    [SerializeField] private bool debugAggressionFlow = false;
+
+    [Header("Burst Reposition Anti-Idle v3")]
+    [Tooltip(
+        "If true, pressure-repeat shooters do not re-arm while standing still inside AttackWindow. " +
+        "After spending a burst, they take a short pincer step first, then fire again. " +
+        "This prevents the Replan -> AttackWindow [CHASE] idle loop seen in testing."
+    )]
+    [SerializeField] private bool moveBetweenPressureBursts = true;
+
+    [Tooltip("Maximum time spent stepping to a fresh pressure angle before firing again anyway.")]
+    [SerializeField, Min(0.05f)] private float pressureBurstStepDuration = 0.55f;
+
+    [Tooltip("Minimum movement that counts as a useful pressure step before the enemy can fire again.")]
+    [SerializeField, Min(0f)] private float pressureBurstMinStepDistance = 0.55f;
+
+    [Tooltip("If the enemy gets this close to the pressure target, it may fire again even if the timer has not expired.")]
+    [SerializeField, Min(0.05f)] private float pressureBurstReadyDistance = 0.85f;
+
+    [Tooltip("If true, the enemy prefers to regain line of sight before ending the pressure step. Timeout still lets it fire/replan.")]
+    [SerializeField] private bool pressureStepPrefersLineOfSight = true;
+
+    [SerializeField] private string debugPressureBurstStep = "None";
+
+
+    [Header("Squad Attack Slots / Rhythm v1")]
+    [Tooltip("If true, this ranged enemy must claim a squad attack slot before opening its shooter gate.")]
+    [SerializeField] private bool useSquadAttackSlots = true;
+
+    [Tooltip("How often this enemy retries an attack-slot request while waiting in AttackWindow.")]
+    [SerializeField, Min(0.03f)] private float attackSlotRetryDelay = 0.12f;
+
+    [Tooltip("If true, squad threat-gap urgency can skip the last bit of Settle and first-shot delay.")]
+    [SerializeField] private bool threatGapCanHurryAttack = true;
+
+    [Tooltip("If true, a ranged enemy may stop moving and take an opportunity shot when the squad threat gap is urgent.")]
+    [SerializeField] private bool allowOpportunityAttackWhileMoving = true;
+
+    [SerializeField, Min(0.1f)] private float opportunityAttackCooldown = 1.1f;
+
+    [Header("Close-Range Anti-Hug")]
+    [Tooltip(
+        "If true, a ranged fallback-chasing enemy that reaches close range with LOS stops chasing " +
+        "the player's center and immediately opens an attack window instead. This prevents enemies " +
+        "from hugging the player without firing."
+    )]
+    [SerializeField] private bool attackInsteadOfHuggingPlayer = true;
+
+    [Tooltip(
+        "Distance at which a fallback-chasing ranged enemy should stop approaching and start its close-range attack. " +
+        "Set close to closeRangeOverrideDistance so the enemy uses its close pattern instead of standing on the player."
+    )]
+    [SerializeField, Min(0.1f)] private float closeAttackStartDistance = 2.35f;
+
+    [Tooltip(
+        "Small grace period so the enemy can still start the close attack if LOS was valid a moment ago. " +
+        "Helps prevent jitter at obstacle edges."
+    )]
+    [SerializeField, Min(0f)] private float closeAttackLineOfSightGrace = 0.10f;
+
+    [Tooltip(
+        "Delay before the shooter is force-ready after a close-range chase converts into an attack. " +
+        "Use 0 for aggressive enemies."
+    )]
+    [SerializeField, Min(0f)] private float closeAttackForceReadyDelay = 0f;
+
+    [Tooltip(
+        "If true, fallback chase skips the normal Settle wait when it reaches close attack range."
+    )]
+    [SerializeField] private bool skipSettleWhenCloseChasing = true;
+
+    [SerializeField] private string debugAttackSlot = "None";
+    [SerializeField] private string debugCloseRangeAntiHug = "None";
+
+    [Header("Pincer Positioning / Escape Denial v1")]
+    [Tooltip("If true, this enemy asks the squad coordinator for pincer/crossfire positions instead of blindly chasing the player's center.")]
+    [SerializeField] private bool usePincerPositioning = true;
+
+    [Tooltip("If true, pressure/fallback chase moves to a side/crossfire target near the player instead of the exact player position.")]
+    [SerializeField] private bool usePincerFallbackChase = true;
+
+    [Tooltip("Preferred distance from the player for generated fallback pincer targets.")]
+    [SerializeField, Min(0.5f)] private float pincerFallbackRadius = 2.9f;
+
+    [Tooltip("How often the fallback pincer target refreshes while the player moves.")]
+    [SerializeField, Min(0.05f)] private float pincerTargetRefreshInterval = 0.22f;
+
+    [Tooltip("Scoring weight applied to tactical points that create better crossfire / side pressure.")]
+    [SerializeField, Min(0f)] private float pincerTacticalPointWeight = 1.15f;
+
+    [Tooltip("Scoring weight applied to micro-reposition candidates that create better crossfire / side pressure.")]
+    [SerializeField, Min(0f)] private float pincerMicroRepositionWeight = 1.0f;
+
+    [SerializeField] private string debugPincerPositioning = "None";
+
+    [Header("Enemy Attack Identity / Role Pressure v1")]
+    [Tooltip("If true, ranged enemies pick attack patterns and burst settings from their role/personality instead of only distance.")]
+    [SerializeField] private bool useRoleSpecificAttackIdentity = true;
+
+    [Header("Role Attack Profiles v4")]
+    [Tooltip("Optional inspector-editable role-to-pattern mapping. If assigned, this replaces the hardcoded Suppressor/Flanker/Anchor/Retreater pattern choices while keeping personality and pressure modifiers.")]
+    [SerializeField] private EnemyRoleAttackProfiles roleAttackProfiles;
+
+    [Tooltip("If true and Role Attack Profiles is assigned, role pattern choices come from the ScriptableObject instead of the hardcoded Apply___Identity methods.")]
+    [SerializeField] private bool useRoleAttackProfiles = true;
+
+    [Tooltip("If true, squad pressure upgrades pattern size, burst count, and cadence as the player lets the squad overwhelm them.")]
+    [SerializeField] private bool usePressureAttackIntensity = true;
+
+    [Tooltip("Pressure needed for medium intensity attacks.")]
+    [SerializeField, Range(0f, 1f)] private float mediumAttackIntensityPressure = 0.35f;
+
+    [Tooltip("Pressure needed for high intensity attacks.")]
+    [SerializeField, Range(0f, 1f)] private float highAttackIntensityPressure = 0.72f;
+
+    [Tooltip("Enemies inside this distance prefer their close-range identity attack immediately.")]
+    [SerializeField, Min(0.1f)] private float identityCloseRangeDistance = 2.55f;
+
+    [Tooltip("Extra fan bullets added at high pressure. Kept small so patterns stay readable.")]
+    [SerializeField, Min(0)] private int highPressureExtraFanBullets = 1;
+
+    [Tooltip("Extra ring bullets added at high pressure.")]
+    [SerializeField, Min(0)] private int highPressureExtraRingBullets = 4;
+
+    [Tooltip("Extra burst shots added at high pressure for roles that are meant to overwhelm.")]
+    [SerializeField, Min(0)] private int highPressureExtraBurstShots = 1;
+
+    [Header("Pretty Pattern Density Safety v4")]
+    [Tooltip("If true, Touhou-style shape patterns fire as one readable pattern for normal enemies instead of repeating the whole pattern multiple times per burst.")]
+    [SerializeField] private bool usePrettyPatternDensitySafety = true;
+
+    [Tooltip("Maximum shots-per-burst for pretty shape patterns when density safety is on. 1 means one full pattern per attack beat.")]
+    [SerializeField, Min(1)] private int maxPrettyPatternShotsPerBurst = 1;
+
+    [Tooltip("If false, high pressure can still widen/intensify a pretty pattern, but it will not add extra whole pattern repeats.")]
+    [SerializeField] private bool allowHighPressureExtraPrettyPatternBursts = false;
+
+    [Tooltip("If true, high pressure may add a small number of bullets to pretty fan/ring shapes. If false, role profile counts stay exact.")]
+    [SerializeField] private bool allowHighPressureExtraPrettyPatternBullets = false;
+
+    [Tooltip("Hard cap for fan-like pretty patterns after all profile/personality/pressure modifiers.")]
+    [SerializeField, Min(1)] private int maxPrettyFanBullets = 4;
+
+    [Tooltip("Hard cap for ring-like pretty patterns after all profile/personality/pressure modifiers.")]
+    [SerializeField, Min(3)] private int maxPrettyRingBullets = 8;
+
+    [Tooltip("Hard cap for pretty pattern fan arc. Keeps basic enemy patterns from covering too much of the arena.")]
+    [SerializeField, Min(1f)] private float maxPrettyFanArcDegrees = 50f;
+
+    [Tooltip("Extra recovery after dense pretty patterns. This makes them feel like fair, readable attack beats instead of bullet spam.")]
+    [SerializeField, Min(0f)] private float prettyPatternExtraPunishDelay = 0.08f;
+
+    [Tooltip("Minimum delay before a pretty pattern can be pressure-rearmed. Prevents basic enemies from chaining decorative patterns too rapidly.")]
+    [SerializeField, Min(0f)] private float minPrettyPatternPressureRearmDelay = 0.24f;
+
+    [Tooltip("Minimum delay before enemies replan/rearm after a pretty pattern.")]
+    [SerializeField, Min(0f)] private float minPrettyPatternPostBurstDelay = 0.26f;
+
+    [Header("Pattern Volley Pacing v5")]
+    [Tooltip(
+        "If true, decorative patterns fire in short volleys instead of being pressure-rearmed forever. " +
+        "A basic enemy can throw out 1-3 pattern beats, rarely 4, then takes a small recovery beat."
+    )]
+    [SerializeField] private bool usePatternVolleyPacing = true;
+
+    [Tooltip("If true, only pretty/danmaku shape patterns use this volley pacing. Simple aimed shots stay snappy.")]
+    [SerializeField] private bool patternVolleyOnlyForPrettyPatterns = true;
+
+    [Tooltip("Minimum number of full pattern beats before the enemy cools down.")]
+    [SerializeField, Min(1)] private int minPatternVolleyBeats = 1;
+
+    [Tooltip("Maximum normal number of full pattern beats before cooldown. Recommended 3 for basic enemies.")]
+    [SerializeField, Min(1)] private int maxPatternVolleyBeats = 3;
+
+    [Tooltip("Chance that the enemy gets one extra surprise pattern beat beyond the normal maximum.")]
+    [SerializeField, Range(0f, 1f)] private float rareExtraPatternBeatChance = 0.14f;
+
+    [Tooltip("Minimum delay between pattern beats inside one volley. Higher = less spammy.")]
+    [SerializeField, Min(0f)] private float patternVolleyRearmDelay = 0.36f;
+
+    [Tooltip("Cooldown after a normal pretty-pattern volley finishes.")]
+    [SerializeField, Min(0f)] private float patternVolleyCooldownAfter = 0.62f;
+
+    [Tooltip("Cooldown after heavier ring/halo/blossom style volleys finish.")]
+    [SerializeField, Min(0f)] private float heavyPatternVolleyCooldownAfter = 0.78f;
+
+    [Tooltip("If false, single aimed shots are never limited by decorative-pattern volley pacing.")]
+    [SerializeField] private bool countSingleShotsAsPatternVolley = false;
+
+    [SerializeField] private string debugPatternVolleyPacing = "None";
+
+    [Header("Solo Enemy Anti-Idle v6")]
+    [Tooltip("If true, a lone ranged enemy uses a simpler duelist loop instead of squad pincer pressure-step logic. This prevents solo enemies from getting stuck in Replan/AttackWindow/Move loops with no visible action.")]
+    [SerializeField] private bool useSoloEnemyAntiIdle = true;
+
+    [Tooltip("If true, solo enemies do not take the pressure-burst reposition step between repeated volleys. They cool down briefly, then attack again if they still have line of sight.")]
+    [SerializeField] private bool soloBypassPressureBurstStep = true;
+
+    [Tooltip("If a solo enemy is in a pressure-step move but cannot find a path, it immediately attacks if it has line of sight instead of replanning forever.")]
+    [SerializeField] private bool soloAttackWhenPressureStepFails = true;
+
+    [Tooltip("Minimum rearm delay between solo pressure beats. This is still combined with pattern volley pacing, so pretty patterns get their normal cooldown rhythm.")]
+    [SerializeField, Min(0f)] private float soloPressureRearmDelay = 0.42f;
+
+    [Tooltip("After a solo enemy finishes a full pattern volley, it waits at least this long before opening a new attack window if it still has line of sight.")]
+    [SerializeField, Min(0f)] private float soloVolleyCooldownAfter = 0.70f;
+
+    [Tooltip("If the solo enemy is farther than this, it is allowed to replan/chase instead of standing still to shoot.")]
+    [SerializeField, Min(0.5f)] private float soloMaxImmediateAttackDistance = 8.0f;
+
+    [SerializeField] private string debugSoloAntiIdle = "None";
+
+    [Header("Point-Blank Skirmish Anti-Stuck v7")]
+    [Tooltip("If true, a ranged enemy that is too close to the player moves sideways/backward during volley cooldown instead of standing on top of the player.")]
+    [SerializeField] private bool usePointBlankSkirmishAntiStuck = true;
+
+    [Tooltip("If the enemy is closer than this while cooling down after a pattern, it will try to sidestep/backstep while waiting.")]
+    [SerializeField, Min(0.1f)] private float pointBlankSkirmishDistance = 2.15f;
+
+    [Tooltip("Desired distance from the player for the small cooldown skirmish step.")]
+    [SerializeField, Min(0.2f)] private float pointBlankSkirmishTargetDistance = 2.85f;
+
+    [Tooltip("How much sideways motion is blended into the backstep. 0 = pure backstep, 1 = mostly sidestep.")]
+    [SerializeField, Range(0f, 1f)] private float pointBlankSkirmishSideWeight = 0.45f;
+
+    [Tooltip("Movement speed multiplier used during the small skirmish step between pattern volleys.")]
+    [SerializeField, Min(0.05f)] private float pointBlankSkirmishSpeedMultiplier = 0.82f;
+
+    [Tooltip("If true, skirmish movement is allowed during the pattern-volley cooldown wait.")]
+    [SerializeField] private bool pointBlankSkirmishDuringVolleyCooldown = true;
+
+    [Tooltip("If true, a close-range enemy with LOS attacks instead of replanning when a pressure/pincer move returns No Path.")]
+    [SerializeField] private bool pointBlankFireImmediatelyIfNoPath = true;
+
+    [Tooltip("Small delay before the forced no-path close attack arms the shooter.")]
+    [SerializeField, Min(0f)] private float noPathImmediateAttackDelay = 0.08f;
+
+    [SerializeField] private string debugPointBlankSkirmish = "None";
+
+    [Tooltip("Minimum delay after dangerous attacks before the enemy replans/rearms. This creates a readable punish window.")]
+    [SerializeField, Min(0.02f)] private float dangerousAttackPunishDelay = 0.34f;
+
+    [Tooltip("Quick flanker/single-shot recovery delay. Makes side pressure feel snappy without every attack feeling heavy.")]
+    [SerializeField, Min(0.02f)] private float quickAttackPunishDelay = 0.10f;
+
+    [SerializeField] private string debugAttackIdentity = "None";
+
+    [Header("Opportunity Flanking / Player Attention v8")]
+    [Tooltip("If true, ranged enemies can exploit the player focusing another enemy by taking a committed flank route before attacking.")]
+    [SerializeField] private bool useOpportunityFlanking = true;
+
+    [Tooltip("If true, this enemy only starts opportunity flanks when the squad reports that the player is distracted by another enemy.")]
+    [SerializeField] private bool opportunityFlankRequiresPlayerFocus = true;
+
+    [Tooltip("If true, only FlankerLeft/FlankerRight roles start opportunity flanks. Leave off if suppressors/backstabbers may also exploit openings.")]
+    [SerializeField] private bool opportunityFlankOnlyForFlankerRoles = false;
+
+    [Tooltip("How long before this enemy may start another committed opportunity flank.")]
+    [SerializeField, Min(0.1f)] private float opportunityFlankCooldown = 2.4f;
+
+    [Tooltip("How far beyond the player, opposite the currently-focused enemy, the flanker tries to move.")]
+    [SerializeField, Min(0.5f)] private float opportunityFlankBehindDistance = 3.3f;
+
+    [Tooltip("Additional side offset applied to the flank target so it attacks from a real angle instead of a straight line.")]
+    [SerializeField, Min(0f)] private float opportunityFlankSideDistance = 1.35f;
+
+    [Tooltip("Fallback radius used when the focus/player geometry is too tight.")]
+    [SerializeField, Min(0.5f)] private float opportunityFlankFallbackRadius = 3.0f;
+
+    [Tooltip("Do not choose flank targets closer than this to the player.")]
+    [SerializeField, Min(0.25f)] private float opportunityFlankMinPlayerDistance = 2.2f;
+
+    [Tooltip("Do not choose flank targets farther than this from the player.")]
+    [SerializeField, Min(1f)] private float opportunityFlankMaxPlayerDistance = 6.6f;
+
+    [Tooltip("How close the enemy must get to the flank target before it ambushes.")]
+    [SerializeField, Min(0.05f)] private float opportunityFlankArrivalRadius = 0.45f;
+
+    [Tooltip("Maximum seconds the enemy may spend on the committed flank before giving up or attacking if it has line of sight.")]
+    [SerializeField, Min(0.25f)] private float opportunityFlankMaxCommitSeconds = 2.35f;
+
+    [Tooltip("Movement speed multiplier while executing a committed flank route.")]
+    [SerializeField, Min(0.1f)] private float opportunityFlankSpeedMultiplier = 1.05f;
+
+    [Tooltip("If true, final flank targets must have line of sight to the player before they are accepted.")]
+    [SerializeField] private bool opportunityFlankRequiresDestinationLos = true;
+
+    [Tooltip("If true, the enemy attacks immediately after reaching a flank instead of going through normal settle timing.")]
+    [SerializeField] private bool opportunityFlankAttackImmediatelyOnArrival = true;
+
+    [Tooltip("Small delay before the ambush shot after the flank arrives. Keep low so the flank feels intentional.")]
+    [SerializeField, Min(0f)] private float opportunityFlankAmbushDelay = 0.06f;
+
+    [Tooltip("How much squad pincer scoring affects opportunity flank target choice.")]
+    [SerializeField, Min(0f)] private float opportunityFlankPincerScoreWeight = 1.35f;
+
+    [SerializeField] private string debugOpportunityFlank = "None";
+
+    [Header("Pretty Danmaku Pattern Selection v2")]
+    [Tooltip("If true, role identity prefers prettier danmaku-style patterns such as PetalFan, ButterflySpread, ClosingBlossom, RotatingFlowerRing, and HaloSpear.")]
+    [SerializeField] private bool usePrettyDanmakuPatterns = true;
+
+    [Tooltip("If true, projectile sprites are tinted by role/personality for better Touhou-style readability.")]
+    [SerializeField] private bool useRoleProjectileTint = true;
+
+    [SerializeField] private Color suppressorTint = new Color(1.0f, 0.52f, 0.16f, 1f);
+    [SerializeField] private Color flankerTint = new Color(1.0f, 0.22f, 0.85f, 1f);
+    [SerializeField] private Color anchorTint = new Color(0.25f, 0.86f, 1.0f, 1f);
+    [SerializeField] private Color aggressiveTint = new Color(1.0f, 0.12f, 0.20f, 1f);
+    [SerializeField] private Color retreaterTint = new Color(0.75f, 0.78f, 1.0f, 1f);
+
 
     // ----------------------------
     // Debug
@@ -358,6 +723,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private int debugPathWaypoints = 0;
     [SerializeField] private string debugLastMeaningfulAction = "None";
     [SerializeField] private int debugFailedPointCount = 0;
+    [SerializeField] private string debugAggressionState = "None";
 
     // ----------------------------
     // Private runtime state
@@ -381,11 +747,39 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     private int avoidSideSign = 0;
     private float avoidSideUntil = 0f;
     private bool shooterGateEnabled = false;
+    private bool ownsSquadAttackSlot = false;
+    private float nextSquadAttackSlotRequestTime = 0f;
+    private float nextOpportunityAttackTime = 0f;
+    private float lastCloseAttackLosTime = -999f;
+    private Vector2 cachedPincerChaseTarget;
+    private float nextPincerTargetRefreshTime = 0f;
+    private bool hasCachedPincerTarget = false;
     private bool shooterArmedThisWindow = false;
+    private bool burstQuotaFinishQueued = false;
+    private float burstQuotaFinishTime = 0f;
+    private int continuousPressureBurstsThisWindow = 0;
+    private float currentPostBurstReplanDelay = 0.15f;
+    private float currentContinuousPressureRearmDelay = 0.22f;
+    private bool currentPatternUsesVolleyPacing = false;
+    private int currentPatternVolleyLimit = 1;
+    private int currentPatternVolleyBeatsFired = 0;
+    private float currentPatternVolleyCooldownDelay = 0.62f;
+    private string currentPatternVolleyPatternName = "None";
+    private bool pressureBurstStepQueued = false;
+    private Vector2 pressureBurstStepStart;
+    private float pressureBurstStepEarliestFireTime = 0f;
+    private float pressureBurstStepDeadline = 0f;
     private float noLosTimer = 0f;
     private float openingUntil = 0f;
     private float underFireUntil = 0f;
     private float nextAvengerCheckTime = 0f;
+
+    // Phase 8 opportunity flanking
+    private bool opportunityFlankActive = false;
+    private Vector2 opportunityFlankTarget;
+    private float opportunityFlankStartedTime = -999f;
+    private float nextOpportunityFlankAllowedTime = 0f;
+    private string opportunityFlankReason = "None";
 
     // Stuck-during-advance tracking
     private int advanceStuckCount = 0;
@@ -466,6 +860,9 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         if (rb == null)
             rb = GetComponent<Rigidbody2D>();
 
+        if (stunnable == null)
+            stunnable = GetComponent<EnemyStunnable>();
+
         if (navigationGrid == null)
         {
             navigationGrid =
@@ -510,6 +907,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
         ResetAdvanceStuck();
         ResetRepositionState();
+        ResetBurstQuotaFinish();
         SetShooterGate(false, force: true);
         ClearMoveIntent();
         EnterReplan(true);
@@ -517,6 +915,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private void OnDisable()
     {
+        ReleaseSquadAttackSlot("Disabled");
         if (squad != null) squad.Unregister(this);
         ReleaseCurrentPoint();
         SetShooterGate(false, force: true);
@@ -558,6 +957,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         debugState = state.ToString()
             + (usingFallbackChase ? " [CHASE]" : "")
             + (usingEscapeWaypoint ? " [ESCAPE]" : "")
+            + (opportunityFlankActive ? " [OPPORTUNITY FLANK]" : "")
             + (isRepositioning ? " [REPOSITION]" : "");
         CleanupFailedPointMemory();
 
@@ -597,10 +997,30 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
         debugFailedPointCount =
             failedPointUntil.Count;
+
+        if (!useSoloEnemyAntiIdle)
+            debugSoloAntiIdle = "Off";
+        else if (!IsSoloEnemyForAntiIdle())
+            debugSoloAntiIdle = squad != null ? $"Squad size {squad.AliveAgentCount}" : "No coordinator";
     }
 
     private void FixedUpdate()
     {
+        if (pauseMovementWhileStunned &&
+            stunnable != null &&
+            stunnable.IsStunned)
+        {
+            if (rb != null)
+            {
+#if UNITY_6000_0_OR_NEWER
+                rb.linearVelocity = Vector2.zero;
+#else
+                rb.velocity = Vector2.zero;
+#endif
+            }
+            return;
+        }
+
         if (!hasMoveIntent)
         {
             if (rb != null)
@@ -667,6 +1087,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             return;
 
         currentRole = role;
+        hasCachedPincerTarget = false;
 
         if (!isActiveAndEnabled)
             return;
@@ -707,6 +1128,11 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     public void NotifyDamaged()
     {
         underFireUntil = Time.time + Mathf.Max(0.05f, underFireSeconds);
+
+        // Phase 8: damage usually means the player is focusing this enemy.
+        // Allies can exploit that attention with committed opportunity flanks.
+        if (squad != null)
+            squad.NotifyAgentDamagedByPlayer(this);
     }
 
     // ----------------------------
@@ -718,11 +1144,16 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         replanEnteredTime = Time.time;
         usingFallbackChase = false;
         shooterArmedThisWindow = false;
+        ResetBurstQuotaFinish();
+        pressureBurstStepQueued = false;
+        debugPressureBurstStep = "None";
         noLosTimer = 0f;
         isRepositioning = false;
+        CancelOpportunityFlank("Replan", applyCooldown: false);
         SetShooterGate(false);
         ClearMoveIntent();
         ClearNavigationPath();
+        hasCachedPincerTarget = false;
 
         nextReplanTime = immediate
             ? Time.time
@@ -742,6 +1173,9 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             BeginFallbackChase();
             return;
         }
+
+        if (TryStartOpportunityFlank())
+            return;
 
         // Full-pressure advance — but only if we haven't been stuck too many times already.
         // If stuck repeatedly, drop to waypoint escape mode instead of looping.
@@ -847,6 +1281,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private void BeginFallbackChase()
     {
+        CancelOpportunityFlank("FallbackChase", applyCooldown: false);
         ReleaseCurrentPoint();
         ClearNavigationPath();
 
@@ -862,7 +1297,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             transform.position;
 
         PrepareMovementProgress(
-            GetPlayerPos()
+            GetFallbackChaseTarget()
         );
 
         MarkMeaningfulAction(
@@ -925,9 +1360,14 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         Vector2 target;
         float arrivalRadius;
 
-        if (usingFallbackChase || currentPoint == null)
+        if (opportunityFlankActive)
         {
-            target = playerPos;
+            target = opportunityFlankTarget;
+            arrivalRadius = Mathf.Max(0.05f, opportunityFlankArrivalRadius);
+        }
+        else if (usingFallbackChase || currentPoint == null)
+        {
+            target = GetFallbackChaseTarget();
             arrivalRadius = fallbackArrivalRadius;
         }
         else
@@ -938,8 +1378,59 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
         Vector2 myPos = rb != null ? rb.position : (Vector2)transform.position;
 
+        UpdateCloseAttackLosMemory();
+
+        if (opportunityFlankActive &&
+            Time.time - opportunityFlankStartedTime >= opportunityFlankMaxCommitSeconds)
+        {
+            if (HasLineOfSightToPlayerNow())
+            {
+                CompleteOpportunityFlank("TimeoutAttack");
+                return;
+            }
+
+            FailOpportunityFlank("TimeoutNoLOS");
+            return;
+        }
+
+        if (TryFinishPressureBurstStep(myPos, target))
+            return;
+
+        if (!opportunityFlankActive &&
+            !pressureBurstStepQueued &&
+            TryStartCloseRangeAttackInsteadOfHugging(myPos, playerPos))
+            return;
+
+        if (!opportunityFlankActive &&
+            !pressureBurstStepQueued &&
+            TryStartOpportunityAttackWhileMoving())
+            return;
+
         if (Vector2.Distance(myPos, target) <= arrivalRadius)
         {
+            if (pressureBurstStepQueued)
+            {
+                ClearMoveIntent();
+
+                if (Time.time >= pressureBurstStepEarliestFireTime)
+                {
+                    pressureBurstStepDeadline = Time.time;
+                    if (TryFinishPressureBurstStep(myPos, target))
+                        return;
+                }
+
+                debugPressureBurstStep =
+                    "Reached pressure target; waiting rearm.";
+
+                return;
+            }
+
+            if (opportunityFlankActive)
+            {
+                CompleteOpportunityFlank("Arrived");
+                return;
+            }
+
             ClearMoveIntent();
             // Arrived at player position during fallback chase — reset advance stuck since
             // we successfully navigated there
@@ -957,10 +1448,21 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
         float speed = moveSpeed;
         if (currentRole == EnemySquadRole.Retreater) speed *= retreatSpeedMultiplier;
+        if (opportunityFlankActive) speed *= opportunityFlankSpeedMultiplier;
         if (!MoveTowardTarget(
                 target,
                 speed))
         {
+            if (opportunityFlankActive)
+            {
+                FailOpportunityFlank("NoPath");
+                return;
+            }
+
+            if (TrySoloFailOpenPressureStepToAttack("Pressure step no path") ||
+                TryPointBlankFailOpenToAttack("No path close attack"))
+                return;
+
             pointLockedUntil = 0f;
 
             if (currentPoint != null)
@@ -983,6 +1485,16 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         if (HasMovementProgressTimedOut(
                 target))
         {
+            if (opportunityFlankActive)
+            {
+                FailOpportunityFlank("ProgressTimeout");
+                return;
+            }
+
+            if (TrySoloFailOpenPressureStepToAttack("Pressure step progress timeout") ||
+                TryPointBlankFailOpenToAttack("Progress timeout close attack"))
+                return;
+
             pointLockedUntil = 0f;
 
             if (currentPoint != null)
@@ -1021,6 +1533,13 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private void TickSettle()
     {
+        if (threatGapCanHurryAttack && squad != null && squad.ShouldForceAttack(this) && HasLineOfSightToPlayerNow())
+        {
+            EnterAttackWindow();
+            attackEnableTime = Time.time;
+            return;
+        }
+
         if (Time.time >= nextStateTime) EnterAttackWindow();
 
         // Pace within the zone while waiting to enter attack window.
@@ -1031,7 +1550,12 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     private void EnterAttackWindow()
     {
         state = BrainState.AttackWindow;
+        pressureBurstStepQueued = false;
+        debugPressureBurstStep = "None";
         shooterArmedThisWindow = false;
+        ResetBurstQuotaFinish();
+        continuousPressureBurstsThisWindow = 0;
+        currentPatternVolleyBeatsFired = 0;
         noLosTimer = 0f;
         inWindowTime = 0f;
         ResetRepositionState();
@@ -1075,6 +1599,9 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
         if (!isRanged || shooter == null) return;
 
+        if (TryFinishAttackWindowAfterBurstQuota())
+            return;
+
         // Handle active micro-reposition
         if (isRepositioning)
         {
@@ -1108,10 +1635,16 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             }
         }
 
+        if (threatGapCanHurryAttack && squad != null && squad.ShouldForceAttack(this))
+            attackEnableTime = Mathf.Min(attackEnableTime, Time.time);
+
         if (Time.time < attackEnableTime) return;
 
         if (!shooterArmedThisWindow)
         {
+            if (!TryClaimSquadAttackSlotForShooter())
+                return;
+
             SyncShooterTarget();
 
             if (shooter != null)
@@ -1158,6 +1691,290 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         // Skipped if a full reposition is already in progress.
         if (shooterArmedThisWindow && !isRepositioning)
             TickStrafe(wanderSpeedMultiplier);
+    }
+
+    // ----------------------------
+    // Phase 8 Opportunity Flanking / Player Attention
+    // ----------------------------
+    private bool TryStartOpportunityFlank()
+    {
+        if (!useOpportunityFlanking || !isRanged || shooter == null)
+            return false;
+
+        if (squad == null)
+            return false;
+
+        if (Time.time < nextOpportunityFlankAllowedTime)
+            return false;
+
+        if (currentRole == EnemySquadRole.Retreater)
+            return false;
+
+        if (opportunityFlankOnlyForFlankerRoles &&
+            currentRole != EnemySquadRole.FlankerLeft &&
+            currentRole != EnemySquadRole.FlankerRight)
+        {
+            debugOpportunityFlank = "Skipped: not flanker role";
+            return false;
+        }
+
+        if (squad.AliveAgentCount <= 1)
+        {
+            debugOpportunityFlank = "Skipped: solo enemy";
+            return false;
+        }
+
+        if (opportunityFlankRequiresPlayerFocus &&
+            !squad.TryGetPlayerAttentionFocus(
+                this,
+                out _,
+                out _,
+                out _))
+        {
+            debugOpportunityFlank = "Waiting for player focus";
+            return false;
+        }
+
+        if (!TryPickOpportunityFlankTarget(out Vector2 target, out string reason))
+        {
+            debugOpportunityFlank = $"No flank target: {reason}";
+            return false;
+        }
+
+        opportunityFlankActive = true;
+        opportunityFlankTarget = target;
+        opportunityFlankStartedTime = Time.time;
+        opportunityFlankReason = reason;
+
+        ReleaseCurrentPoint();
+        usingFallbackChase = false;
+        state = BrainState.Move;
+        shooterArmedThisWindow = false;
+        SetShooterGate(false);
+        ClearMoveIntent();
+        ClearNavigationPath();
+        PrepareMovementProgress(target);
+
+        nextStuckCheckTime = Time.time + stuckCheckInterval;
+        lastStuckPos = transform.position;
+
+        debugOpportunityFlank = $"Started: {reason} -> {Vector2.Distance(target, GetPlayerPos()):0.0}u";
+        MarkMeaningfulAction("OpportunityFlankStart");
+        return true;
+    }
+
+    private bool TryPickOpportunityFlankTarget(out Vector2 bestTarget, out string reason)
+    {
+        bestTarget = Vector2.zero;
+        reason = "NoFocus";
+
+        if (squad == null)
+            return false;
+
+        if (!squad.TryGetPlayerAttentionFocus(
+                this,
+                out IEnemySquadAgent focus,
+                out Vector2 focusPos,
+                out Vector2 playerPos))
+        {
+            return false;
+        }
+
+        if (!squad.TryGetOpportunityFlankTarget(
+                this,
+                opportunityFlankBehindDistance,
+                opportunityFlankSideDistance,
+                opportunityFlankFallbackRadius,
+                out Vector2 primary,
+                out string squadReason))
+        {
+            reason = squadReason;
+            return false;
+        }
+
+        Vector2 focusToPlayer = playerPos - focusPos;
+        if (focusToPlayer.sqrMagnitude <= 0.0001f)
+            focusToPlayer = playerPos - (Vector2)transform.position;
+
+        if (focusToPlayer.sqrMagnitude <= 0.0001f)
+            focusToPlayer = Vector2.up;
+
+        Vector2 forward = focusToPlayer.normalized;
+        Vector2 right = new Vector2(forward.y, -forward.x);
+        float roleSide = currentRole == EnemySquadRole.FlankerLeft ? -1f :
+                         currentRole == EnemySquadRole.FlankerRight ? 1f : 0f;
+
+        if (Mathf.Abs(roleSide) < 0.01f)
+        {
+            Vector2 toMe = (Vector2)transform.position - playerPos;
+            roleSide = Vector2.Dot(toMe, right) < 0f ? -1f : 1f;
+        }
+
+        Vector2[] candidates = new Vector2[]
+        {
+            primary,
+            playerPos + forward * opportunityFlankBehindDistance,
+            playerPos + forward * opportunityFlankBehindDistance + right * roleSide * opportunityFlankSideDistance,
+            playerPos + forward * opportunityFlankBehindDistance - right * roleSide * opportunityFlankSideDistance,
+            playerPos + right * roleSide * Mathf.Max(opportunityFlankSideDistance, opportunityFlankFallbackRadius),
+            playerPos - right * roleSide * Mathf.Max(opportunityFlankSideDistance, opportunityFlankFallbackRadius),
+            playerPos + (forward + right * roleSide * 0.65f).normalized * opportunityFlankFallbackRadius,
+            playerPos + (forward - right * roleSide * 0.65f).normalized * opportunityFlankFallbackRadius
+        };
+
+        Vector2 myPos = rb != null ? rb.position : (Vector2)transform.position;
+        float bestScore = float.NegativeInfinity;
+        bool found = false;
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Vector2 candidate = candidates[i];
+            if (!IsOpportunityFlankCandidateValid(myPos, playerPos, candidate))
+                continue;
+
+            Vector2 fromPlayer = candidate - playerPos;
+            float distanceToPlayer = fromPlayer.magnitude;
+            Vector2 candidateDir = distanceToPlayer > 0.001f ? fromPlayer / distanceToPlayer : forward;
+            Vector2 focusDir = (focusPos - playerPos);
+            if (focusDir.sqrMagnitude <= 0.0001f)
+                focusDir = -forward;
+            focusDir.Normalize();
+
+            float oppositeFocusScore = Mathf.Clamp01(Vector2.Angle(candidateDir, focusDir) / 180f);
+            float rangeMid = (opportunityFlankMinPlayerDistance + opportunityFlankMaxPlayerDistance) * 0.5f;
+            float rangeSpan = Mathf.Max(0.1f, (opportunityFlankMaxPlayerDistance - opportunityFlankMinPlayerDistance) * 0.5f);
+            float rangeScore = 1f - Mathf.Clamp01(Mathf.Abs(distanceToPlayer - rangeMid) / rangeSpan);
+            float pathCost = Vector2.Distance(myPos, candidate);
+
+            if (navigationGrid != null && navigationGrid.IsBuilt)
+            {
+                float estimated = navigationGrid.EstimatePathCost(myPos, candidate);
+                if (!float.IsInfinity(estimated))
+                    pathCost = estimated;
+            }
+
+            float score = 0f;
+            score += oppositeFocusScore * 3.0f;
+            score += rangeScore * 1.1f;
+            score -= Mathf.Clamp01(pathCost / 8f) * 0.75f;
+
+            if (squad != null && opportunityFlankPincerScoreWeight > 0f)
+            {
+                score += squad.ScorePincerCandidate(
+                    this,
+                    candidate,
+                    currentRole
+                ) * opportunityFlankPincerScoreWeight;
+            }
+
+            if (i == 0)
+                score += 0.35f;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestTarget = candidate;
+                found = true;
+            }
+        }
+
+        reason = found
+            ? $"{squadReason} score:{bestScore:0.0}"
+            : "NoValidCandidate";
+        return found;
+    }
+
+    private bool IsOpportunityFlankCandidateValid(Vector2 myPos, Vector2 playerPos, Vector2 candidate)
+    {
+        float playerDistance = Vector2.Distance(candidate, playerPos);
+
+        if (playerDistance < opportunityFlankMinPlayerDistance ||
+            playerDistance > opportunityFlankMaxPlayerDistance)
+        {
+            return false;
+        }
+
+        if (navigationGrid != null && navigationGrid.IsBuilt)
+        {
+            if (!navigationGrid.IsPositionWalkable(candidate))
+                return false;
+
+            if (!navigationGrid.AreConnected(myPos, candidate))
+                return false;
+        }
+        else if (losBlockMask.value != 0)
+        {
+            Vector2 toCandidate = candidate - myPos;
+            float distance = toCandidate.magnitude;
+            if (distance > 0.001f &&
+                Physics2D.Raycast(myPos, toCandidate / distance, Mathf.Min(distance, obstacleProbeDistance * 2.5f), losBlockMask))
+            {
+                return false;
+            }
+        }
+
+        if (opportunityFlankRequiresDestinationLos)
+        {
+            bool hasLos = CombatLineOfSight2D.HasLineOfSight(
+                this,
+                candidate,
+                playerPos,
+                losBlockMask,
+                out _
+            );
+
+            if (!hasLos)
+                return false;
+        }
+
+        return true;
+    }
+
+    private void CompleteOpportunityFlank(string reason)
+    {
+        opportunityFlankActive = false;
+        nextOpportunityFlankAllowedTime = Time.time + Mathf.Max(0.1f, opportunityFlankCooldown * 0.55f);
+        debugOpportunityFlank = $"Arrived/ambush: {reason}";
+
+        ClearMoveIntent();
+        ClearNavigationPath();
+        MarkMeaningfulAction("OpportunityFlankArrived");
+
+        if (opportunityFlankAttackImmediatelyOnArrival &&
+            isRanged &&
+            shooter != null &&
+            HasLineOfSightToPlayerNow())
+        {
+            EnterAttackWindow();
+            attackEnableTime = Time.time + Mathf.Max(0f, opportunityFlankAmbushDelay);
+            debugOpportunityFlank = $"Ambush attack: {reason}";
+            return;
+        }
+
+        EnterReplan(false);
+    }
+
+    private void FailOpportunityFlank(string reason)
+    {
+        opportunityFlankActive = false;
+        nextOpportunityFlankAllowedTime = Time.time + Mathf.Max(0.1f, opportunityFlankCooldown);
+        debugOpportunityFlank = $"Failed: {reason}";
+        ClearMoveIntent();
+        ClearNavigationPath();
+        MarkMeaningfulAction("OpportunityFlankFailed");
+        EnterReplan(false);
+    }
+
+    private void CancelOpportunityFlank(string reason, bool applyCooldown)
+    {
+        if (!opportunityFlankActive)
+            return;
+
+        opportunityFlankActive = false;
+        debugOpportunityFlank = $"Canceled: {reason}";
+
+        if (applyCooldown)
+            nextOpportunityFlankAllowedTime = Time.time + Mathf.Max(0.1f, opportunityFlankCooldown);
     }
 
     // ----------------------------
@@ -1309,6 +2126,15 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             float drift = Vector2.Distance(candidate, zoneCenter) / radius * 0.3f;
 
             float score = angleScore * 2.0f + rangeScore * 0.8f + novelty - drift;
+
+            if (usePincerPositioning && squad != null && pincerMicroRepositionWeight > 0f)
+            {
+                score += squad.ScorePincerCandidate(
+                    this,
+                    candidate,
+                    currentRole
+                ) * pincerMicroRepositionWeight;
+            }
 
             if (score > bestScore) { bestScore = score; bestPos = candidate; found = true; }
         }
@@ -1943,6 +2769,15 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
             float distToPlayer = Vector2.Distance(p.Position, playerPos);
             score += ScoreRangeFit(distToPlayer) * rangeFitWeight;
 
+            if (usePincerPositioning && squad != null && pincerTacticalPointWeight > 0f)
+            {
+                score += squad.ScorePincerCandidate(
+                    this,
+                    p.Position,
+                    currentRole
+                ) * pincerTacticalPointWeight;
+            }
+
             if (currentRole ==
                     EnemySquadRole.FlankerLeft ||
                 currentRole ==
@@ -2124,22 +2959,825 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         currentPoint = null;
     }
 
+    private Vector2 GetFallbackChaseTarget()
+    {
+        Vector2 playerPos = GetPlayerPos();
+
+        if (!usePincerPositioning ||
+            !usePincerFallbackChase ||
+            squad == null ||
+            currentRole == EnemySquadRole.Retreater)
+        {
+            debugPincerPositioning = "Direct Player";
+            return playerPos;
+        }
+
+        if (!hasCachedPincerTarget || Time.time >= nextPincerTargetRefreshTime)
+        {
+            cachedPincerChaseTarget = squad.GetPressurePositionForAgent(
+                this,
+                playerPos,
+                Mathf.Max(0.5f, pincerFallbackRadius)
+            );
+
+            hasCachedPincerTarget = true;
+            nextPincerTargetRefreshTime = Time.time + Mathf.Max(0.05f, pincerTargetRefreshInterval);
+            debugPincerPositioning = $"Fallback {currentRole} {Vector2.Distance(cachedPincerChaseTarget, playerPos):0.0}u";
+        }
+
+        if (navigationGrid != null && navigationGrid.IsBuilt)
+        {
+            Vector2 nearest = navigationGrid.FindNearestWalkablePosition(cachedPincerChaseTarget);
+            if (Vector2.Distance(nearest, cachedPincerChaseTarget) <= Mathf.Max(0.75f, navigationGrid.CellSize * 3f))
+                return nearest;
+        }
+
+        return cachedPincerChaseTarget;
+    }
+
+    private bool IsSoloEnemyForAntiIdle()
+    {
+        if (!useSoloEnemyAntiIdle)
+            return false;
+
+        if (!isRanged || shooter == null)
+            return false;
+
+        if (currentRole == EnemySquadRole.Retreater)
+            return false;
+
+        if (squad == null)
+            return true;
+
+        return squad.AliveAgentCount <= 1;
+    }
+
+    private bool SoloEnemyHasImmediateShot(Vector2? knownPlayerPos = null)
+    {
+        if (!IsSoloEnemyForAntiIdle())
+            return false;
+
+        Vector2 playerPos = knownPlayerPos ?? GetPlayerPos();
+        float distance = Vector2.Distance(
+            transform.position,
+            playerPos
+        );
+
+        if (distance > Mathf.Max(0.5f, soloMaxImmediateAttackDistance))
+        {
+            debugSoloAntiIdle = $"Too far {distance:0.0}/{soloMaxImmediateAttackDistance:0.0}";
+            return false;
+        }
+
+        if (!HasLineOfSightToPlayerNow())
+        {
+            debugSoloAntiIdle = "No LOS";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void TickPointBlankSkirmishDuringVolleyCooldown()
+    {
+        if (!usePointBlankSkirmishAntiStuck ||
+            !pointBlankSkirmishDuringVolleyCooldown ||
+            !isRanged ||
+            shooter == null ||
+            playerTransform == null ||
+            shooter.IsTelegraphing)
+        {
+            return;
+        }
+
+        Vector2 myPos =
+            rb != null
+                ? rb.position
+                : (Vector2)transform.position;
+
+        Vector2 playerPos = GetPlayerPos();
+
+        float distance =
+            Vector2.Distance(myPos, playerPos);
+
+        if (distance >
+            Mathf.Max(0.1f, pointBlankSkirmishDistance))
+        {
+            return;
+        }
+
+        if (!HasLineOfSightToPlayerNow())
+            return;
+
+        if (TryMovePointBlankSkirmish(myPos, playerPos))
+        {
+            debugPointBlankSkirmish =
+                $"Cooldown skirmish {distance:0.0}u.";
+        }
+        else
+        {
+            debugPointBlankSkirmish =
+                $"Cooldown skirmish failed {distance:0.0}u.";
+        }
+    }
+
+    private bool TryMovePointBlankSkirmish(
+        Vector2 myPos,
+        Vector2 playerPos)
+    {
+        Vector2 away = myPos - playerPos;
+
+        if (away.sqrMagnitude < 0.0001f)
+            away = Vector2.right;
+        else
+            away.Normalize();
+
+        Vector2 left =
+            new Vector2(
+                -away.y,
+                away.x
+            );
+
+        float sideSign = 1f;
+
+        switch (currentRole)
+        {
+            case EnemySquadRole.FlankerLeft:
+                sideSign = 1f;
+                break;
+
+            case EnemySquadRole.FlankerRight:
+                sideSign = -1f;
+                break;
+
+            default:
+                sideSign =
+                    Mathf.Sin(Time.time * 3.17f + GetInstanceID()) >= 0f
+                        ? 1f
+                        : -1f;
+                break;
+        }
+
+        Vector2 side = left * sideSign;
+
+        float sideWeight =
+            Mathf.Clamp01(pointBlankSkirmishSideWeight);
+
+        Vector2[] dirs =
+        {
+            (away * (1f - sideWeight) + side * sideWeight).normalized,
+            (away * (1f - sideWeight) - side * sideWeight).normalized,
+            away,
+            side,
+            -side
+        };
+
+        float targetDistance =
+            Mathf.Max(
+                pointBlankSkirmishDistance + 0.15f,
+                pointBlankSkirmishTargetDistance
+            );
+
+        for (int i = 0; i < dirs.Length; i++)
+        {
+            Vector2 dir = dirs[i];
+
+            if (dir.sqrMagnitude < 0.0001f)
+                continue;
+
+            Vector2 candidate =
+                playerPos +
+                dir.normalized *
+                targetDistance;
+
+            if (navigationGrid != null &&
+                navigationGrid.IsBuilt)
+            {
+                candidate =
+                    navigationGrid.FindNearestWalkablePosition(
+                        candidate
+                    );
+            }
+
+            if (Vector2.Distance(candidate, myPos) < 0.10f)
+                continue;
+
+            if (MoveTowardTarget(
+                    candidate,
+                    moveSpeed *
+                    Mathf.Max(0.05f, pointBlankSkirmishSpeedMultiplier)))
+            {
+                return true;
+            }
+
+            ClearNavigationPath();
+        }
+
+        ClearMoveIntent();
+        return false;
+    }
+
+    private bool TryPointBlankFailOpenToAttack(string reason)
+    {
+        if (!usePointBlankSkirmishAntiStuck ||
+            !pointBlankFireImmediatelyIfNoPath ||
+            !isRanged ||
+            shooter == null ||
+            playerTransform == null)
+        {
+            return false;
+        }
+
+        Vector2 myPos =
+            rb != null
+                ? rb.position
+                : (Vector2)transform.position;
+
+        float distance =
+            Vector2.Distance(myPos, GetPlayerPos());
+
+        if (distance >
+            Mathf.Max(
+                pointBlankSkirmishDistance,
+                closeAttackStartDistance) + 0.45f)
+        {
+            return false;
+        }
+
+        if (!HasLineOfSightToPlayerNow())
+            return false;
+
+        pressureBurstStepQueued = false;
+        ClearMoveIntent();
+        ClearNavigationPath();
+
+        debugPointBlankSkirmish =
+            $"{reason}: forced close attack {distance:0.0}u.";
+
+        debugPressureBurstStep =
+            debugPointBlankSkirmish;
+
+        MarkMeaningfulAction("PointBlankFailOpen");
+        EnterAttackWindow();
+        attackEnableTime =
+            Time.time +
+            Mathf.Max(0f, noPathImmediateAttackDelay);
+
+        return true;
+    }
+
+
+    private bool TrySoloContinueAfterVolleyCooldown()
+    {
+        if (!IsPatternVolleyLimitReached())
+            return false;
+
+        if (!SoloEnemyHasImmediateShot())
+            return false;
+
+        SetShooterGate(false);
+        shooterArmedThisWindow = false;
+        burstQuotaFinishQueued = false;
+        burstQuotaFinishTime = 0f;
+        pressureBurstStepQueued = false;
+        ClearMoveIntent();
+        ClearNavigationPath();
+
+        debugSoloAntiIdle =
+            "Solo volley cooldown finished. New attack window.";
+
+        MarkMeaningfulAction("SoloVolleyRestart");
+        EnterAttackWindow();
+        attackEnableTime = Time.time;
+        return true;
+    }
+
+    private bool TrySoloFailOpenPressureStepToAttack(string reason)
+    {
+        if (!soloAttackWhenPressureStepFails ||
+            !pressureBurstStepQueued ||
+            !SoloEnemyHasImmediateShot())
+        {
+            return false;
+        }
+
+        if (Time.time < pressureBurstStepEarliestFireTime)
+            return false;
+
+        pressureBurstStepQueued = false;
+        ClearMoveIntent();
+        ClearNavigationPath();
+
+        debugSoloAntiIdle = $"{reason}: attack instead of replan.";
+        debugPressureBurstStep = debugSoloAntiIdle;
+
+        MarkMeaningfulAction("SoloPressureStepFailOpen");
+        EnterAttackWindow();
+        attackEnableTime = Time.time;
+        return true;
+    }
+
+    private bool TryScheduleSoloPressureRearm(float requestedDelay)
+    {
+        if (!IsSoloEnemyForAntiIdle() || !soloBypassPressureBurstStep)
+            return false;
+
+        if (!SoloEnemyHasImmediateShot())
+            return false;
+
+        float delay = Mathf.Max(
+            requestedDelay,
+            soloPressureRearmDelay
+        );
+
+        attackEnableTime = Time.time + delay;
+
+        nextStateTime = Mathf.Max(
+            nextStateTime,
+            Time.time + delay + Mathf.Max(0.05f, continuousPressureWindowExtension)
+        );
+
+        inWindowTime = 0f;
+        playerPosForMissInitialized = false;
+
+        debugSoloAntiIdle =
+            $"Solo rearm x{continuousPressureBurstsThisWindow} in {delay:0.00}s.";
+
+        debugAggressionState = debugSoloAntiIdle;
+        MarkMeaningfulAction("SoloPressureRearm");
+        return true;
+    }
+
+    private bool TryFinishAttackWindowAfterBurstQuota()
+    {
+        if (!endAttackWindowWhenBurstQuotaReached ||
+            shooter == null ||
+            !shooter.BurstQuotaReached ||
+            shooter.IsTelegraphing)
+        {
+            return false;
+        }
+
+        if (!burstQuotaFinishQueued)
+        {
+            burstQuotaFinishQueued = true;
+            RegisterPatternVolleyBeat();
+
+            if (IsPatternVolleyLimitReached())
+            {
+                float cooldown = currentPatternVolleyCooldownDelay;
+
+                if (IsSoloEnemyForAntiIdle())
+                    cooldown = Mathf.Max(cooldown, soloVolleyCooldownAfter);
+
+                burstQuotaFinishTime = Time.time + Mathf.Max(0f, cooldown);
+                debugAggressionState =
+                    $"Pattern volley finished {currentPatternVolleyBeatsFired}/{currentPatternVolleyLimit}. " +
+                    $"Cooldown {cooldown:0.00}s.";
+
+                if (IsSoloEnemyForAntiIdle())
+                    debugSoloAntiIdle = debugAggressionState;
+            }
+            else if (ShouldContinuePressureAfterBurstQuota())
+            {
+                burstQuotaFinishTime = Time.time + Mathf.Max(0f, currentContinuousPressureRearmDelay);
+                debugAggressionState =
+                    $"Burst quota reached. Pressure rearm in {currentContinuousPressureRearmDelay:0.00}s.";
+            }
+            else
+            {
+                burstQuotaFinishTime = Time.time + Mathf.Max(0f, currentPostBurstReplanDelay);
+                debugAggressionState =
+                    $"Burst quota reached. Replan in {currentPostBurstReplanDelay:0.00}s.";
+            }
+
+            if (debugAggressionFlow)
+            {
+                Debug.Log(
+                    $"EnemyBrain: {name} burst quota spent. {debugAggressionState}",
+                    this
+                );
+            }
+        }
+
+        if (Time.time < burstQuotaFinishTime)
+        {
+            TickPointBlankSkirmishDuringVolleyCooldown();
+            return true;
+        }
+
+        if (TrySoloContinueAfterVolleyCooldown())
+            return true;
+
+        if (ShouldContinuePressureAfterBurstQuota())
+        {
+            ContinuePressureAfterBurstQuota();
+            return true;
+        }
+
+        SetShooterGate(false);
+        MarkMeaningfulAction("BurstQuotaFinished");
+        EnterReplan(false);
+        return true;
+    }
+
+    private bool ShouldContinuePressureAfterBurstQuota()
+    {
+        if (!continuePressureAfterBurstQuota)
+            return false;
+
+        if (!isRanged || shooter == null)
+            return false;
+
+        if (IsPatternVolleyLimitReached())
+            return false;
+
+        if (currentRole == EnemySquadRole.Retreater)
+            return false;
+
+        if (!HasLineOfSightToPlayerNow())
+            return false;
+
+        float distanceToPlayer = Vector2.Distance(
+            transform.position,
+            GetPlayerPos()
+        );
+
+        bool closeEnough =
+            distanceToPlayer <=
+            Mathf.Max(0.1f, closeRangePressureRepeatDistance);
+
+        bool pressureHighEnough =
+            squadPressure01 >=
+            Mathf.Clamp01(continuousPressureThreshold);
+
+        bool urgentThreatGap =
+            threatGapCanHurryAttack &&
+            squad != null &&
+            squad.ShouldForceAttack(this);
+
+        return closeEnough || pressureHighEnough || urgentThreatGap;
+    }
+
+    private void ContinuePressureAfterBurstQuota()
+    {
+        continuousPressureBurstsThisWindow++;
+
+        SetShooterGate(false);
+        shooterArmedThisWindow = false;
+        burstQuotaFinishQueued = false;
+        burstQuotaFinishTime = 0f;
+
+        int repeatLimit = GetContinuousPressureRepeatLimitForCurrentPattern();
+
+        if (repeatLimit > 0 &&
+            continuousPressureBurstsThisWindow >= repeatLimit)
+        {
+            debugAggressionState =
+                $"Pressure burst x{continuousPressureBurstsThisWindow}; replan for new angle.";
+
+            MarkMeaningfulAction("PressureBurstReplan");
+            EnterReplan(true);
+            return;
+        }
+
+        float delay = Mathf.Max(0f, currentContinuousPressureRearmDelay);
+
+        if (TryScheduleSoloPressureRearm(delay))
+            return;
+
+        if (moveBetweenPressureBursts)
+        {
+            BeginPressureBurstStep(delay);
+            return;
+        }
+
+        attackEnableTime = Time.time + delay;
+        nextStateTime = Mathf.Max(
+            nextStateTime,
+            Time.time + delay + Mathf.Max(0.05f, continuousPressureWindowExtension)
+        );
+
+        // Reset miss-pressure state so the enemy can start a clean new burst instead of
+        // immediately deciding it has missed for too long.
+        inWindowTime = 0f;
+        playerPosForMissInitialized = false;
+
+        debugAggressionState =
+            $"Pressure rearm x{continuousPressureBurstsThisWindow} in {delay:0.00}s.";
+
+        MarkMeaningfulAction("PressureRearm");
+    }
+
+    private void BeginPressureBurstStep(float rearmDelay)
+    {
+        Vector2 myPos = rb != null
+            ? rb.position
+            : (Vector2)transform.position;
+
+        SetShooterGate(false);
+        shooterArmedThisWindow = false;
+        burstQuotaFinishQueued = false;
+        burstQuotaFinishTime = 0f;
+        inWindowTime = 0f;
+        playerPosForMissInitialized = false;
+
+        ReleaseCurrentPoint();
+        ClearNavigationPath();
+        ClearMoveIntent();
+
+        hasCachedPincerTarget = false;
+        usingFallbackChase = true;
+        pressureBurstStepQueued = true;
+        pressureBurstStepStart = myPos;
+        pressureBurstStepEarliestFireTime =
+            Time.time + Mathf.Max(0f, rearmDelay);
+        pressureBurstStepDeadline =
+            Time.time + Mathf.Max(
+                pressureBurstStepDuration,
+                rearmDelay + 0.05f
+            );
+
+        state = BrainState.Move;
+        nextStuckCheckTime = Time.time + stuckCheckInterval;
+        lastStuckPos = transform.position;
+
+        Vector2 target = GetFallbackChaseTarget();
+        PrepareMovementProgress(target);
+
+        debugAggressionState =
+            $"Pressure step x{continuousPressureBurstsThisWindow} -> new angle.";
+
+        debugPressureBurstStep =
+            $"Stepping to {Vector2.Distance(target, GetPlayerPos()):0.0}u pressure target.";
+
+        MarkMeaningfulAction("PressureStep");
+    }
+
+    private bool TryFinishPressureBurstStep(
+        Vector2 myPos,
+        Vector2 currentMoveTarget)
+    {
+        if (!pressureBurstStepQueued)
+            return false;
+
+        float moved = Vector2.Distance(
+            myPos,
+            pressureBurstStepStart
+        );
+
+        float targetDistance = Vector2.Distance(
+            myPos,
+            currentMoveTarget
+        );
+
+        bool timeReady =
+            Time.time >= pressureBurstStepEarliestFireTime;
+
+        bool deadlineReached =
+            Time.time >= pressureBurstStepDeadline;
+
+        bool movedEnough =
+            moved >= Mathf.Max(0f, pressureBurstMinStepDistance);
+
+        bool reachedPressureTarget =
+            targetDistance <= Mathf.Max(
+                fallbackArrivalRadius,
+                pressureBurstReadyDistance
+            );
+
+        bool hasLos =
+            HasLineOfSightToPlayerNow();
+
+        bool losSatisfied =
+            !pressureStepPrefersLineOfSight ||
+            hasLos ||
+            deadlineReached;
+
+        if (timeReady &&
+            losSatisfied &&
+            (deadlineReached || movedEnough || reachedPressureTarget))
+        {
+            pressureBurstStepQueued = false;
+            ClearMoveIntent();
+            ClearNavigationPath();
+
+            MarkMeaningfulAction("PressureStepAttack");
+            EnterAttackWindow();
+            attackEnableTime = Time.time;
+
+            debugPressureBurstStep =
+                $"Attack after step {moved:0.0}u" +
+                (hasLos ? " LOS" : " noLOS timeout");
+
+            return true;
+        }
+
+        debugPressureBurstStep =
+            $"Step move {moved:0.0}u target {targetDistance:0.0}u" +
+            (hasLos ? " LOS" : " noLOS");
+
+        return false;
+    }
+
+    private void ResetBurstQuotaFinish()
+    {
+        burstQuotaFinishQueued = false;
+        burstQuotaFinishTime = 0f;
+        debugAggressionState = "None";
+    }
+
+
+    // ----------------------------
+    // Squad attack-slot integration
+    // ----------------------------
+    private bool TryClaimSquadAttackSlotForShooter()
+    {
+        if (!useSquadAttackSlots || squad == null)
+        {
+            debugAttackSlot = "Slots disabled";
+            return true;
+        }
+
+        if (ownsSquadAttackSlot || squad.IsAttackSlotOwner(this))
+        {
+            ownsSquadAttackSlot = true;
+            debugAttackSlot = "Owned";
+            return true;
+        }
+
+        if (Time.time < nextSquadAttackSlotRequestTime)
+        {
+            debugAttackSlot = "Waiting retry";
+            return false;
+        }
+
+        bool urgent = squad.ShouldForceAttack(this);
+        string reason = urgent ? "ThreatGap Shooter" : "Shooter AttackWindow";
+
+        if (squad.TryRequestAttackSlot(this, reason))
+        {
+            ownsSquadAttackSlot = true;
+            debugAttackSlot = reason;
+            return true;
+        }
+
+        nextSquadAttackSlotRequestTime = Time.time + Mathf.Max(0.03f, attackSlotRetryDelay);
+        debugAttackSlot = "Waiting for slot";
+        return false;
+    }
+
+    private void ReleaseSquadAttackSlot(string reason)
+    {
+        if (squad != null && (ownsSquadAttackSlot || squad.IsAttackSlotOwner(this)))
+            squad.ReleaseAttackSlot(this, reason);
+
+        ownsSquadAttackSlot = false;
+    }
+
+    private void UpdateCloseAttackLosMemory()
+    {
+        if (!attackInsteadOfHuggingPlayer)
+            return;
+
+        if (!isRanged || shooter == null || playerTransform == null)
+            return;
+
+        if (HasLineOfSightToPlayerNow())
+            lastCloseAttackLosTime = Time.time;
+    }
+
+    private bool TryStartCloseRangeAttackInsteadOfHugging(
+        Vector2 myPos,
+        Vector2 playerPos)
+    {
+        if (!attackInsteadOfHuggingPlayer)
+            return false;
+
+        if (!usingFallbackChase)
+            return false;
+
+        if (!isRanged || shooter == null)
+        {
+            debugCloseRangeAntiHug =
+                !isRanged
+                    ? "Skipped: Not Ranged"
+                    : "Skipped: No Shooter";
+
+            return false;
+        }
+
+        if (currentRole == EnemySquadRole.Retreater)
+        {
+            debugCloseRangeAntiHug = "Skipped: Retreater";
+            return false;
+        }
+
+        float triggerDistance = Mathf.Max(
+            0.1f,
+            closeAttackStartDistance
+        );
+
+        float distance = Vector2.Distance(
+            myPos,
+            playerPos
+        );
+
+        if (distance > triggerDistance)
+        {
+            debugCloseRangeAntiHug =
+                $"Too Far {distance:0.00}/{triggerDistance:0.00}";
+
+            return false;
+        }
+
+        bool recentlyHadLos =
+            Time.time - lastCloseAttackLosTime <=
+            closeAttackLineOfSightGrace;
+
+        if (!recentlyHadLos && !HasLineOfSightToPlayerNow())
+        {
+            debugCloseRangeAntiHug = "Close But No LOS";
+            return false;
+        }
+
+        ClearMoveIntent();
+        ClearNavigationPath();
+
+        MarkMeaningfulAction(
+            "CloseRangeAttack"
+        );
+
+        EnterAttackWindow();
+
+        if (skipSettleWhenCloseChasing)
+        {
+            attackEnableTime =
+                Time.time +
+                Mathf.Max(
+                    0f,
+                    closeAttackForceReadyDelay
+                );
+        }
+
+        debugCloseRangeAntiHug =
+            $"Close Attack {distance:0.00}";
+
+        return true;
+    }
+
+    private bool TryStartOpportunityAttackWhileMoving()
+    {
+        if (!allowOpportunityAttackWhileMoving || !isRanged || shooter == null)
+            return false;
+
+        if (squad == null || !squad.ShouldForceAttack(this))
+            return false;
+
+        if (currentRole == EnemySquadRole.Retreater)
+            return false;
+
+        if (Time.time < nextOpportunityAttackTime)
+            return false;
+
+        if (!HasLineOfSightToPlayerNow())
+            return false;
+
+        nextOpportunityAttackTime = Time.time + Mathf.Max(0.1f, opportunityAttackCooldown);
+        ClearMoveIntent();
+        ClearNavigationPath();
+        MarkMeaningfulAction("OpportunityAttack");
+        EnterAttackWindow();
+        attackEnableTime = Time.time;
+        return true;
+    }
+
     // ----------------------------
     // Shooter integration
     // ----------------------------
     private void SetShooterGate(bool enabled, bool force = false)
     {
-        if (shooter == null) return;
+        if (shooter == null)
+        {
+            if (!enabled)
+                ReleaseSquadAttackSlot("NoShooter");
+            return;
+        }
 
         bool finalEnabled = enabled && isRanged;
 
         if (!force && shooterGateEnabled == finalEnabled)
+        {
+            if (!finalEnabled)
+                ReleaseSquadAttackSlot("ShooterGateAlreadyClosed");
             return;
+        }
 
         shooterGateEnabled = finalEnabled;
-        shooter.SetShootingEnabled(
-            finalEnabled
-        );
+        shooter.SetShootingEnabled(finalEnabled);
+
+        if (!finalEnabled)
+            ReleaseSquadAttackSlot("ShooterGateClosed");
     }
 
     private void SyncShooterTarget()
@@ -2156,67 +3794,731 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         }
     }
 
+
+    private void ConfigurePatternVolleyPacing(AttackStyle style)
+    {
+        currentPatternVolleyPatternName = string.IsNullOrWhiteSpace(style.patternName)
+            ? "None"
+            : style.patternName;
+
+        currentPatternVolleyBeatsFired = 0;
+        currentPatternUsesVolleyPacing =
+            usePatternVolleyPacing &&
+            ShouldUsePatternVolleyPacing(currentPatternVolleyPatternName);
+
+        if (!currentPatternUsesVolleyPacing)
+        {
+            currentPatternVolleyLimit = 1;
+            currentPatternVolleyCooldownDelay = Mathf.Max(0f, currentPostBurstReplanDelay);
+            debugPatternVolleyPacing = "Off";
+            return;
+        }
+
+        int min = Mathf.Max(1, minPatternVolleyBeats);
+        int max = Mathf.Max(min, maxPatternVolleyBeats);
+
+        currentPatternVolleyLimit = UnityEngine.Random.Range(min, max + 1);
+
+        if (rareExtraPatternBeatChance > 0f &&
+            UnityEngine.Random.value < Mathf.Clamp01(rareExtraPatternBeatChance))
+        {
+            currentPatternVolleyLimit += 1;
+        }
+
+        bool heavy = IsHeavyPatternVolley(currentPatternVolleyPatternName);
+
+        currentPatternVolleyCooldownDelay = Mathf.Max(
+            currentPostBurstReplanDelay,
+            heavy
+                ? heavyPatternVolleyCooldownAfter
+                : patternVolleyCooldownAfter
+        );
+
+        currentContinuousPressureRearmDelay = Mathf.Max(
+            currentContinuousPressureRearmDelay,
+            patternVolleyRearmDelay
+        );
+
+        currentPostBurstReplanDelay = Mathf.Max(
+            currentPostBurstReplanDelay,
+            currentPatternVolleyCooldownDelay
+        );
+
+        debugPatternVolleyPacing =
+            $"{currentPatternVolleyPatternName} volley 0/{currentPatternVolleyLimit}, " +
+            $"rearm {currentContinuousPressureRearmDelay:0.00}, cooldown {currentPatternVolleyCooldownDelay:0.00}";
+    }
+
+    private bool ShouldUsePatternVolleyPacing(string patternName)
+    {
+        if (string.IsNullOrWhiteSpace(patternName))
+            return false;
+
+        if (!countSingleShotsAsPatternVolley &&
+            (patternName == "AimedSingle" || patternName == "EscapeCutoff"))
+        {
+            return false;
+        }
+
+        if (patternVolleyOnlyForPrettyPatterns)
+        {
+            return IsPrettyDanmakuPattern(patternName) ||
+                   patternName == "Ring" ||
+                   patternName == "BoI_4Way" ||
+                   patternName == "BoI_8Way" ||
+                   patternName == "Spiral" ||
+                   patternName == "SweepFan";
+        }
+
+        return true;
+    }
+
+    private bool IsHeavyPatternVolley(string patternName)
+    {
+        return patternName == "Ring" ||
+               patternName == "BoI_4Way" ||
+               patternName == "BoI_8Way" ||
+               patternName == "RotatingFlowerRing" ||
+               patternName == "HaloSpear" ||
+               patternName == "ClosingBlossom" ||
+               patternName == "CloseCross";
+    }
+
+    private void RegisterPatternVolleyBeat()
+    {
+        if (!currentPatternUsesVolleyPacing)
+            return;
+
+        currentPatternVolleyBeatsFired = Mathf.Max(
+            0,
+            currentPatternVolleyBeatsFired
+        ) + 1;
+
+        debugPatternVolleyPacing =
+            $"{currentPatternVolleyPatternName} volley " +
+            $"{currentPatternVolleyBeatsFired}/{currentPatternVolleyLimit}";
+    }
+
+    private bool IsPatternVolleyLimitReached()
+    {
+        return currentPatternUsesVolleyPacing &&
+               currentPatternVolleyLimit > 0 &&
+               currentPatternVolleyBeatsFired >= currentPatternVolleyLimit;
+    }
+
+    private int GetContinuousPressureRepeatLimitForCurrentPattern()
+    {
+        // Pattern Volley Pacing owns the repeat limit for decorative attacks.
+        // The old continuous-pressure cap is left active only for simple non-paced attacks.
+        if (currentPatternUsesVolleyPacing)
+            return 0;
+
+        return maxContinuousPressureBurstsBeforeReplan;
+    }
+
     private void ApplyFiringStyleForThisWindow()
     {
         if (shooter == null)
             return;
 
+        AttackStyle style = BuildAttackStyleForThisWindow();
+
         shooter.SetBurstConfig(
-            profile.shotsPerBurst,
-            profile.intraBurstInterval,
-            profile.burstCooldown
+            style.shotsPerBurst,
+            style.intraBurstInterval,
+            style.burstCooldown
         );
 
         shooter.SetBurstQuotaPerEnable(
             true,
-            Mathf.Max(
-                1,
-                profile.burstsPerEnable
-            )
+            Mathf.Max(1, style.burstsPerEnable)
         );
 
-        float distance =
-            Vector2.Distance(
-                transform.position,
-                GetPlayerPos()
-            );
-
-        string chosenPattern;
-
-        if (distance <
-            closeRangeOverrideDistance)
-        {
-            chosenPattern =
-                "BoI_8Way";
-        }
-        else
-        {
-            chosenPattern =
-                distance <
-                profile.preferredMinRange
-                    ? profile.closePattern
-                    : distance >
-                      profile.preferredMaxRange
-                        ? profile.farPattern
-                        : profile.midPattern;
-        }
-
-        shooter.SetPattern(
-            chosenPattern
-        );
+        shooter.SetPattern(style.patternName);
 
         shooter.SetFanConfig(
-            profile.fanBullets,
-            profile.fanArcDegrees
+            style.fanBullets,
+            style.fanArcDegrees
         );
 
         shooter.SetRingBullets(
-            profile.ringBullets
+            style.ringBullets
         );
 
         shooter.SetAngularSpeed(
-            profile.angularSpeedDegPerTick
+            style.angularSpeedDegPerTick
         );
+
+        if (useRoleProjectileTint)
+            shooter.SetProjectileTint(GetProjectileTintForCurrentStyle(), true);
+        else
+            shooter.ClearProjectileTint();
+
+        currentPostBurstReplanDelay =
+            Mathf.Max(0.02f, style.postBurstReplanDelay);
+
+        currentContinuousPressureRearmDelay =
+            Mathf.Max(0f, style.pressureRearmDelay);
+
+        ConfigurePatternVolleyPacing(style);
+
+        debugAttackIdentity = style.debugLabel;
+    }
+
+    private struct AttackStyle
+    {
+        public string patternName;
+        public int shotsPerBurst;
+        public float intraBurstInterval;
+        public float burstCooldown;
+        public int burstsPerEnable;
+        public int fanBullets;
+        public float fanArcDegrees;
+        public int ringBullets;
+        public float angularSpeedDegPerTick;
+        public float postBurstReplanDelay;
+        public float pressureRearmDelay;
+        public string debugLabel;
+    }
+
+    private AttackStyle BuildAttackStyleForThisWindow()
+    {
+        AttackStyle style = new AttackStyle
+        {
+            patternName = GetDistanceBasedPattern(),
+            shotsPerBurst = Mathf.Max(1, profile.shotsPerBurst),
+            intraBurstInterval = Mathf.Max(0.03f, profile.intraBurstInterval),
+            burstCooldown = Mathf.Max(0.03f, profile.burstCooldown),
+            burstsPerEnable = Mathf.Max(1, profile.burstsPerEnable),
+            fanBullets = Mathf.Max(1, profile.fanBullets),
+            fanArcDegrees = Mathf.Max(0f, profile.fanArcDegrees),
+            ringBullets = Mathf.Max(3, profile.ringBullets),
+            angularSpeedDegPerTick = profile.angularSpeedDegPerTick,
+            postBurstReplanDelay = Mathf.Max(0.02f, postBurstReplanDelay),
+            pressureRearmDelay = Mathf.Max(0f, continuousPressureRearmDelay),
+            debugLabel = "Profile"
+        };
+
+        if (!useRoleSpecificAttackIdentity)
+        {
+            style.debugLabel = $"Profile {style.patternName}";
+            return style;
+        }
+
+        float distance = Vector2.Distance(
+            transform.position,
+            GetPlayerPos()
+        );
+
+        int intensity = GetAttackIntensity(distance);
+        bool close = distance <= Mathf.Max(
+            closeRangeOverrideDistance,
+            identityCloseRangeDistance
+        );
+
+        string intensityName = intensity == 2
+            ? "High"
+            : intensity == 1
+                ? "Med"
+                : "Low";
+
+        // Role identity first, then personality flavor. This keeps squad composition readable.
+        // v4: If a Role Attack Profiles asset is assigned, use the inspector-editable mapping, then apply density safety for pretty patterns.
+        if (!TryApplyRoleAttackProfileIdentity(ref style, intensity, close))
+        {
+            switch (currentRole)
+            {
+                case EnemySquadRole.Suppressor:
+                    ApplySuppressorIdentity(ref style, intensity, close);
+                    break;
+                case EnemySquadRole.FlankerLeft:
+                case EnemySquadRole.FlankerRight:
+                    ApplyFlankerIdentity(ref style, intensity, close);
+                    break;
+                case EnemySquadRole.Anchor:
+                    ApplyAnchorIdentity(ref style, intensity, close);
+                    break;
+                case EnemySquadRole.Retreater:
+                    ApplyRetreaterIdentity(ref style, intensity, close);
+                    break;
+                default:
+                    ApplyPersonalityFallbackIdentity(ref style, intensity, close);
+                    break;
+            }
+        }
+
+        if (effectivePersonality == Personality.Aggressive &&
+            currentRole != EnemySquadRole.Retreater)
+        {
+            ApplyAggressiveFlavor(ref style, intensity, close);
+        }
+        else if (effectivePersonality == Personality.Backstabber &&
+                 currentRole != EnemySquadRole.Retreater)
+        {
+            ApplyBackstabberFlavor(ref style, intensity, close);
+        }
+        else if (effectivePersonality == Personality.ScaredCat ||
+                 effectivePersonality == Personality.Avenger)
+        {
+            ApplyCautiousFlavor(ref style, intensity, close);
+        }
+
+        if (usePressureAttackIntensity)
+            ApplyGlobalPressureIntensity(ref style, intensity);
+
+        NormalizeAttackStyle(ref style);
+
+        string sourcePrefix =
+            style.debugLabel != null &&
+            style.debugLabel.StartsWith("RoleProfile")
+                ? style.debugLabel + " "
+                : string.Empty;
+
+        style.debugLabel =
+            $"{sourcePrefix}{currentRole}/{effectivePersonality} {intensityName} {style.patternName} " +
+            $"shots:{style.shotsPerBurst} fan:{style.fanBullets}/{style.fanArcDegrees:0}";
+
+        return style;
+    }
+
+    private string GetDistanceBasedPattern()
+    {
+        float distance = Vector2.Distance(
+            transform.position,
+            GetPlayerPos()
+        );
+
+        if (distance < closeRangeOverrideDistance)
+            return "BoI_8Way";
+
+        return distance < profile.preferredMinRange
+            ? profile.closePattern
+            : distance > profile.preferredMaxRange
+                ? profile.farPattern
+                : profile.midPattern;
+    }
+
+    private int GetAttackIntensity(float distanceToPlayer)
+    {
+        if (!usePressureAttackIntensity)
+            return 0;
+
+        float medium = Mathf.Clamp01(mediumAttackIntensityPressure);
+        float high = Mathf.Clamp01(highAttackIntensityPressure);
+
+        if (squadPressure01 >= high)
+            return 2;
+
+        if (squadPressure01 >= medium)
+            return 1;
+
+        // Being close is dangerous even before the squad pressure meter rises.
+        if (distanceToPlayer <= Mathf.Max(closeRangeOverrideDistance, identityCloseRangeDistance))
+            return 1;
+
+        return 0;
+    }
+
+    private bool TryApplyRoleAttackProfileIdentity(
+        ref AttackStyle style,
+        int intensity,
+        bool close)
+    {
+        if (!useRoleAttackProfiles || roleAttackProfiles == null)
+            return false;
+
+        EnemyRoleAttackProfiles.ResolvedAttack resolved;
+
+        if (!roleAttackProfiles.TryResolve(
+                currentRole,
+                intensity,
+                close,
+                out resolved))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(resolved.patternName))
+            style.patternName = resolved.patternName;
+
+        if (resolved.minShotsPerBurst > 0)
+        {
+            style.shotsPerBurst = Mathf.Max(
+                style.shotsPerBurst,
+                resolved.minShotsPerBurst
+            );
+        }
+
+        if (resolved.minBurstsPerEnable > 0)
+        {
+            style.burstsPerEnable = Mathf.Max(
+                style.burstsPerEnable,
+                resolved.minBurstsPerEnable
+            );
+        }
+
+        if (resolved.minFanBullets > 0)
+        {
+            style.fanBullets = Mathf.Max(
+                style.fanBullets,
+                resolved.minFanBullets
+            );
+        }
+
+        if (resolved.fanArcDegrees >= 0f)
+            style.fanArcDegrees = resolved.fanArcDegrees;
+
+        if (resolved.minRingBullets > 0)
+        {
+            style.ringBullets = Mathf.Max(
+                style.ringBullets,
+                resolved.minRingBullets
+            );
+        }
+
+        if (resolved.angularSpeedDegPerTick >= 0f)
+            style.angularSpeedDegPerTick = resolved.angularSpeedDegPerTick;
+
+        style.intraBurstInterval *= Mathf.Max(
+            0.01f,
+            resolved.intraBurstIntervalMultiplier
+        );
+
+        style.burstCooldown *= Mathf.Max(
+            0.01f,
+            resolved.burstCooldownMultiplier
+        );
+
+        style.pressureRearmDelay *= Mathf.Max(
+            0.01f,
+            resolved.pressureRearmDelayMultiplier
+        );
+
+        if (resolved.minimumPostBurstReplanDelay > 0f)
+        {
+            style.postBurstReplanDelay = Mathf.Max(
+                style.postBurstReplanDelay,
+                resolved.minimumPostBurstReplanDelay
+            );
+        }
+
+        style.debugLabel = $"RoleProfile:{resolved.sourceLabel}";
+        return true;
+    }
+
+    private void ApplySuppressorIdentity(ref AttackStyle style, int intensity, bool close)
+    {
+        if (usePrettyDanmakuPatterns)
+        {
+            style.patternName = close
+                ? "CloseCross"
+                : intensity >= 2
+                    ? "ClosingBlossom"
+                    : intensity >= 1
+                        ? "StaggeredRosette"
+                        : "PetalFan";
+        }
+        else
+        {
+            style.patternName = close
+                ? "BoI_8Way"
+                : intensity >= 2
+                    ? "SweepFan"
+                    : "AimedFan";
+        }
+
+        style.fanBullets = Mathf.Max(style.fanBullets, intensity >= 2 ? 7 : 5);
+        style.fanArcDegrees = Mathf.Max(style.fanArcDegrees, intensity >= 2 ? 62f : 46f);
+        style.shotsPerBurst = Mathf.Max(style.shotsPerBurst, intensity >= 1 ? 2 : 1);
+        style.intraBurstInterval *= intensity >= 2 ? 0.85f : 0.95f;
+        style.burstCooldown *= 0.90f;
+        style.postBurstReplanDelay = Mathf.Max(style.postBurstReplanDelay, 0.18f);
+    }
+
+    private void ApplyFlankerIdentity(ref AttackStyle style, int intensity, bool close)
+    {
+        if (usePrettyDanmakuPatterns)
+        {
+            style.patternName = close
+                ? "ButterflySpread"
+                : intensity >= 2
+                    ? "EscapeCutoff"
+                    : intensity >= 1
+                        ? "ButterflySpread"
+                        : "AimedSingle";
+        }
+        else
+        {
+            style.patternName = close
+                ? "AimedFan"
+                : intensity >= 2
+                    ? "AimedFan"
+                    : "AimedSingle";
+        }
+
+        style.fanBullets = Mathf.Max(3, Mathf.Min(style.fanBullets, intensity >= 2 ? 5 : 4));
+        style.fanArcDegrees = intensity >= 2 ? 34f : 24f;
+        style.shotsPerBurst = Mathf.Max(1, style.shotsPerBurst);
+        style.intraBurstInterval *= 0.82f;
+        style.burstCooldown *= 0.78f;
+        style.postBurstReplanDelay = quickAttackPunishDelay;
+        style.pressureRearmDelay *= 0.85f;
+    }
+
+    private void ApplyAnchorIdentity(ref AttackStyle style, int intensity, bool close)
+    {
+        if (usePrettyDanmakuPatterns)
+        {
+            style.patternName = close
+                ? "RotatingFlowerRing"
+                : intensity >= 2
+                    ? "HaloSpear"
+                    : intensity >= 1
+                        ? "RotatingFlowerRing"
+                        : "CloseCross";
+        }
+        else
+        {
+            style.patternName = close
+                ? "BoI_8Way"
+                : intensity >= 1
+                    ? "Ring"
+                    : "BoI_4Way";
+        }
+
+        style.ringBullets = Mathf.Max(style.ringBullets, intensity >= 2 ? 14 : 10);
+        style.shotsPerBurst = 1;
+        style.burstCooldown *= 1.15f;
+        style.postBurstReplanDelay = Mathf.Max(style.postBurstReplanDelay, dangerousAttackPunishDelay);
+    }
+
+    private void ApplyRetreaterIdentity(ref AttackStyle style, int intensity, bool close)
+    {
+        style.patternName = close && intensity >= 1
+            ? (usePrettyDanmakuPatterns ? "PetalFan" : "AimedFan")
+            : "AimedSingle";
+
+        style.fanBullets = 3;
+        style.fanArcDegrees = 28f;
+        style.shotsPerBurst = 1;
+        style.burstCooldown *= 1.10f;
+        style.postBurstReplanDelay = Mathf.Max(style.postBurstReplanDelay, 0.20f);
+    }
+
+    private void ApplyPersonalityFallbackIdentity(ref AttackStyle style, int intensity, bool close)
+    {
+        if (close)
+            style.patternName = usePrettyDanmakuPatterns ? "CloseCross" : "BoI_8Way";
+        else if (intensity >= 2)
+            style.patternName = usePrettyDanmakuPatterns ? "PetalFan" : "AimedFan";
+    }
+
+    private void ApplyAggressiveFlavor(ref AttackStyle style, int intensity, bool close)
+    {
+        if (close)
+        {
+            style.patternName = usePrettyDanmakuPatterns ? "CloseCross" : "BoI_8Way";
+            style.postBurstReplanDelay = Mathf.Max(style.postBurstReplanDelay, dangerousAttackPunishDelay);
+        }
+        else if (intensity >= 1 && currentRole != EnemySquadRole.Anchor)
+        {
+            style.patternName = usePrettyDanmakuPatterns ? "CrescentSweep" : "AimedFan";
+            style.fanArcDegrees = Mathf.Max(style.fanArcDegrees, 38f);
+        }
+
+        style.shotsPerBurst += intensity >= 2 ? 1 : 0;
+        style.intraBurstInterval *= 0.90f;
+        style.burstCooldown *= 0.85f;
+    }
+
+    private void ApplyBackstabberFlavor(ref AttackStyle style, int intensity, bool close)
+    {
+        if (!close && currentRole != EnemySquadRole.Suppressor)
+        {
+            style.patternName = usePrettyDanmakuPatterns
+                ? (intensity >= 1 ? "EscapeCutoff" : "ButterflySpread")
+                : (intensity >= 1 ? "AimedFan" : "AimedSingle");
+        }
+
+        style.fanArcDegrees = Mathf.Min(Mathf.Max(style.fanArcDegrees, 18f), 36f);
+        style.intraBurstInterval *= 0.90f;
+        style.burstCooldown *= 0.82f;
+    }
+
+    private void ApplyCautiousFlavor(ref AttackStyle style, int intensity, bool close)
+    {
+        if (!close && currentRole != EnemySquadRole.Anchor)
+            style.patternName = intensity >= 2 ? "AimedFan" : "AimedSingle";
+
+        style.burstCooldown *= 1.05f;
+    }
+
+    private void ApplyGlobalPressureIntensity(ref AttackStyle style, int intensity)
+    {
+        if (intensity <= 0)
+            return;
+
+        bool pretty = IsPrettyDanmakuPattern(style.patternName);
+        bool canAddPrettyBullets = !pretty || !usePrettyPatternDensitySafety || allowHighPressureExtraPrettyPatternBullets;
+        bool canAddPrettyBursts = !pretty || !usePrettyPatternDensitySafety || allowHighPressureExtraPrettyPatternBursts;
+
+        if (IsFanLikePattern(style.patternName))
+        {
+            if (canAddPrettyBullets)
+                style.fanBullets += intensity >= 2 ? highPressureExtraFanBullets : 0;
+
+            style.fanArcDegrees += intensity >= 2 ? (pretty ? 4f : 8f) : (pretty ? 2f : 4f);
+        }
+
+        if (IsRingLikePattern(style.patternName))
+        {
+            if (canAddPrettyBullets)
+                style.ringBullets += intensity >= 2 ? highPressureExtraRingBullets : 2;
+        }
+
+        if (intensity >= 2 &&
+            canAddPrettyBursts &&
+            currentRole != EnemySquadRole.Anchor &&
+            currentRole != EnemySquadRole.Retreater)
+        {
+            style.shotsPerBurst += highPressureExtraBurstShots;
+        }
+
+        style.intraBurstInterval *= intensity >= 2 ? 0.86f : 0.94f;
+        style.burstCooldown *= intensity >= 2 ? 0.88f : 0.94f;
+        style.pressureRearmDelay *= intensity >= 2 ? 0.82f : 0.92f;
+    }
+
+    private bool IsPrettyDanmakuPattern(string patternName)
+    {
+        return patternName == "PetalFan" ||
+               patternName == "ButterflySpread" ||
+               patternName == "ClosingBlossom" ||
+               patternName == "RotatingFlowerRing" ||
+               patternName == "StaggeredRosette" ||
+               patternName == "CrescentSweep" ||
+               patternName == "BraidedStream" ||
+               patternName == "HaloSpear" ||
+               patternName == "CloseCross" ||
+               patternName == "EscapeCutoff";
+    }
+
+    private bool IsFanLikePattern(string patternName)
+    {
+        return patternName == "AimedFan" ||
+               patternName == "SweepFan" ||
+               patternName == "PetalFan" ||
+               patternName == "ButterflySpread" ||
+               patternName == "ClosingBlossom" ||
+               patternName == "StaggeredRosette" ||
+               patternName == "CrescentSweep" ||
+               patternName == "BraidedStream" ||
+               patternName == "EscapeCutoff";
+    }
+
+    private bool IsRingLikePattern(string patternName)
+    {
+        return patternName == "Ring" ||
+               patternName == "BoI_4Way" ||
+               patternName == "BoI_8Way" ||
+               patternName == "RotatingFlowerRing" ||
+               patternName == "HaloSpear" ||
+               patternName == "CloseCross";
+    }
+
+    private Color GetProjectileTintForCurrentStyle()
+    {
+        if (useRoleAttackProfiles && roleAttackProfiles != null)
+        {
+            Color profileTint;
+
+            if (roleAttackProfiles.TryGetProjectileTint(
+                    currentRole,
+                    out profileTint))
+            {
+                return profileTint;
+            }
+        }
+
+        if (effectivePersonality == Personality.Aggressive &&
+            currentRole != EnemySquadRole.Anchor &&
+            currentRole != EnemySquadRole.Retreater)
+        {
+            return aggressiveTint;
+        }
+
+        switch (currentRole)
+        {
+            case EnemySquadRole.Suppressor:
+                return suppressorTint;
+            case EnemySquadRole.FlankerLeft:
+            case EnemySquadRole.FlankerRight:
+                return flankerTint;
+            case EnemySquadRole.Anchor:
+                return anchorTint;
+            case EnemySquadRole.Retreater:
+                return retreaterTint;
+            default:
+                return effectivePersonality == Personality.Backstabber
+                    ? flankerTint
+                    : suppressorTint;
+        }
+    }
+
+    private void NormalizeAttackStyle(ref AttackStyle style)
+    {
+        if (string.IsNullOrWhiteSpace(style.patternName))
+            style.patternName = "AimedFan";
+
+        if (usePrettyPatternDensitySafety && IsPrettyDanmakuPattern(style.patternName))
+        {
+            style.shotsPerBurst = Mathf.Min(
+                style.shotsPerBurst,
+                Mathf.Max(1, maxPrettyPatternShotsPerBurst)
+            );
+
+            if (IsFanLikePattern(style.patternName))
+            {
+                style.fanBullets = Mathf.Min(
+                    style.fanBullets,
+                    Mathf.Max(1, maxPrettyFanBullets)
+                );
+
+                style.fanArcDegrees = Mathf.Min(
+                    style.fanArcDegrees,
+                    Mathf.Max(1f, maxPrettyFanArcDegrees)
+                );
+            }
+
+            if (IsRingLikePattern(style.patternName))
+            {
+                style.ringBullets = Mathf.Min(
+                    style.ringBullets,
+                    Mathf.Max(3, maxPrettyRingBullets)
+                );
+            }
+
+            style.postBurstReplanDelay = Mathf.Max(
+                style.postBurstReplanDelay + prettyPatternExtraPunishDelay,
+                minPrettyPatternPostBurstDelay
+            );
+
+            style.pressureRearmDelay = Mathf.Max(
+                style.pressureRearmDelay,
+                minPrettyPatternPressureRearmDelay
+            );
+        }
+
+        style.shotsPerBurst = Mathf.Clamp(style.shotsPerBurst, 1, 6);
+        style.intraBurstInterval = Mathf.Clamp(style.intraBurstInterval, 0.045f, 0.35f);
+        style.burstCooldown = Mathf.Clamp(style.burstCooldown, 0.22f, 2.0f);
+        style.burstsPerEnable = Mathf.Clamp(style.burstsPerEnable, 1, 3);
+        style.fanBullets = Mathf.Clamp(style.fanBullets, 1, 9);
+        style.fanArcDegrees = Mathf.Clamp(style.fanArcDegrees, 0f, 90f);
+        style.ringBullets = Mathf.Clamp(style.ringBullets, 3, 20);
+        style.angularSpeedDegPerTick = Mathf.Clamp(style.angularSpeedDegPerTick, 2f, 40f);
+        style.postBurstReplanDelay = Mathf.Clamp(style.postBurstReplanDelay, 0.02f, 1.25f);
+        style.pressureRearmDelay = Mathf.Clamp(style.pressureRearmDelay, 0f, 1.25f);
     }
 
     private bool TrySetShooterPatternByName(string patternName)
