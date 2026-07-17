@@ -87,6 +87,12 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private EnemyAgentV2 debugActiveAttacker;
         [SerializeField] private float debugAttackGateGapRemaining;
 
+        [Header("Stage 4.2 Pressure Pacing Debug")]
+        [SerializeField] private string debugPressurePacing = "Off";
+        [SerializeField] private string debugCombatTempo = "Default";
+        [SerializeField] private float debugAttackStartGapRemaining;
+        [SerializeField] private float debugPhraseBreatherRemaining;
+
         [Header("Stage 3.5 Fluid Movement Debug")]
         [SerializeField] private string debugFluidDecision = "None";
         [SerializeField] private bool debugControllerUsedFluidPressure;
@@ -121,6 +127,8 @@ namespace ProjectEri.EnemyAI.V2
         private bool sentinelAttackIssued;
         private bool attackGateWasOccupied;
         private float lastAttackGateReleasedAt = -999f;
+        private float lastAnyAttackStartedAt = -999f;
+        private float phraseBreatherUntil = -1f;
 
         private EnemyAIV2Profile lastAppliedProfile;
         private ArenaNavigationGrid lastAppliedGrid;
@@ -362,7 +370,7 @@ namespace ProjectEri.EnemyAI.V2
                     break;
 
                 case PlanPhase.Recovering:
-                    if (IsActionFinished(solo))
+                    if (IsActionFinished(solo) && CanCompletePhraseAfterBreather(soloPhrase: true, hasSentinel: false))
                         BeginNewPlan("Solo phrase complete");
                     break;
             }
@@ -551,7 +559,8 @@ namespace ProjectEri.EnemyAI.V2
 
                 case PlanPhase.Recovering:
                     if (IsActionFinished(controller) && IsActionFinished(flanker) &&
-                        (sentinel == null || IsActionFinished(sentinel)))
+                        (sentinel == null || IsActionFinished(sentinel)) &&
+                        CanCompletePhraseAfterBreather(soloPhrase: false, hasSentinel: sentinel != null))
                     {
                         BeginNewPlan(sentinel != null
                             ? "Pin / pincer / sentinel phrase complete"
@@ -616,9 +625,81 @@ namespace ProjectEri.EnemyAI.V2
             return false;
         }
 
+
+        private float TempoAttackCadenceMultiplier()
+        {
+            if (profile == null || !profile.useCombatTempoScaling)
+                return 1f;
+
+            return Mathf.Clamp(profile.attackCadenceTempoMultiplier, 0.75f, 2.25f);
+        }
+
+        private float TempoRecoveryMultiplier()
+        {
+            if (profile == null || !profile.useCombatTempoScaling)
+                return 1f;
+
+            return Mathf.Clamp(profile.recoveryTempoMultiplier, 0.75f, 2.25f);
+        }
+
+        private float TempoAttackStartGapMultiplier()
+        {
+            if (profile == null || !profile.useCombatTempoScaling)
+                return 1f;
+
+            return Mathf.Clamp(profile.attackStartGapTempoMultiplier, 0.5f, 2.5f);
+        }
+
+        private void ApplyTempoToAttackTimings(ref float interval, ref float cooldown, ref float timeout)
+        {
+            float cadence = TempoAttackCadenceMultiplier();
+            interval = Mathf.Max(0.03f, interval * cadence);
+            cooldown = Mathf.Max(0.05f, cooldown * cadence);
+            timeout = Mathf.Max(0.1f, timeout * Mathf.Max(1f, cadence * 0.85f));
+        }
+
         private void TickAttackConcurrencyDebug(List<EnemyAgentV2> alive)
         {
-            if (profile == null || !profile.oneEnemyAttacksAtATime)
+            if (profile == null)
+            {
+                debugAttackConcurrencyGate = "Off";
+                debugPressurePacing = "Off";
+                debugCombatTempo = "Default";
+                debugActiveAttacker = null;
+                debugAttackGateGapRemaining = 0f;
+                debugAttackStartGapRemaining = 0f;
+                debugPhraseBreatherRemaining = 0f;
+                attackGateWasOccupied = false;
+                return;
+            }
+
+            float attackStartGap = profile.usePressurePacing
+                ? Mathf.Max(0f, profile.minimumSecondsBetweenAttackStarts) * TempoAttackStartGapMultiplier()
+                : 0f;
+            debugAttackStartGapRemaining = Mathf.Max(0f, attackStartGap - (Time.time - lastAnyAttackStartedAt));
+            debugPhraseBreatherRemaining = phraseBreatherUntil > 0f
+                ? Mathf.Max(0f, phraseBreatherUntil - Time.time)
+                : 0f;
+
+            if (profile.usePressurePacing || profile.usePhraseBreathingRoom)
+            {
+                if (debugPhraseBreatherRemaining > 0.001f)
+                    debugPressurePacing = $"Breather: {debugPhraseBreatherRemaining:0.00}s";
+                else if (debugAttackStartGapRemaining > 0.001f)
+                    debugPressurePacing = $"Attack-start gap: {debugAttackStartGapRemaining:0.00}s";
+                else
+                    debugPressurePacing = "Pacing ready";
+            }
+            else
+            {
+                debugPressurePacing = "Off";
+            }
+
+            debugCombatTempo = profile.useCombatTempoScaling
+                ? $"Tempo scale: move x{profile.enemyMovementTempoMultiplier:0.00}, cadence x{profile.attackCadenceTempoMultiplier:0.00}, recovery x{profile.recoveryTempoMultiplier:0.00}"
+                : "Default";
+
+            if (!profile.oneEnemyAttacksAtATime)
             {
                 debugAttackConcurrencyGate = "Off";
                 debugActiveAttacker = null;
@@ -651,7 +732,23 @@ namespace ProjectEri.EnemyAI.V2
         {
             reason = null;
 
-            if (profile == null || !profile.oneEnemyAttacksAtATime)
+            if (profile == null)
+                return false;
+
+            if (profile.usePressurePacing)
+            {
+                float attackStartGap = Mathf.Max(0f, profile.minimumSecondsBetweenAttackStarts) * TempoAttackStartGapMultiplier();
+                float attackStartRemaining = attackStartGap - (Time.time - lastAnyAttackStartedAt);
+                if (attackStartRemaining > 0f)
+                {
+                    reason = $"Pressure pacing: attack-start gap {attackStartRemaining:0.00}s";
+                    debugPressurePacing = reason;
+                    debugAttackStartGapRemaining = attackStartRemaining;
+                    return true;
+                }
+            }
+
+            if (!profile.oneEnemyAttacksAtATime)
                 return false;
 
             EnemyAgentV2 active;
@@ -665,13 +762,13 @@ namespace ProjectEri.EnemyAI.V2
                 return true;
             }
 
-            float gap = Mathf.Max(0f, profile.oneAtATimeGapAfterAttack);
-            float remaining = gap - (Time.time - lastAttackGateReleasedAt);
-            if (remaining > 0f)
+            float handoffGap = Mathf.Max(0f, profile.oneAtATimeGapAfterAttack);
+            float handoffRemaining = handoffGap - (Time.time - lastAttackGateReleasedAt);
+            if (handoffRemaining > 0f)
             {
-                reason = $"One-at-a-time handoff gap {remaining:0.00}s";
+                reason = $"One-at-a-time handoff gap {handoffRemaining:0.00}s";
                 debugAttackConcurrencyGate = reason;
-                debugAttackGateGapRemaining = remaining;
+                debugAttackGateGapRemaining = handoffRemaining;
                 return true;
             }
 
@@ -1610,6 +1707,7 @@ namespace ProjectEri.EnemyAI.V2
                 ref interval,
                 ref cooldown
             );
+            ApplyTempoToAttackTimings(ref interval, ref cooldown, ref timeout);
 
             bool issued = agent.ActionRunner.AssignOrder(new EnemyActionOrderV2
             {
@@ -1636,6 +1734,7 @@ namespace ProjectEri.EnemyAI.V2
             {
                 lastAttackPatternByAgent[agent] = pattern;
                 lastAttackPatternByRole[role] = pattern;
+                lastAnyAttackStartedAt = Time.time;
                 debugLastAttackSelection = selection.debugReason + " + moving pressure";
                 debugFluidDecision = $"{agent.name}: {role} fluid pressure toward {movementTarget}";
 
@@ -1704,6 +1803,7 @@ namespace ProjectEri.EnemyAI.V2
                 ref interval,
                 ref cooldown
             );
+            ApplyTempoToAttackTimings(ref interval, ref cooldown, ref timeout);
 
             bool issued = agent.ActionRunner.AssignOrder(new EnemyActionOrderV2
             {
@@ -1728,6 +1828,7 @@ namespace ProjectEri.EnemyAI.V2
             {
                 lastAttackPatternByAgent[agent] = pattern;
                 lastAttackPatternByRole[role] = pattern;
+                lastAnyAttackStartedAt = Time.time;
                 debugLastAttackSelection = selection.debugReason;
 
                 if (role == EnemyRoleV2.Controller)
@@ -2532,6 +2633,44 @@ namespace ProjectEri.EnemyAI.V2
             return hasPressureLine && (angleGoodEnough || closeToSlot);
         }
 
+        private bool CanCompletePhraseAfterBreather(bool soloPhrase, bool hasSentinel)
+        {
+            if (profile == null || !profile.usePhraseBreathingRoom)
+                return true;
+
+            if (phraseBreatherUntil < 0f)
+            {
+                float duration = soloPhrase
+                    ? Mathf.Max(0f, profile.soloPhraseBreatherSeconds)
+                    : Mathf.Max(0f, profile.phraseBreatherSeconds) +
+                      (hasSentinel ? Mathf.Max(0f, profile.extraBreatherAfterSentinelPhrase) : 0f);
+
+                phraseBreatherUntil = Time.time + duration;
+                debugPhraseBreatherRemaining = duration;
+                debugPressurePacing = duration > 0.001f
+                    ? $"Phrase breather: {duration:0.00}s"
+                    : "Phrase breather skipped";
+
+                if (profile.logPressurePacing && duration > 0.001f)
+                    Debug.Log($"[Enemy AI V2] {debugPressurePacing}", this);
+
+                return duration <= 0.001f;
+            }
+
+            float remaining = phraseBreatherUntil - Time.time;
+            if (remaining > 0f)
+            {
+                debugPhraseBreatherRemaining = remaining;
+                debugPressurePacing = $"Phrase breather: {remaining:0.00}s";
+                return false;
+            }
+
+            phraseBreatherUntil = -1f;
+            debugPhraseBreatherRemaining = 0f;
+            debugPressurePacing = "Breather complete";
+            return true;
+        }
+
         private float GetRecoverySeconds(EnemyRoleV2 role)
         {
             float baseSeconds = role == EnemyRoleV2.SoloDuelist
@@ -2540,6 +2679,11 @@ namespace ProjectEri.EnemyAI.V2
 
             if (profile != null && profile.useFluidCombatMovement)
                 baseSeconds *= Mathf.Clamp(profile.fluidRecoveryMultiplier, 0.25f, 1f);
+
+            if (profile != null && profile.usePressurePacing)
+                baseSeconds *= Mathf.Clamp(profile.pressurePacingRecoveryMultiplier, 0.5f, 2.5f);
+
+            baseSeconds *= TempoRecoveryMultiplier();
 
             return Mathf.Max(0.05f, baseSeconds);
         }
@@ -2595,6 +2739,7 @@ namespace ProjectEri.EnemyAI.V2
             controllerAttackIssued = false;
             flankerAttackIssued = false;
             sentinelAttackIssued = false;
+            phraseBreatherUntil = -1f;
             debugPlan = $"Planning: {reason}";
             debugControllerUsedFluidPressure = false;
             debugFlankerUsedFluidPressure = false;

@@ -45,7 +45,7 @@ MonoBehaviour:
   impactVfxAngleOffset: 0
   impactVfxForwardOffset: 0
   speedBoostMultiplier: 1.35
-  speedBoostDuration: 16
+  speedBoostDuration: 8
   aoeZonePrefab: {fileID: 0}
   aoeEffects: []
   aoeRadius: 2.5

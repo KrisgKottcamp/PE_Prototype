@@ -6,6 +6,7 @@ namespace ProjectEri.EnemyAI.V2
     [RequireComponent(typeof(EnemyLocomotionV2))]
     [RequireComponent(typeof(EnemyCombatExecutorV2))]
     [RequireComponent(typeof(EnemyActionRunnerV2))]
+    [RequireComponent(typeof(EnemySlowReceiverV2))]
     public sealed class EnemyAgentV2 : MonoBehaviour
     {
         [Header("Capabilities")]
@@ -20,6 +21,7 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private EnemyLocomotionV2 locomotion;
         [SerializeField] private EnemyActionRunnerV2 actionRunner;
         [SerializeField] private EnemyVisualGuardV2 visualGuard;
+        [SerializeField] private EnemySlowReceiverV2 slowReceiver;
         [SerializeField] private Behaviour[] legacyAIBehaviours;
 
         [Header("Legacy Compatibility")]
@@ -115,6 +117,12 @@ namespace ProjectEri.EnemyAI.V2
 
             if (visualGuard == null)
                 visualGuard = gameObject.AddComponent<EnemyVisualGuardV2>();
+
+            if (slowReceiver == null)
+                slowReceiver = GetComponent<EnemySlowReceiverV2>();
+
+            if (slowReceiver == null)
+                slowReceiver = gameObject.AddComponent<EnemySlowReceiverV2>();
 
             ForceSharedRuntimeComponentsEnabled("Awake");
             visualGuard.CaptureNow();
@@ -244,6 +252,12 @@ namespace ProjectEri.EnemyAI.V2
 
             if (visualGuard == null)
                 visualGuard = gameObject.AddComponent<EnemyVisualGuardV2>();
+
+            if (slowReceiver == null)
+                slowReceiver = GetComponent<EnemySlowReceiverV2>();
+
+            if (slowReceiver == null)
+                slowReceiver = gameObject.AddComponent<EnemySlowReceiverV2>();
 
             ForceSharedRuntimeComponentsEnabled("RefreshReferences");
             visualGuard.CaptureNow();

@@ -81,6 +81,68 @@ namespace ProjectEri.EnemyAI.V2
         [Tooltip("When one-at-a-time mode is enabled in 3-enemy squads, the Sentinel waits until after the Flanker attack instead of firing during the Controller phrase.")]
         public bool oneAtATimeSentinelAttacksAfterFlanker = true;
 
+
+
+        [Header("Stage 4.2 - Pressure Pacing / Breathing Room")]
+        [Tooltip("Keeps the fluid movement feel, but prevents the squad from beginning attacks back-to-back with no breathing room.")]
+        public bool usePressurePacing = true;
+
+        [Tooltip("Minimum time between V2 attack starts across the whole squad. Movement can still continue during this gap.")]
+        [Min(0f)] public float minimumSecondsBetweenAttackStarts = 0.18f;
+
+        [Tooltip("Adds a visible pause after an attack phrase has fully resolved before the squad immediately starts another phrase. Default OFF for tempo tuning; prefer slower movement/cadence over hard pauses.")]
+        public bool usePhraseBreathingRoom = false;
+
+        [Tooltip("Breathing room after a two-or-more enemy phrase. This should feel like a quick tactical reset, not dead air.")]
+        [Min(0f)] public float phraseBreatherSeconds = 0f;
+
+        [Tooltip("Breathing room after a solo enemy's attack phrase. Keep this shorter so solo duels remain active.")]
+        [Min(0f)] public float soloPhraseBreatherSeconds = 0f;
+
+        [Tooltip("Extra rest after a three-enemy Controller/Flanker/Sentinel phrase, because overlapping bullet-hell pressure is mentally heavier.")]
+        [Min(0f)] public float extraBreatherAfterSentinelPhrase = 0f;
+
+        [Tooltip("Multiplies recovery durations after attacks. Values above 1 add punish windows without removing the fluid movement layer.")]
+        [Range(0.5f, 2.5f)] public float pressurePacingRecoveryMultiplier = 1.05f;
+
+        [Tooltip("When enabled, the Director writes debug text explaining why an attack start or phrase restart is being held.")]
+        public bool logPressurePacing = false;
+
+        [Header("Stage 4.3 - Combat Tempo Scaling / No Hard Pauses")]
+        [Tooltip("Slows the overall feel by scaling movement and attack cadence instead of pausing the squad between phrases. This keeps the flow, but makes it less frantic.")]
+        public bool useCombatTempoScaling = true;
+
+        [Tooltip("Multiplies V2 enemy movement speed. 0.85 keeps the fluid acceleration/deceleration feel but slightly slows repositioning and flank pressure.")]
+        [Range(0.45f, 1.25f)] public float enemyMovementTempoMultiplier = 0.85f;
+
+        [Tooltip("Multiplies intra-burst interval and burst cooldown. Values above 1 make bullet phrases slower and more readable without adding hard pauses.")]
+        [Range(0.75f, 2.25f)] public float attackCadenceTempoMultiplier = 1.18f;
+
+        [Tooltip("Multiplies normal recovery after attacks. This creates softer punish windows while enemies can still coast/reposition.")]
+        [Range(0.75f, 2.25f)] public float recoveryTempoMultiplier = 1.10f;
+
+        [Tooltip("Multiplies minimum attack-start spacing. This is a soft rhythm control; keep much lower than the old phrase breather values.")]
+        [Range(0.5f, 2.5f)] public float attackStartGapTempoMultiplier = 1.0f;
+
+        [Header("Stage 4.4 - Slow Orb / Slow Zone Respect")]
+        [Tooltip("When enabled, EnemyLocomotionV2 multiplies movement by EnemySlowReceiverV2. This makes V2 enemies actually slow down inside Slow Orb triggers instead of using full-speed V2 movement.")]
+        public bool respectSlowZones = true;
+
+        [Tooltip("When an enemy first enters a slow zone, clamp high current velocity down toward the slowed speed so it cannot simply coast/run out at full speed.")]
+        public bool slowZoneClampVelocity = true;
+
+        [Tooltip("How quickly current velocity is braked down when entering or moving inside a slow zone. Higher values make the Slow Orb feel stickier without hard-rooting enemies.")]
+        [Min(0.1f)] public float slowZoneEntryBrake = 70f;
+
+        [Tooltip("Allows a little overshoot above the slowed target speed so movement still feels organic. Use 1.0 for strict clamping, 1.15 for a small natural carry.")]
+        [Range(1f, 2.5f)] public float slowZoneVelocityOvershootAllowance = 1.10f;
+
+        [Tooltip("Multiplies deceleration while slowed and coasting/recovering. This prevents V2's nice arcade momentum from letting enemies slide out of the Slow Orb too easily.")]
+        [Range(1f, 6f)] public float slowZoneCoastBrakeMultiplier = 2.75f;
+
+        [Tooltip("Writes slow-zone debug state into EnemyLocomotionV2. Keep off unless diagnosing Slow Orb behavior.")]
+        public bool logSlowZoneEffects = false;
+
         [Header("Action Timing")]
         [Min(0.1f)] public float controllerAttackTimeout = 2.5f;
         [Min(0.1f)] public float flankerAttackTimeout = 2.5f;

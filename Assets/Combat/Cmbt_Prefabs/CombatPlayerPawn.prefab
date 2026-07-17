@@ -424,6 +424,7 @@ GameObject:
   - component: {fileID: -8863248767788800456}
   - component: {fileID: -3508966444783571563}
   - component: {fileID: 4013914058372065684}
+  - component: {fileID: 7284214485497777676}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -849,9 +850,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatPawnMover
   moveSpeed: 6
   focusMode: {fileID: 7425956223361028359}
-  attackCommitment: {fileID: 4013914058372065684}
+  movementModifierReceiver: {fileID: 7284214485497777676}
+  autoAddMovementModifierReceiver: 1
   logEffectiveSpeed: 0
-  debugAttackCommitmentMultiplier: 1
+  debugBaseSpeed: 0
+  debugLegacySpeedModifier: 1
+  debugFocusMultiplier: 1
+  debugV2MovementModifier: 1
   debugFinalSpeed: 0
 --- !u!114 &-2685741132705113101
 MonoBehaviour:
@@ -1069,3 +1074,26 @@ MonoBehaviour:
   debugMovementMultiplier: 1
   debugMovementCommitmentRemaining: 0
   debugActionLockoutRemaining: 0
+--- !u!114 &7284214485497777676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 868c29b797160cd469a672c919cdf2fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerMoveSpeedModifierReceiverV2
+  minimumFinalMultiplier: 0.05
+  maximumFinalMultiplier: 5
+  logApplications: 0
+  debugIsSlowed: 0
+  debugHasReceiverBoost: 0
+  debugSlowMultiplier: 1
+  debugBoostMultiplier: 1
+  debugGenericMultiplier: 1
+  debugFinalMultiplier: 1
+  debugStrongestSlowSource: None
+  debugStrongestBoostSource: None

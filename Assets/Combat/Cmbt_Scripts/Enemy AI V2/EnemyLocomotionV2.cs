@@ -11,6 +11,7 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private ArenaNavigationGrid navigationGrid;
         [SerializeField] private EnemyAgentV2 owner;
         [SerializeField] private EnemyAIV2Profile profile;
+        [SerializeField] private EnemySlowReceiverV2 slowReceiver;
 
         [Header("Runtime Debug")]
         [SerializeField] private bool hasDestination;
@@ -28,6 +29,11 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private Vector2 debugCurrentVelocity;
         [SerializeField] private float debugCurrentSpeed;
         [SerializeField] private string debugMotionMode = "Idle";
+
+        [Header("Runtime Debug - Slow Zone v4.4")]
+        [SerializeField] private bool debugIsSlowed;
+        [SerializeField] private float debugSlowMovementMultiplier = 1f;
+        [SerializeField] private string debugSlowSource = "None";
 
         private readonly List<Vector2> path = new List<Vector2>();
         private int pathIndex;
@@ -51,6 +57,8 @@ namespace ProjectEri.EnemyAI.V2
         public Vector2 Destination => destination;
         public Vector2 CurrentVelocity => currentVelocity;
         public float CurrentSpeed => currentVelocity.magnitude;
+        public bool IsSlowed => debugIsSlowed;
+        public float SlowMovementMultiplier => debugSlowMovementMultiplier;
         public float DistanceToDestination =>
             hasDestination
                 ? Vector2.Distance(CurrentPosition, destination)
@@ -61,6 +69,40 @@ namespace ProjectEri.EnemyAI.V2
                 ? body.position
                 : (Vector2)transform.position;
 
+        private float EffectiveMoveSpeed(float baseSpeed)
+        {
+            float speed = baseSpeed;
+
+            if (profile != null && profile.useCombatTempoScaling)
+                speed *= Mathf.Clamp(profile.enemyMovementTempoMultiplier, 0.45f, 1.25f);
+
+            speed *= GetSlowMovementMultiplier();
+            return speed;
+        }
+
+        private float GetSlowMovementMultiplier()
+        {
+            if (profile == null || !profile.respectSlowZones || slowReceiver == null)
+                return 1f;
+
+            return Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 1f);
+        }
+
+        private void RefreshSlowDebug()
+        {
+            if (profile == null || !profile.respectSlowZones || slowReceiver == null)
+            {
+                debugIsSlowed = false;
+                debugSlowMovementMultiplier = 1f;
+                debugSlowSource = "None";
+                return;
+            }
+
+            debugSlowMovementMultiplier = Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 1f);
+            debugIsSlowed = slowReceiver.IsSlowed;
+            debugSlowSource = slowReceiver.DebugStrongestSource;
+        }
+
         private void Awake()
         {
             if (body == null)
@@ -69,12 +111,16 @@ namespace ProjectEri.EnemyAI.V2
             if (owner == null)
                 owner = GetComponent<EnemyAgentV2>();
 
+            if (slowReceiver == null)
+                slowReceiver = GetComponent<EnemySlowReceiverV2>();
+
             if (navigationGrid == null)
                 navigationGrid = FindObjectOfType<ArenaNavigationGrid>(true);
         }
 
         private void FixedUpdate()
         {
+            RefreshSlowDebug();
             debugCurrentVelocity = currentVelocity;
             debugCurrentSpeed = currentVelocity.magnitude;
 
@@ -94,7 +140,7 @@ namespace ProjectEri.EnemyAI.V2
 
             if (usingRecoveryTarget)
             {
-                TickMoveTowards(temporaryRecoveryTarget, profile.moveSpeed * 0.85f, Time.fixedDeltaTime);
+                TickMoveTowards(temporaryRecoveryTarget, EffectiveMoveSpeed(profile.moveSpeed * 0.85f), Time.fixedDeltaTime);
 
                 if (Vector2.Distance(CurrentPosition, temporaryRecoveryTarget) <= 0.16f)
                 {
@@ -132,7 +178,7 @@ namespace ProjectEri.EnemyAI.V2
                 }
             }
 
-            TickMoveTowards(moveTarget, profile.moveSpeed, Time.fixedDeltaTime);
+            TickMoveTowards(moveTarget, EffectiveMoveSpeed(profile.moveSpeed), Time.fixedDeltaTime);
             TickProgressWatchdog();
 
             debugRemainingWaypoints = Mathf.Max(0, path.Count - pathIndex);
@@ -146,6 +192,9 @@ namespace ProjectEri.EnemyAI.V2
             profile = newProfile;
             navigationGrid = grid;
             owner = newOwner;
+
+            if (slowReceiver == null)
+                slowReceiver = GetComponent<EnemySlowReceiverV2>();
         }
 
         public bool SetDestination(Vector2 newDestination)
@@ -303,6 +352,7 @@ namespace ProjectEri.EnemyAI.V2
             float turnPenalty = Mathf.Lerp(1f, Mathf.Clamp01(turnSharpness), angle / 180f);
             float maxDelta = acceleration * Mathf.Max(0.15f, turnPenalty) * deltaTime;
             currentVelocity = Vector2.MoveTowards(currentVelocity, desiredVelocity, maxDelta);
+            ApplySlowVelocityClamp(desiredSpeed, deltaTime);
 
             // Prevent overshooting tiny final targets while still allowing
             // visible easing into position.
@@ -314,6 +364,41 @@ namespace ProjectEri.EnemyAI.V2
 
             MoveBody(CurrentPosition + currentVelocity * deltaTime);
             debugMotionMode = "Velocity chase";
+        }
+
+        private void ApplySlowVelocityClamp(float slowedDesiredSpeed, float deltaTime)
+        {
+            if (profile == null || !profile.respectSlowZones || !profile.slowZoneClampVelocity || !debugIsSlowed)
+                return;
+
+            float currentSpeed = currentVelocity.magnitude;
+            if (currentSpeed <= 0.0001f)
+                return;
+
+            float allowedSpeed = Mathf.Max(
+                0.03f,
+                slowedDesiredSpeed * Mathf.Max(1f, profile.slowZoneVelocityOvershootAllowance)
+            );
+
+            if (currentSpeed <= allowedSpeed)
+                return;
+
+            float newSpeed = Mathf.MoveTowards(
+                currentSpeed,
+                allowedSpeed,
+                Mathf.Max(0.1f, profile.slowZoneEntryBrake) * deltaTime
+            );
+
+            currentVelocity = currentVelocity.normalized * newSpeed;
+            debugMotionMode = "Slow-zone velocity clamp";
+
+            if (profile.logSlowZoneEffects)
+            {
+                Debug.Log(
+                    $"[Enemy AI V2] {name}: slow zone clamped speed {currentSpeed:0.00}->{newSpeed:0.00} source={debugSlowSource}",
+                    this
+                );
+            }
         }
 
         private void ApplySoftStop(float deltaTime)
@@ -329,6 +414,9 @@ namespace ProjectEri.EnemyAI.V2
             float deceleration = profile != null
                 ? Mathf.Max(0.1f, profile.motionDeceleration)
                 : 18f;
+
+            if (profile != null && debugIsSlowed)
+                deceleration *= Mathf.Max(1f, profile.slowZoneCoastBrakeMultiplier);
 
             currentVelocity = Vector2.MoveTowards(
                 currentVelocity,

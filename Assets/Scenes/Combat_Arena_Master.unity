@@ -1367,7 +1367,7 @@ MonoBehaviour:
   downKey: 115
   altUpKey: 119
   altDownKey: 115
-  slowTimeScale: 0.12
+  slowTimeScale: 0.26
   skillPanelRoot: {fileID: 1937567685}
   listText: {fileID: 1700314454}
   showNoApTag: 1
@@ -2263,8 +2263,10 @@ MonoBehaviour:
   debugPlanAge: 0
   debugController: {fileID: 0}
   debugFlanker: {fileID: 0}
+  debugSentinel: {fileID: 0}
   debugControllerSlot: {x: 0, y: 0}
   debugFlankerSlot: {x: 0, y: 0}
+  debugSentinelSlot: {x: 0, y: 0}
   debugStage2Watchdog: Idle
   debugClosePairs: 0
   debugClosestEnemyDistance: 0
@@ -2274,11 +2276,23 @@ MonoBehaviour:
   debugLastAttackSelection: None
   debugControllerAttackSelection: None
   debugFlankerAttackSelection: None
+  debugSentinelAttackSelection: None
   debugSoloAttackSelection: None
   debugRoleAttackProfileSelection: None
+  debugSentinelPlan: None
+  debugSentinelLaneScore: 0
+  debugSentinelLaneCoverage: 0
+  debugAttackConcurrencyGate: Off
+  debugActiveAttacker: {fileID: 0}
+  debugAttackGateGapRemaining: 0
+  debugPressurePacing: Off
+  debugCombatTempo: Default
+  debugAttackStartGapRemaining: 0
+  debugPhraseBreatherRemaining: 0
   debugFluidDecision: None
   debugControllerUsedFluidPressure: 0
   debugFlankerUsedFluidPressure: 0
+  debugSentinelUsedFluidPressure: 0
   debugCurrentFlankAngle: 0
   debugRuntimeReady: 0
   debugReadinessReason: Not initialized
