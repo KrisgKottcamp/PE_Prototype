@@ -2190,6 +2190,101 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2955217363285284394, guid: a35621ee8e3c81845b5bc79bdde35521, type: 3}
   m_PrefabInstance: {fileID: 1928409958}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &452530838
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 452530839}
+  - component: {fileID: 452530841}
+  - component: {fileID: 452530840}
+  m_Layer: 0
+  m_Name: EnemyAI_V2_Director
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &452530839
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 452530838}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 829510154}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &452530840
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 452530838}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7bf9ca2f0f8deaf4da081c4ea19c1c39, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyAIV2Bootstrap
+  director: {fileID: 0}
+  spawnedEnemyScanInterval: 0.5
+--- !u!114 &452530841
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 452530838}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ad6e0b6d575392478548d3a2751e792, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.SquadDirectorV2
+  backendMode: 1
+  debugAppliedBackendMode: 1
+  debugBackendModeTransition: Not applied yet
+  profile: {fileID: 11400000, guid: ac32a9d1a3c24504e950fc5986e499b0, type: 2}
+  navigationGrid: {fileID: 1622012834}
+  player: {fileID: 0}
+  playerTag: PlayerCombatPawn
+  currentTactic: 0
+  debugPlan: Not started
+  debugPhase: None
+  debugAliveAgents: 0
+  debugPlanAge: 0
+  debugController: {fileID: 0}
+  debugFlanker: {fileID: 0}
+  debugControllerSlot: {x: 0, y: 0}
+  debugFlankerSlot: {x: 0, y: 0}
+  debugStage2Watchdog: Idle
+  debugClosePairs: 0
+  debugClosestEnemyDistance: 0
+  debugClumpAge: 0
+  debugLastFailureResponse: None
+  debugDestinationLeaseState: None
+  debugLastAttackSelection: None
+  debugControllerAttackSelection: None
+  debugFlankerAttackSelection: None
+  debugSoloAttackSelection: None
+  debugRoleAttackProfileSelection: None
+  debugFluidDecision: None
+  debugControllerUsedFluidPressure: 0
+  debugFlankerUsedFluidPressure: 0
+  debugCurrentFlankAngle: 0
+  debugRuntimeReady: 0
+  debugReadinessReason: Not initialized
+  debugHasProfile: 0
+  debugHasPlayer: 0
+  debugHasNavigationGrid: 0
 --- !u!1 &523219117
 GameObject:
   m_ObjectHideFlags: 0
@@ -3486,6 +3581,7 @@ Transform:
   - {fileID: 627610578}
   - {fileID: 1621097059}
   - {fileID: 2018019137}
+  - {fileID: 452530839}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &843660692
@@ -7958,12 +8054,57 @@ MonoBehaviour:
   idleAgentGrace: 1.8
   blockedLosPressureWeight: 0.65
   idleAgentPressureWeight: 0.45
+  useAttackSlots: 1
+  avoidAnchorsInSmallSquads: 1
+  allowOverlappingEnemyAttacks: 1
+  normalSimultaneousAttackers: 3
+  highPressureSimultaneousAttackers: 5
+  useAliveCountAsAttackCap: 1
+  highPressureTwoSlotThreshold: 0.72
+  maximumThreatGapSeconds: 0.85
+  urgentThreatGapSeconds: 1.2
+  threatGapPressureRampSeconds: 2
+  attackSlotLeaseSeconds: 3
+  allowHighPressureSecondSlot: 1
+  usePincerPositioning: 1
+  playerVelocitySharpness: 10
+  playerVelocityDeadZone: 0.25
+  pincerDefaultRadius: 3.2
+  pincerSideOffset: 2.8
+  pincerFrontOffset: 3
+  pincerSupportOffset: 3.8
+  escapeCutoffAhead: 2.2
+  escapeCutoffSide: 1.5
+  antiClumpRadius: 1.25
+  hardClumpRadius: 0.65
+  antiClumpScoreWeight: 1.4
+  crossfireScoreWeight: 1.2
+  idealCrossfireAngle: 85
+  usePlayerAttentionTracking: 1
+  playerAttentionDuration: 1.35
+  attentionMaxPlayerDistanceToFocus: 4.25
+  attentionMinimumAliveEnemies: 2
+  attentionRefreshCooldown: 0.06
+  damageFocusRaisesPressure: 1
+  damageFocusPressureBoost: 0.18
   debugLogs: 1
   drawGizmos: 1
+  debugAttackSlots: 0
   debugCurrentPressure: 0
   debugBlockedLosRatio: 0
   debugIdleAgentRatio: 0
   debugAnyEnemySeesPlayer: 0
+  debugAliveAgents: 0
+  debugAllowedAttackSlots: 1
+  debugUsedAttackSlots: 0
+  debugThreatGapSeconds: 0
+  debugThreatGapUrgent: 0
+  debugAttackSlotOwners: None
+  debugPlayerVelocity: {x: 0, y: 0}
+  debugPincerState: None
+  debugPlayerFocusTarget: None
+  debugPlayerFocusRemaining: 0
+  debugOpportunityFlankState: None
 --- !u!1 &2033796758
 GameObject:
   m_ObjectHideFlags: 0

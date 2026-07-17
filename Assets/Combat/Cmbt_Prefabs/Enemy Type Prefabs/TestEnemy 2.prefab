@@ -20,6 +20,10 @@ GameObject:
   - component: {fileID: -3799086166338868606}
   - component: {fileID: -7750794609725175976}
   - component: {fileID: 148304592467341021}
+  - component: {fileID: 6699710425252913183}
+  - component: {fileID: -7911029555480560454}
+  - component: {fileID: 7954385097977582866}
+  - component: {fileID: 6090162740175919564}
   m_Layer: 10
   m_Name: TestEnemy 2
   m_TagString: Untagged
@@ -173,7 +177,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 99964620462346716}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5811e3b7c6f54f842b6bfba153691a7e, type: 3}
   m_Name: 
@@ -224,6 +228,9 @@ MonoBehaviour:
   haloSpearDelay: 0.11
   escapeCutoffLeadDistance: 1.15
   allowProjectileTint: 1
+  guaranteeCenterBulletOnPrettyPatterns: 0
+  haloSpearMaxHaloBullets: 10
+  rotatingFlowerMaxProjectiles: 8
   projectileTint: {r: 1, g: 1, b: 1, a: 1}
   projectileTintEnabled: 0
   attackTelegraph: {fileID: 148304592467341021}
@@ -240,6 +247,8 @@ MonoBehaviour:
     profile: {fileID: 11400000, guid: ddc6aaa2c5718464090881ecf6d59f46, type: 2}
   fallbackTelegraphProfile: {fileID: 0}
   lockAimDuringTelegraph: 1
+  reuseLegacyTelegraphsForPrettyPatterns: 1
+  debugTelegraphProfileSource: None
   telegraphOnlyOncePerBurst: 1
   debugBurstFlowLogs: 0
   useProjectileStartupMotion: 1
@@ -280,7 +289,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 99964620462346716}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c5d3fcc7a28bc414f84673d3cc6aecb1, type: 3}
   m_Name: 
@@ -548,9 +557,62 @@ MonoBehaviour:
   highPressureExtraFanBullets: 1
   highPressureExtraRingBullets: 4
   highPressureExtraBurstShots: 1
+  usePrettyPatternDensitySafety: 1
+  maxPrettyPatternShotsPerBurst: 1
+  allowHighPressureExtraPrettyPatternBursts: 0
+  allowHighPressureExtraPrettyPatternBullets: 0
+  maxPrettyFanBullets: 4
+  maxPrettyRingBullets: 8
+  maxPrettyFanArcDegrees: 50
+  prettyPatternExtraPunishDelay: 0.08
+  minPrettyPatternPressureRearmDelay: 0.24
+  minPrettyPatternPostBurstDelay: 0.26
+  usePatternVolleyPacing: 1
+  patternVolleyOnlyForPrettyPatterns: 1
+  minPatternVolleyBeats: 1
+  maxPatternVolleyBeats: 3
+  rareExtraPatternBeatChance: 0.14
+  patternVolleyRearmDelay: 0.36
+  patternVolleyCooldownAfter: 0.62
+  heavyPatternVolleyCooldownAfter: 0.78
+  countSingleShotsAsPatternVolley: 0
+  debugPatternVolleyPacing: None
+  useSoloEnemyAntiIdle: 1
+  soloBypassPressureBurstStep: 1
+  soloAttackWhenPressureStepFails: 1
+  soloPressureRearmDelay: 0.42
+  soloVolleyCooldownAfter: 0.7
+  soloMaxImmediateAttackDistance: 8
+  debugSoloAntiIdle: None
+  usePointBlankSkirmishAntiStuck: 1
+  pointBlankSkirmishDistance: 2.15
+  pointBlankSkirmishTargetDistance: 2.85
+  pointBlankSkirmishSideWeight: 0.45
+  pointBlankSkirmishSpeedMultiplier: 0.82
+  pointBlankSkirmishDuringVolleyCooldown: 1
+  pointBlankFireImmediatelyIfNoPath: 1
+  noPathImmediateAttackDelay: 0.08
+  debugPointBlankSkirmish: None
   dangerousAttackPunishDelay: 0.34
   quickAttackPunishDelay: 0.1
   debugAttackIdentity: None
+  useOpportunityFlanking: 1
+  opportunityFlankRequiresPlayerFocus: 1
+  opportunityFlankOnlyForFlankerRoles: 0
+  opportunityFlankCooldown: 2.4
+  opportunityFlankBehindDistance: 3.3
+  opportunityFlankSideDistance: 1.35
+  opportunityFlankFallbackRadius: 3
+  opportunityFlankMinPlayerDistance: 2.2
+  opportunityFlankMaxPlayerDistance: 6.6
+  opportunityFlankArrivalRadius: 0.45
+  opportunityFlankMaxCommitSeconds: 2.35
+  opportunityFlankSpeedMultiplier: 1.05
+  opportunityFlankRequiresDestinationLos: 1
+  opportunityFlankAttackImmediatelyOnArrival: 1
+  opportunityFlankAmbushDelay: 0.06
+  opportunityFlankPincerScoreWeight: 1.35
+  debugOpportunityFlank: None
   usePrettyDanmakuPatterns: 1
   useRoleProjectileTint: 1
   suppressorTint: {r: 1, g: 0.52, b: 0.16, a: 1}
@@ -609,6 +671,129 @@ MonoBehaviour:
   visualRoot: {fileID: 5190861271293861576}
   spriteRenderers: []
   fallbackProfile: {fileID: 0}
+--- !u!114 &6699710425252913183
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 888d28a8ceea70f4aa35feeda445b334, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyLocomotionV2
+  body: {fileID: 0}
+  navigationGrid: {fileID: 0}
+  owner: {fileID: 0}
+  profile: {fileID: 0}
+  hasDestination: 0
+  destination: {x: 0, y: 0}
+  debugPathStatus: Idle
+  debugRemainingWaypoints: 0
+  debugMovementFailures: 0
+  debugRecovery: None
+  debugLastFailureReason: None
+  debugBodySeparationMagnitude: 0
+  debugLeaseSeparationMagnitude: 0
+  debugRemainingDistance: 0
+  debugCurrentVelocity: {x: 0, y: 0}
+  debugCurrentSpeed: 0
+  debugMotionMode: Idle
+--- !u!114 &-7911029555480560454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b914897fab7bf342b5ec9364b64e7c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyCombatExecutorV2
+  shooter: {fileID: 3715463728703913041}
+  fallbackWhenPatternIsUnavailable: 1
+  fallbackPattern: AimedFan
+  finalFallbackPattern: AimedSingle
+  playerTag: PlayerCombatPawn
+  keepShooterComponentEnabled: 1
+  logAttackFailures: 0
+  attackRunning: 0
+  debugPattern: None
+  debugRequestedPattern: None
+  debugPatternShape: Default
+  debugResult: Idle
+  debugTarget: {fileID: 0}
+  debugAimOrigin: {x: 0, y: 0}
+  debugAimTargetPosition: {x: 0, y: 0}
+  debugAimDirection: {x: 0, y: 0}
+  debugAimDistance: 0
+  debugShooterEnabled: 0
+--- !u!114 &7954385097977582866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5678679f93241bb429d05a64aa1a3294, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyActionRunnerV2
+  owner: {fileID: 0}
+  locomotion: {fileID: 0}
+  combatExecutor: {fileID: 0}
+  debugAction: 0
+  debugStatus: 0
+  debugReason: Idle
+  debugOrderId: 0
+  debugActionElapsed: 0
+--- !u!114 &6090162740175919564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93d30120bb022414caee71cbb8db9518, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyAgentV2
+  isRanged: 1
+  eligibleForController: 1
+  eligibleForFlanker: 1
+  eligibleForSentinel: 1
+  eligibleForSoloDuel: 1
+  enemyHealth: {fileID: 5696765117373536081}
+  locomotion: {fileID: 6699710425252913183}
+  actionRunner: {fileID: 7954385097977582866}
+  visualGuard: {fileID: 0}
+  legacyAIBehaviours:
+  - {fileID: -3799086166338868606}
+  preserveChildVisualsWhenSwitchingBackend: 1
+  protectedSpriteRenderers:
+  - {fileID: 4841394590521975345}
+  - {fileID: 7163315825134802560}
+  protectedVisualObjects: []
+  logBackendCompatibility: 0
+  forceSharedRuntimeComponentsEnabled: 1
+  forcedEnabledComponentTypeNames:
+  - EnemyShooterDebug
+  - EnemyAttackTelegraph
+  logForcedRuntimeComponents: 0
+  debugForcedRuntimeComponents: 'RefreshReferences: enabled EnemyShooterDebug'
+  currentRole: 0
+  currentSector: 0
+  assignedSlot: {x: 0, y: 0}
+  debugAssignmentReason: Unassigned
+  legacyDisabledByV2: 0
+  debugRuntimeReady: 0
+  debugRuntimeReadiness: Waiting for SquadDirectorV2
+  debugHasPlayerTarget: 0
+  debugHasProfile: 0
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0

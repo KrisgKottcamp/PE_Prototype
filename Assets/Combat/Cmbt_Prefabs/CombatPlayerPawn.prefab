@@ -880,8 +880,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerFocusMode
   focusKey1: 304
   focusKey2: 303
-  focusMoveMultiplier: 0.6
-  requireApToFocus: 1
+  focusMoveMultiplier: 1
+  requireApToFocus: 0
   apDrainPerSecond: 12
   stopFocusAtZeroAp: 1
   applyGlobalTimeSlow: 1

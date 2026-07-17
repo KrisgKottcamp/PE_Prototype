@@ -1,0 +1,284 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21c3b67c36d12194cb120cc155eff7ba, type: 3}
+  m_Name: EnemyAI_V2_Profile_Default
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyAIV2Profile
+  directorTickSeconds: 0.1
+  planMaximumSeconds: 4.5
+  formationMaximumSeconds: 1.8
+  reformDelaySeconds: 0.45
+  controllerRadius: 3.2
+  flankerRadius: 3.5
+  minimumFlankAngleDegrees: 105
+  idealFlankAngleDegrees: 145
+  hardDestinationSeparation: 1.5
+  formationCandidateCount: 16
+  tacticalSlotArrivalRadius: 0.42
+  candidatePathCostWeight: 0.18
+  candidateAngleWeight: 2.2
+  candidateLosBonus: 2
+  candidateSeparationWeight: 1.4
+  useDestinationLeases: 1
+  destinationLeaseRadius: 1.45
+  assignedSlotRepulsionRadius: 1.55
+  assignedSlotRepulsionWeight: 0.32
+  clumpWatchRadius: 1.05
+  clumpWatchSeconds: 0.75
+  clumpReformCooldown: 1
+  failOpenWhenMovementFails: 1
+  failedActionResponseCooldown: 0.22
+  flankerFailOpenAttackSeconds: 1.65
+  failOpenAttackDistance: 7
+  retryAlternateSlotBeforeFailOpenAttack: 1
+  alternateSlotAngleStepDegrees: 35
+  oneEnemyAttacksAtATime: 0
+  oneAtATimeCountsFluidPressureAsAttack: 1
+  oneAtATimeGapAfterAttack: 0.08
+  oneAtATimeSentinelAttacksAfterFlanker: 1
+  controllerAttackTimeout: 2.5
+  flankerAttackTimeout: 2.5
+  flankerAttackDelayAfterController: 0.22
+  standardRecoverySeconds: 0.65
+  soloRecoverySeconds: 0.55
+  holdLaneMaximumSeconds: 0.75
+  controllerPattern: PetalFan
+  controllerShotsPerBurst: 1
+  controllerIntraBurstInterval: 0.13
+  controllerBurstCooldown: 0.8
+  flankerPattern: ButterflySpread
+  flankerShotsPerBurst: 1
+  flankerIntraBurstInterval: 0.11
+  flankerBurstCooldown: 0.75
+  forceSoloAimedPattern: 1
+  soloAimedPattern: AimedSingle
+  soloPattern: AimedSingle
+  soloShotsPerBurst: 1
+  soloIntraBurstInterval: 0.13
+  soloBurstCooldown: 0.85
+  soloPreferredRange: 3.1
+  useRoleAttackProfilesAsset: 1
+  roleAttackProfiles: {fileID: 11400000, guid: 09248fbe024d64c4699baf7abeaeb72f, type: 2}
+  roleAttackProfilesTakePriority: 1
+  useRoleAttackProfileCadence: 1
+  useRoleAttackProfileShape: 1
+  soloUsesSuppressorRoleProfile: 1
+  controllerProfileIntensity: 1
+  flankerProfileIntensity: 1
+  soloProfileIntensity: 0
+  flankerHighProfileAngleDegrees: 88
+  preferTouhouPatternNamesWhenAvailable: 0
+  biasRoleAttackProfilesTowardTouhouSlots: 1
+  minimumControllerTouhouIntensity: 0
+  minimumFlankerTouhouIntensity: 0
+  minimumSoloTouhouIntensity: 0
+  rotateRoleProfileIntensityToAvoidRepeats: 1
+  keepCloseRangeSafetyPatterns: 1
+  useSentinelRole: 1
+  minimumAgentsForSentinel: 3
+  sentinelRadius: 4.15
+  sentinelAttackDelayAfterController: 0.36
+  sentinelUsesFluidPressure: 1
+  sentinelScoresLaneCoverage: 1
+  sentinelLaneProbeRadius: 2.25
+  sentinelLaneProbeCount: 8
+  sentinelLaneCoverageBonus: 0.34
+  sentinelAngleSeparationWeight: 1.6
+  sentinelProfileIntensity: 1
+  minimumSentinelTouhouIntensity: 1
+  sentinelReformsWhenLaneInvalid: 1
+  useRoleAttackPools: 1
+  rolePoolsOverrideSoloAimedSafety: 1
+  useStage3V2DefaultRoleAttackPools: 1
+  avoidImmediatePatternRepeats: 1
+  repeatedPatternWeightMultiplier: 0.22
+  attackChoiceRandomness: 0.35
+  closeRangeAttackDistance: 2.15
+  useAttackOptionBurstOverrides: 1
+  useAttackOptionShapeOverrides: 1
+  preferPrecisionFlankerAtGoodAngle: 1
+  precisionFlankerAngleDegrees: 80
+  separateControllerAndFlankerShapes: 1
+  controllerAttackPool:
+  - label: Wide herding fan
+    patternName: AimedFan
+    weight: 3.2
+    minDistance: 0.7
+    maxDistance: 8.5
+    intent: wide pressure that shapes player movement
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.13
+    burstCooldown: 0.66
+    overridePatternShape: 1
+    fanBullets: 5
+    fanArcDegrees: 62
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  - label: Sweeping lane
+    patternName: SweepFan
+    weight: 2.7
+    minDistance: 1.7
+    maxDistance: 8.5
+    intent: moving lane pressure while allies rotate
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.12
+    burstCooldown: 0.78
+    overridePatternShape: 1
+    fanBullets: 4
+    fanArcDegrees: 46
+    ringBullets: 8
+    angularSpeedDegPerTick: 16
+  - label: Close ring check
+    patternName: Ring
+    weight: 1.55
+    minDistance: 0
+    maxDistance: 3
+    intent: deny close space around the Controller
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.13
+    burstCooldown: 0.86
+    overridePatternShape: 1
+    fanBullets: 5
+    fanArcDegrees: 40
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  flankerAttackPool:
+  - label: Precise ambush shot
+    patternName: AimedSingle
+    weight: 3.4
+    minDistance: 0
+    maxDistance: 9
+    intent: precise side/rear punish
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.1
+    burstCooldown: 0.58
+    overridePatternShape: 0
+    fanBullets: 5
+    fanArcDegrees: 40
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  - label: Narrow side fan
+    patternName: AimedFan
+    weight: 2
+    minDistance: 1.2
+    maxDistance: 7.5
+    intent: compact side-angle spread
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.1
+    burstCooldown: 0.64
+    overridePatternShape: 1
+    fanBullets: 3
+    fanArcDegrees: 28
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  - label: Point-blank cross
+    patternName: BoI_4Way
+    weight: 1.6
+    minDistance: 0
+    maxDistance: 2.7
+    intent: close crossfire escape check
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.1
+    burstCooldown: 0.78
+    overridePatternShape: 0
+    fanBullets: 5
+    fanArcDegrees: 40
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  soloAttackPool:
+  - label: Clean aimed shot
+    patternName: AimedSingle
+    weight: 3.1
+    minDistance: 0
+    maxDistance: 9
+    intent: reliable aimed duel shot
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.12
+    burstCooldown: 0.6
+    overridePatternShape: 0
+    fanBullets: 5
+    fanArcDegrees: 40
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  - label: Short duel fan
+    patternName: AimedFan
+    weight: 1.9
+    minDistance: 1
+    maxDistance: 6.5
+    intent: small pressure spread
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.12
+    burstCooldown: 0.68
+    overridePatternShape: 1
+    fanBullets: 3
+    fanArcDegrees: 34
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  - label: Close escape check
+    patternName: BoI_4Way
+    weight: 1.25
+    minDistance: 0
+    maxDistance: 2.5
+    intent: close-range safety check
+    overrideBurst: 1
+    shotsPerBurst: 1
+    intraBurstInterval: 0.1
+    burstCooldown: 0.76
+    overridePatternShape: 0
+    fanBullets: 5
+    fanArcDegrees: 40
+    ringBullets: 8
+    angularSpeedDegPerTick: 12
+  useFluidCombatMovement: 1
+  soloUsesSkirmishPressure: 1
+  controllerPressuresWhileForming: 1
+  flankerCanFireBeforePerfectSlot: 1
+  controllerStartPressureAfterSeconds: 0.22
+  flankerOpportunisticShotSeconds: 0.85
+  goodEnoughFlankAngleDegrees: 72
+  goodEnoughSlotDistance: 1.15
+  fluidRecoveryMultiplier: 0.68
+  logFluidCombatMovement: 0
+  motionAcceleration: 34
+  motionDeceleration: 24
+  motionTurnSharpness: 0.62
+  motionArrivalBrakeDistance: 0.55
+  minimumFluidMovementSeconds: 0.42
+  fluidPressureRequiresMinimumMovementTime: 1
+  recoveryAllowsCoasting: 1
+  resetShooterAimSamplesOnV2Attack: 1
+  v2AttackAimLagSeconds: 0
+  moveSpeed: 4.8
+  pathRefreshSeconds: 0.28
+  waypointArrivalRadius: 0.16
+  progressTimeoutSeconds: 0.58
+  progressRequiredDistance: 0.08
+  separationRadius: 1.05
+  separationWeight: 0.35
+  recoverySidestepDistance: 0.55
+  maximumMovementFailures: 3
+  failedDestinationMemorySeconds: 1.5
+  useWiderSecondSidestep: 1
+  secondSidestepMultiplier: 1.65
+  retrySnappedDestinationBeforeFailing: 1
+  drawFormationGizmos: 1
+  drawLeasesAndClumps: 1
+  logPlanChanges: 0
+  logActionFailures: 1
+  logStage2Watchdogs: 0

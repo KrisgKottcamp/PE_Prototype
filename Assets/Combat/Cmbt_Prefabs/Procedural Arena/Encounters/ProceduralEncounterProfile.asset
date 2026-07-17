@@ -60,7 +60,7 @@ MonoBehaviour:
     footprintRadius: 0.8
     minimumPlayerDistance: 4
   - enemy: {fileID: 11400000, guid: 20c4d7a6ffbdf1f4da0b3d6122f1c200, type: 2}
-    weight: 999
+    weight: 1
     difficultyCost: 1
     minimumCount: 0
     maximumCount: 1
