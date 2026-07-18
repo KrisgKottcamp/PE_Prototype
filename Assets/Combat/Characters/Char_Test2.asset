@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: Phil
   maxHP: 50
-  combatMoveSpeed: 4.15
+  combatMoveSpeed: 3.65
   maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 3
