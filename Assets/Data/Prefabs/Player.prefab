@@ -47,6 +47,7 @@ GameObject:
   - component: {fileID: -7918223783606590170}
   - component: {fileID: -6710423102734009668}
   - component: {fileID: 2470201872001907531}
+  - component: {fileID: 1619364903973263282}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -72,6 +73,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &5842476909425947482
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -90,6 +92,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -111,9 +115,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: -1887347445
   m_SortingLayer: 2
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 6059244581636116009, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
   m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_FlipX: 0
@@ -123,7 +129,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!50 &7728093119283238277
 Rigidbody2D:
@@ -252,3 +257,19 @@ MonoBehaviour:
   sortPoint: {fileID: 8781359593316393877}
   precision: 100
   orderOffset: 0
+--- !u!114 &1619364903973263282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4019005826110556849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5c7f2df46da40e197f01eb04d1b6aec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OverworldEncounterGracePeriod
+  playerRenderers: []
+  flashIntervalSeconds: 0.1
+  dimAlphaMultiplier: 0.25
+  logGracePeriod: 0

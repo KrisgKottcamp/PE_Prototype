@@ -383,6 +383,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 20c4d7a6ffbdf1f4da0b3d6122f1c200, type: 2}
   proceduralProfile: {fileID: 11400000, guid: 6c6da09371bdb664090658fd81d809aa, type: 2}
   proceduralSeed: 0
+  activeEncounterId: 
+  removeEncounterOnVictory: 0
 --- !u!1 &503756913
 GameObject:
   m_ObjectHideFlags: 0
@@ -604,6 +606,51 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a31d79765153db344870948ab7d6b128, type: 2}
   activeIndex: 0
   party: []
+--- !u!1 &693439719
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 693439721}
+  - component: {fileID: 693439720}
+  m_Layer: 0
+  m_Name: EncounterStateRegistry
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &693439720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 693439719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e46833012b75438fbded84706f5d49b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EncounterStateRegistry
+  logStateChanges: 1
+--- !u!4 &693439721
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 693439719}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1241856879
 GameObject:
   m_ObjectHideFlags: 0
@@ -1247,6 +1294,7 @@ SceneRoots:
   - {fileID: 438367387}
   - {fileID: 599064286}
   - {fileID: 459839037}
+  - {fileID: 693439721}
   - {fileID: 355660731}
   - {fileID: 3086090767312694310}
   - {fileID: 1800772040}

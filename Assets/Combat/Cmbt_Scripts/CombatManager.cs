@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class CombatManager : MonoBehaviour
@@ -89,6 +89,7 @@ public class CombatManager : MonoBehaviour
             resultsPanel.HideImmediately();
 
         SpawnPlayerPawn();
+        ApplyOpeningAdvantage();
         InitializeAttackMomentum();
         SpawnEncounterFromContext();
     }
@@ -135,6 +136,76 @@ public class CombatManager : MonoBehaviour
         }
 
         return Mathf.Max(1, total);
+    }
+
+    private void ApplyOpeningAdvantage()
+    {
+        CombatContext context = CombatContext.Instance;
+
+        if (context == null ||
+            !context.TryConsumeOpeningAdvantage(
+                out float advantageAPPercent
+            ))
+        {
+            return;
+        }
+
+        PartyManager partyManager = PartyManager.Instance;
+
+        if (partyManager == null ||
+            partyManager.party == null ||
+            partyManager.party.Count == 0)
+        {
+            Debug.LogWarning(
+                "CombatManager: Opening advantage was requested, " +
+                "but PartyManager has no party state.",
+                this
+            );
+
+            return;
+        }
+
+        PartyManager.CharacterState openingCharacter =
+            partyManager.Active;
+
+        if (openingCharacter == null ||
+            openingCharacter.def == null)
+        {
+            Debug.LogWarning(
+                "CombatManager: Opening advantage was requested, " +
+                "but the active character state is invalid.",
+                this
+            );
+
+            return;
+        }
+
+        int maximumAP = Mathf.Max(0, openingCharacter.def.maxAP);
+
+        if (maximumAP <= 0)
+            return;
+
+        int bonusAP = Mathf.Max(
+            1,
+            Mathf.CeilToInt(maximumAP * advantageAPPercent)
+        );
+
+        int previousAP = openingCharacter.currentAP;
+        openingCharacter.currentAP = Mathf.Clamp(
+            Mathf.Max(previousAP, bonusAP),
+            0,
+            maximumAP
+        );
+
+        Debug.Log(
+            $"CombatManager: Player opening advantage set " +
+            $"'{openingCharacter.def.displayName}' to at least " +
+            $"{bonusAP} AP ({advantageAPPercent:P0} of max AP). " +
+            $"Previous AP={previousAP}; current AP=" +
+            $"{openingCharacter.currentAP}. This applies only to the " +
+            "character active when the encounter begins.",
+            this
+        );
     }
 
     private void InitializeAttackMomentum()
@@ -440,6 +511,7 @@ public class CombatManager : MonoBehaviour
             return;
 
         combatEnded = true;
+        ResolveOverworldEncounter(true);
 
         AttackMomentumResult encounterResult =
             attackMomentum != null
@@ -508,10 +580,33 @@ public class CombatManager : MonoBehaviour
             return;
 
         combatEnded = true;
+        ResolveOverworldEncounter(false);
         attackMomentum?.CompleteEncounter(false);
 
         RestoreNormalTime();
         ExitCombatToOverworld();
+    }
+
+    private void ResolveOverworldEncounter(bool playerWon)
+    {
+        CombatContext context = CombatContext.Instance;
+
+        if (context == null || !context.HasOverworldEncounter)
+            return;
+
+        context.SetOverworldEncounterResult(playerWon);
+
+        EncounterStateRegistry registry =
+            EncounterStateRegistry.Instance;
+
+        if (registry != null)
+            registry.ResolveActiveEncounter(playerWon);
+
+        // Do not clear CombatContext overworld metadata here. The return
+        // transition still needs the exact player position. On defeat it
+        // also needs the enemy position and grace duration.
+        // SceneTransitionManager clears the metadata after the overworld
+        // scene has loaded.
     }
 
     private float ResolveTargetTime()
@@ -619,10 +714,21 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
-        SceneTransitionManager.Instance.TransitionTo(
-            context.returnSceneName,
-            context.returnSpawnId
-        );
+        if (context.HasExactOverworldReturn)
+        {
+            SceneTransitionManager.Instance.TransitionToPosition(
+                context.returnSceneName,
+                context.overworldReturnPlayerPosition,
+                context.OverworldReturnGraceSecondsForResult
+            );
+        }
+        else
+        {
+            SceneTransitionManager.Instance.TransitionTo(
+                context.returnSceneName,
+                context.returnSpawnId
+            );
+        }
     }
 
     private void ForceWin()
