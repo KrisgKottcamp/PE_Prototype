@@ -35,6 +35,10 @@ public class APParticleSystem : MonoBehaviour
     [SerializeField, Min(0.01f)] private float maximumMagnetSpeed = 12f;
     [SerializeField, Min(0.01f)] private float collectionDistance = 0.24f;
 
+    [Header("Collision Filtering")]
+    [Tooltip("AP pickup colliders exclude these layers. EnemyHurtbox is included by default so loose AP cannot lodge against enemies, including enemies spawned later.")]
+    [SerializeField] private LayerMask enemyCollisionMask = 1 << 10;
+
     [Header("Lifetime")]
     [SerializeField, Min(0.1f)] private float particleLifetime = 12f;
     [SerializeField, Min(0f)] private float blinkDuration = 3f;
@@ -341,6 +345,13 @@ public class APParticleSystem : MonoBehaviour
 
         if (pickupCollider == null)
             pickupCollider = particleObject.AddComponent<CircleCollider2D>();
+
+        // Collider layer overrides apply to every present and future enemy on
+        // the excluded layer, unlike pairwise IgnoreCollision calls which only
+        // know about enemies that already exist at spawn time.
+        LayerMask excludedLayers = pickupCollider.excludeLayers;
+        excludedLayers.value |= enemyCollisionMask.value;
+        pickupCollider.excludeLayers = excludedLayers;
 
         if (!usingPrefab)
         {

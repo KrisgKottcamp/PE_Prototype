@@ -425,6 +425,7 @@ GameObject:
   - component: {fileID: -3508966444783571563}
   - component: {fileID: 4013914058372065684}
   - component: {fileID: 7284214485497777676}
+  - component: {fileID: 7128904556123456789}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -584,7 +585,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1a68c43a00343a5458d506ce23071d20, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   moveSpeed: 3.5
   skinWidth: 0.03
@@ -738,6 +739,46 @@ MonoBehaviour:
   defaultMeleeRadius: 0.4
   defaultMeleeMaxTargets: 1
   useUnscaledImpactDelay: 0
+  healingFeedback: {fileID: 7128904556123456789}
+--- !u!114 &7128904556123456789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52fdbb4fef4f4fcfb94b7c654d291703, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::HealingFeedback2D
+  enableGreenFlash: 1
+  flashDuration: 0.08
+  flashColor: {r: 0.12, g: 1, b: 0.32, a: 1}
+  targetRenderers:
+  - {fileID: 7670682228125476689}
+  flashShader: {fileID: 0}
+  healingCameraShake:
+    enabled: 1
+    strength: 0.1
+    duration: 0.08
+  plusCount: 9
+  plusColor: {r: 0.15, g: 1, b: 0.38, a: 0.95}
+  plusSpawnRadius: 0.62
+  plusSizeRange: {x: 0.08, y: 0.15}
+  plusLifetimeRange: {x: 0.26, y: 0.38}
+  plusRiseSpeedRange: {x: 0.65, y: 1.15}
+  auraStreakCount: 10
+  auraColor: {r: 0.08, g: 1, b: 0.3, a: 0.58}
+  auraSpawnRadius: 0.55
+  auraLifetimeRange: {x: 0.22, y: 0.34}
+  auraRiseSpeedRange: {x: 1.3, y: 2.2}
+  auraHeightRange: {x: 0.18, y: 0.4}
+  sortingLayerName: Foreground
+  sortingOrder: 140
+  localVerticalOffset: -0.18
+  debugLastPlay: None
+  debugActiveBurstVisuals: 0
 --- !u!95 &-7457408312686432886
 Animator:
   serializedVersion: 7

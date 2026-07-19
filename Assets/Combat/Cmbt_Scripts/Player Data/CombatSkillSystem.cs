@@ -28,6 +28,7 @@ public class CombatSkillSystem : MonoBehaviour
     [SerializeField] private AimTracker aim;
     [SerializeField] private ProjectileShooter shooter;
     [SerializeField] private Transform vfxOrigin;
+    [SerializeField] private HealingFeedback2D healingFeedback;
 
     [Header("Defaults (used if SkillDefinition fields are unset)")]
     [SerializeField] private LayerMask defaultEnemyHurtboxMask; // EnemyHurtbox
@@ -58,6 +59,12 @@ public class CombatSkillSystem : MonoBehaviour
         if (aim == null) aim = GetComponent<AimTracker>();
         if (shooter == null) shooter = GetComponent<ProjectileShooter>();
         if (vfxOrigin == null) vfxOrigin = transform;
+
+        if (healingFeedback == null)
+            healingFeedback = GetComponent<HealingFeedback2D>();
+
+        if (healingFeedback == null)
+            healingFeedback = gameObject.AddComponent<HealingFeedback2D>();
     }
 
     // ----------------------------
@@ -292,7 +299,10 @@ public class CombatSkillSystem : MonoBehaviour
             );
 
             if (healed)
+            {
                 AwardSuccessfulSkillMomentum(skill);
+                healingFeedback?.PlayHealingFeedback();
+            }
 
             // Impact VFX at player (or you can choose to spawn on target later)
             SpawnVfx(skill.impactVfxPrefab, vfxOrigin.position, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
@@ -312,7 +322,10 @@ public class CombatSkillSystem : MonoBehaviour
             );
 
             if (healed)
+            {
                 AwardSuccessfulSkillMomentum(skill);
+                healingFeedback?.PlayHealingFeedback();
+            }
 
             SpawnVfx(skill.impactVfxPrefab, vfxOrigin.position, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
 
