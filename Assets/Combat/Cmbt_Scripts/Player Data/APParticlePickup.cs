@@ -15,6 +15,13 @@ public class APParticlePickup : MonoBehaviour
     private float maximumMagnetSpeed;
     private float collectionDistance;
     private bool collected;
+    private float externalCollectorPullUntil = -1f;
+    private float externalPullAcceleration;
+    private float externalMaximumPullSpeed;
+
+    public Vector2 Position => body != null
+        ? body.position
+        : (Vector2)transform.position;
 
     public void Configure(
         APParticleSystem system,
@@ -74,7 +81,7 @@ public class APParticlePickup : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (collected || age < pickupDelay)
+        if (collected)
             return;
 
         APParticleCollector collector = APParticleCollector.Current;
@@ -86,9 +93,8 @@ public class APParticlePickup : MonoBehaviour
 
         Vector2 toCollector = collector.Position - body.position;
         float distance = toCollector.magnitude;
-        float magnetRange = collector.GetMagnetizationRange();
 
-        if (distance <= collectionDistance)
+        if (age >= pickupDelay && distance <= collectionDistance)
         {
             int granted = collector.Collect(apValue);
 
@@ -100,6 +106,22 @@ public class APParticlePickup : MonoBehaviour
 
             return;
         }
+
+        if (Time.time < externalCollectorPullUntil)
+        {
+            PullTowardCollector(
+                toCollector,
+                externalPullAcceleration,
+                externalMaximumPullSpeed
+            );
+
+            return;
+        }
+
+        if (age < pickupDelay)
+            return;
+
+        float magnetRange = collector.GetMagnetizationRange();
 
         if (magnetRange <= 0f || distance > magnetRange)
         {
@@ -120,6 +142,60 @@ public class APParticlePickup : MonoBehaviour
             body.linearVelocity,
             desiredVelocity,
             magnetAcceleration * Time.fixedDeltaTime
+        );
+    }
+
+    /// <summary>
+    /// Temporarily strengthens this pickup's pull toward the current AP collector.
+    /// The collector still decides whether and which active character receives AP.
+    /// </summary>
+    public bool RequestExternalCollectorPull(
+        float acceleration,
+        float maximumSpeed,
+        float duration)
+    {
+        if (collected || duration <= 0f)
+            return false;
+
+        if (Time.time >= externalCollectorPullUntil)
+        {
+            externalPullAcceleration = 0f;
+            externalMaximumPullSpeed = 0f;
+        }
+
+        externalCollectorPullUntil = Mathf.Max(
+            externalCollectorPullUntil,
+            Time.time + duration
+        );
+
+        externalPullAcceleration = Mathf.Max(
+            externalPullAcceleration,
+            Mathf.Max(0f, acceleration)
+        );
+
+        externalMaximumPullSpeed = Mathf.Max(
+            externalMaximumPullSpeed,
+            Mathf.Max(0.01f, maximumSpeed)
+        );
+
+        return true;
+    }
+
+    private void PullTowardCollector(
+        Vector2 toCollector,
+        float acceleration,
+        float maximumSpeed)
+    {
+        if (toCollector.sqrMagnitude <= 0.0001f)
+            return;
+
+        Vector2 desiredVelocity =
+            toCollector.normalized * Mathf.Max(0.01f, maximumSpeed);
+
+        body.linearVelocity = Vector2.MoveTowards(
+            body.linearVelocity,
+            desiredVelocity,
+            Mathf.Max(0f, acceleration) * Time.fixedDeltaTime
         );
     }
 

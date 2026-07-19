@@ -141,6 +141,32 @@ public class APParticleSystem : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Tags loose AP near a world-space segment for a temporary, stronger pull
+    /// toward the current collector. Used by Dominic's retracting whip without
+    /// bypassing the normal AP ownership or collection rules.
+    /// </summary>
+    public static int PullTowardCollectorAlongSegment(
+        Vector2 segmentStart,
+        Vector2 segmentEnd,
+        float radius,
+        float acceleration,
+        float maximumSpeed,
+        float persistence)
+    {
+        if (Instance == null || radius <= 0f || persistence <= 0f)
+            return 0;
+
+        return Instance.PullParticlesAlongSegment(
+            segmentStart,
+            segmentEnd,
+            radius,
+            acceleration,
+            maximumSpeed,
+            persistence
+        );
+    }
+
     private static APParticleSystem EnsureInstance()
     {
         if (Instance != null)
@@ -154,6 +180,54 @@ public class APParticleSystem : MonoBehaviour
 
         GameObject root = new GameObject("AP Particle System");
         return root.AddComponent<APParticleSystem>();
+    }
+
+    private int PullParticlesAlongSegment(
+        Vector2 segmentStart,
+        Vector2 segmentEnd,
+        float radius,
+        float acceleration,
+        float maximumSpeed,
+        float persistence)
+    {
+        int pulledCount = 0;
+        float radiusSquared = radius * radius;
+        Vector2 segment = segmentEnd - segmentStart;
+        float segmentLengthSquared = segment.sqrMagnitude;
+
+        for (int i = activeParticles.Count - 1; i >= 0; i--)
+        {
+            APParticlePickup pickup = activeParticles[i];
+
+            if (pickup == null)
+            {
+                activeParticles.RemoveAt(i);
+                continue;
+            }
+
+            Vector2 point = pickup.Position;
+            float along = segmentLengthSquared > 0.0001f
+                ? Mathf.Clamp01(
+                    Vector2.Dot(point - segmentStart, segment) /
+                    segmentLengthSquared
+                )
+                : 0f;
+
+            Vector2 closest = segmentStart + segment * along;
+
+            if ((point - closest).sqrMagnitude > radiusSquared)
+                continue;
+
+            if (pickup.RequestExternalCollectorPull(
+                acceleration,
+                maximumSpeed,
+                persistence))
+            {
+                pulledCount++;
+            }
+        }
+
+        return pulledCount;
     }
 
     private void SpawnBurst(

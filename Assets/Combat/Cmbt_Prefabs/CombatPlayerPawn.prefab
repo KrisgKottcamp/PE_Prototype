@@ -613,17 +613,9 @@ MonoBehaviour:
   actionLockoutOnDamage: 0.15
   cancelCurrentAttackOnDamage: 1
   attackCommitment: {fileID: 4013914058372065684}
-  damageHitstop:
-    enabled: 1
-    duration: 0.055
-    timeScale: 0.025
-  scaleHitstopByDamage: 1
-  damageForMaximumHitstop: 30
-  minimumDamageDurationMultiplier: 0.75
-  maximumDamageDurationMultiplier: 1.35
   damageCameraShake:
     enabled: 1
-    strength: 0.05
+    strength: 0.28
     duration: 0.14
   damageForMaximumCameraShake: 30
   minimumDamageShakeMultiplier: 0.7
@@ -720,17 +712,6 @@ MonoBehaviour:
     flinchSeconds: 0.09
     interruptDelay: 0.14
     resolveSeconds: 0.75
-  normalHitKnockbackForce: 0.75
-  normalHitKnockbackDuration: 0.07
-  thirdHitKnockbackForce: 1.75
-  thirdHitKnockbackDuration: 0.1
-  comboChainHitstop:
-    enabled: 1
-    duration: 0.24
-    timeScale: 0.6
-  comboHitstopBlendIn: 0.045
-  comboHitstopBlendOut: 0.1
-  thirdHitReleaseTail: 0.06
   momentumGainOnSuccessfulSwing: 2
   attackVfxPrefab: {fileID: 2055744915509529528, guid: 76c08226e6716d24e81adeccf16b4425, type: 3}
   vfxAngleOffset: 0
@@ -814,10 +795,6 @@ MonoBehaviour:
     flinchSeconds: 0.035
     interruptDelay: 0.08
     resolveSeconds: 0.9
-  projectileHitstop:
-    enabled: 1
-    duration: 0.018
-    timeScale: 0.08
   momentumGainOnHit: 2
   angleOffset: 0
 --- !u!114 &-93335120722698322
@@ -896,22 +873,11 @@ MonoBehaviour:
   focusMode: {fileID: 7425956223361028359}
   movementModifierReceiver: {fileID: 7284214485497777676}
   autoAddMovementModifierReceiver: 1
-  combineLegacyAndV2SlowsAsStrongestOnly: 1
-  useBoostedSlowMinimumTotalSpeed: 1
-  boostedSlowMinimumTotalMultiplier: 0.78
-  legacyBoostDetectionThreshold: 1.05
-  detectPlayerSpeedBoostByReflection: 1
-  forceSpeedBoostDetectedForTesting: 0
   logEffectiveSpeed: 0
   debugBaseSpeed: 0
   debugLegacySpeedModifier: 1
   debugFocusMultiplier: 1
   debugV2MovementModifier: 1
-  debugCombinedMovementMultiplier: 1
-  debugV8DoubleSlowProtected: 0
-  debugV8SpeedBoostDetected: 0
-  debugV8SpeedBoostDetectionReason: None
-  debugV8BoostedSlowFloorApplied: 0
   debugFinalSpeed: 0
 --- !u!114 &-2685741132705113101
 MonoBehaviour:
@@ -981,7 +947,7 @@ MonoBehaviour:
   hit2MoveMultiplier: 0.45
   hit2CommitmentDuration: 0.2
   damageCancelRecovery: 0.25
-  attackCommitment: {fileID: 4013914058372065684}
+  attackCommitment: {fileID: 0}
   hit1Damage: 1
   hit2Damage: 2
   hit1Reaction:
@@ -994,20 +960,12 @@ MonoBehaviour:
     flinchSeconds: 0.09
     interruptDelay: 0.16
     resolveSeconds: 0.75
-  knockbackForce: 10
-  knockbackDuration: 0.25
-  hit1Hitstop:
-    enabled: 1
-    duration: 0.04
-    timeScale: 0.04
-  hit2Hitstop:
-    enabled: 1
-    duration: 0.07
-    timeScale: 0.018
   hit2CameraShake:
     enabled: 1
-    strength: 0.03
+    strength: 0.18
     duration: 0.1
+  knockbackForce: 10
+  knockbackDuration: 0.25
   hit1MomentumGain: 2
   hit2MomentumGain: 2
   momentumPerProjectileDestroyed: 1
@@ -1082,10 +1040,6 @@ MonoBehaviour:
     flinchSeconds: 0.065
     interruptDelay: 0.12
     resolveSeconds: 0.85
-  whipHitstop:
-    enabled: 1
-    duration: 0.075
-    timeScale: 0.045
   attackCooldown: 0.6
   windupDelay: 0.07
   extendTime: 0.05
@@ -1096,6 +1050,11 @@ MonoBehaviour:
   damageCancelRecovery: 0.2
   attackCommitment: {fileID: 0}
   apGainOnHit: 9
+  pullAPOnRetract: 1
+  apPullRadius: 0.9
+  apPullAcceleration: 60
+  apPullMaximumSpeed: 16
+  apPullPersistenceAfterRetract: 0.2
   momentumGainOnSuccessfulSwing: 4
   whipLine: {fileID: 8395828035147948469}
   createLineIfMissing: 1
@@ -1112,6 +1071,8 @@ MonoBehaviour:
   logAttackFired: 0
   logApGain: 0
   logMomentumGain: 0
+  debugAPPullTargetsThisFrame: 0
+  debugAPPullTargetsPeak: 0
 --- !u!114 &-3508966444783571563
 MonoBehaviour:
   m_ObjectHideFlags: 0

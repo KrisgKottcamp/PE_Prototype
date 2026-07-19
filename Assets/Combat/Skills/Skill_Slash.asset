@@ -29,7 +29,7 @@ MonoBehaviour:
   destroysEnemyProjectiles: 1
   appliesMeleeKnockback: 1
   meleeKnockbackForce: 20
-  meleeKnockbackDuration: 0.2
+  meleeKnockbackDuration: 0.1
   hitstop:
     enabled: 1
     duration: 0.1

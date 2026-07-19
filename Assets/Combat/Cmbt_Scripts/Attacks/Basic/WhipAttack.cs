@@ -88,6 +88,22 @@ public class WhipAttack : MonoBehaviour
     [Tooltip("AP gained for each unique enemy hit by one whip swing.")]
     [SerializeField] private int apGainOnHit = 18;
 
+    [Header("AP Retract Pull")]
+    [Tooltip("When enabled, loose AP near the whip is pulled toward Dominic as the whip retracts.")]
+    [SerializeField] private bool pullAPOnRetract = true;
+
+    [Tooltip("Radius of the capsule-shaped capture area around the visible whip. AP only needs to be nearby, not touching the line.")]
+    [SerializeField, Min(0f)] private float apPullRadius = 0.90f;
+
+    [Tooltip("How quickly caught AP changes velocity toward Dominic.")]
+    [SerializeField, Min(0f)] private float apPullAcceleration = 60f;
+
+    [Tooltip("Maximum speed of AP caught by the retracting whip.")]
+    [SerializeField, Min(0.01f)] private float apPullMaximumSpeed = 16f;
+
+    [Tooltip("How long caught AP keeps being pulled after the whip finishes retracting.")]
+    [SerializeField, Min(0f)] private float apPullPersistenceAfterRetract = 0.20f;
+
     [Header("Attack Momentum")]
     [Tooltip(
         "Raw Momentum reported once when a whip swing hits at least one enemy. " +
@@ -123,6 +139,8 @@ public class WhipAttack : MonoBehaviour
     [SerializeField] private bool logAttackFired = false;
     [SerializeField] private bool logApGain = false;
     [SerializeField] private bool logMomentumGain = false;
+    [SerializeField] private int debugAPPullTargetsThisFrame;
+    [SerializeField] private int debugAPPullTargetsPeak;
 
     private Camera cam;
     private Vector2 lastAimDir = Vector2.right;
@@ -389,6 +407,8 @@ public class WhipAttack : MonoBehaviour
         int uniqueCount = 0;
         bool momentumGrantedThisSwing = false;
         bool hitstopRequestedThisSwing = false;
+        debugAPPullTargetsThisFrame = 0;
+        debugAPPullTargetsPeak = 0;
 
         if (logAttackFired)
         {
@@ -545,6 +565,12 @@ public class WhipAttack : MonoBehaviour
 
             SetLine(start, retractEnd);
 
+            PullAPDuringRetraction(
+                start,
+                retractEnd,
+                Mathf.Max(0f, retractTime - t)
+            );
+
             yield return null;
         }
 
@@ -553,6 +579,38 @@ public class WhipAttack : MonoBehaviour
 
         swingRunning = false;
         swingRoutine = null;
+    }
+
+    private void PullAPDuringRetraction(
+        Vector3 lineStart,
+        Vector3 lineEnd,
+        float remainingRetractTime)
+    {
+        if (!pullAPOnRetract || apPullRadius <= 0f)
+        {
+            debugAPPullTargetsThisFrame = 0;
+            return;
+        }
+
+        float persistence = Mathf.Max(
+            0.02f,
+            remainingRetractTime + apPullPersistenceAfterRetract
+        );
+
+        debugAPPullTargetsThisFrame =
+            APParticleSystem.PullTowardCollectorAlongSegment(
+                lineStart,
+                lineEnd,
+                apPullRadius,
+                apPullAcceleration,
+                apPullMaximumSpeed,
+                persistence
+            );
+
+        debugAPPullTargetsPeak = Mathf.Max(
+            debugAPPullTargetsPeak,
+            debugAPPullTargetsThisFrame
+        );
     }
 
     private void CheckWhipSegment(
