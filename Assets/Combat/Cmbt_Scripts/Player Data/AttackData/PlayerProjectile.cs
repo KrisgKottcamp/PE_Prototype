@@ -11,6 +11,8 @@ public class PlayerProjectile : MonoBehaviour
     [SerializeField] private LayerMask hitMask;
     [SerializeField] private int damage = 3;
     [SerializeField] private float stunSeconds = 0.15f;
+    private BasicAttackReactionSettings basicAttackReaction;
+    private CameraShakeSettings cameraShakeOnEnemyHit;
 
     [Header("Projectile Breaking")]
     [Tooltip("If true, destroys enemy projectiles on contact and keeps flying. Enable on the Power Shot prefab only if desired.")]
@@ -78,6 +80,7 @@ public class PlayerProjectile : MonoBehaviour
 
     private float momentumGainOnHit;
     private bool startsActiveScoringOnHit;
+    private HitstopSettings hitstopOnEnemyHit;
 
     private Vector2 launchOrigin;
     private bool hasLaunchOrigin;
@@ -159,7 +162,9 @@ public class PlayerProjectile : MonoBehaviour
         LayerMask mask,
         bool awardAp,
         float momentumGain = 0f,
-        bool startActiveScoringOnHit = false)
+        bool startActiveScoringOnHit = false,
+        HitstopSettings hitstop = default,
+        CameraShakeSettings cameraShake = default)
     {
         dir = direction.sqrMagnitude > 0.0001f
             ? direction.normalized
@@ -174,6 +179,8 @@ public class PlayerProjectile : MonoBehaviour
         awardApOnHit = awardAp;
         momentumGainOnHit = Mathf.Max(0f, momentumGain);
         startsActiveScoringOnHit = startActiveScoringOnHit;
+        hitstopOnEnemyHit = hitstop;
+        cameraShakeOnEnemyHit = cameraShake;
 
         if (!hasLaunchOrigin)
         {
@@ -195,6 +202,12 @@ public class PlayerProjectile : MonoBehaviour
         }
 
         Destroy(gameObject, lifetime);
+    }
+
+    public void ConfigureBasicAttackReaction(
+        BasicAttackReactionSettings reaction)
+    {
+        basicAttackReaction = reaction;
     }
 
     private void FixedUpdate()
@@ -512,16 +525,34 @@ public class PlayerProjectile : MonoBehaviour
             return;
 
         hitResolved = true;
+
+        // EnemyHealth normally flashes when damage is accepted. Phil's basic
+        // should still provide visual hit confirmation when tuned to 0 damage.
+        if (damage <= 0)
+            enemyHealth.PlayHitFlash();
+
         enemyHealth.TakeDamage(damage);
+        HitstopManager.Request(hitstopOnEnemyHit);
+
+        CombatCameraShake.Request(
+            cameraShakeOnEnemyHit,
+            enemyHealth.transform.position,
+            dir
+        );
 
         EnemyStunnable stunnable = hitCollider != null
             ? hitCollider.GetComponentInParent<EnemyStunnable>()
             : enemyHealth.GetComponentInParent<EnemyStunnable>();
 
         if (stunnable != null)
-            stunnable.Stun(stunSeconds);
+        {
+            if (basicAttackReaction.enabled)
+                basicAttackReaction.Apply(stunnable);
+            else
+                stunnable.Stun(stunSeconds);
+        }
 
-        GrantApIfAllowed();
+        SpawnApIfAllowed(enemyHealth);
         GrantMomentumIfAllowed();
         Destroy(gameObject);
     }
@@ -542,7 +573,7 @@ public class PlayerProjectile : MonoBehaviour
             manager.RegisterMomentum(momentumGainOnHit);
     }
 
-    private void GrantApIfAllowed()
+    private void SpawnApIfAllowed(EnemyHealth enemy)
     {
         if (!awardApOnHit)
             return;
@@ -550,9 +581,6 @@ public class PlayerProjectile : MonoBehaviour
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null || pm.party == null)
-            return;
-
-        if (pm.activeIndex != ownerCharacterIndex)
             return;
 
         if (ownerCharacterIndex < 0 ||
@@ -566,13 +594,17 @@ public class PlayerProjectile : MonoBehaviour
         if (owner == null || owner.def == null)
             return;
 
-        int maxAP = Mathf.Max(0, owner.def.maxAP);
         int gain = Mathf.Max(0, owner.def.apGainOnBasicHit);
 
-        owner.currentAP = Mathf.Clamp(
-            owner.currentAP + gain,
-            0,
-            maxAP
+        Vector2 origin = enemy != null
+            ? (Vector2)enemy.transform.position
+            : (Vector2)transform.position;
+
+        APParticleSystem.SpawnReward(
+            origin,
+            gain,
+            dir,
+            enemy
         );
     }
 

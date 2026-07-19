@@ -141,17 +141,17 @@ public class EnemyShooterDebug : MonoBehaviour
     [SerializeField] private bool debugBurstFlowLogs = false;
 
 
-    [Header("Projectile Readability Startup v1")]
-    [Tooltip("If true, enemy projectiles spawn in their full pattern first, linger/creep briefly, then accelerate to normal speed.")]
+    [Header("Projectile Readability Startup v3")]
+    [Tooltip("If true, enemy projectiles appear as a full pattern, wait as a readable threat, then accelerate to normal speed.")]
     [SerializeField] private bool useProjectileStartupMotion = true;
 
-    [Tooltip("Seconds the spawned pattern stays almost still before the acceleration ramp begins.")]
-    [SerializeField, Min(0f)] private float projectileStartupHoldTime = 0.06f;
+    [Tooltip("Seconds the fully revealed pattern stays stationary before the acceleration ramp begins.")]
+    [SerializeField, Min(0f)] private float projectileStartupHoldTime = 0.08f;
 
     [Tooltip("Seconds spent accelerating from the initial multiplier to full projectile speed.")]
     [SerializeField, Min(0f)] private float projectileStartupRampDuration = 0.28f;
 
-    [Tooltip("Speed multiplier during the initial readable startup. 0 = frozen, 0.05 = tiny creep.")]
+    [Tooltip("Speed multiplier at the instant the launch ramp begins. 0.05 gives a gentle first movement after the stationary warning.")]
     [SerializeField, Range(0f, 1f)] private float projectileStartupInitialSpeedMultiplier = 0.05f;
 
     [Tooltip("Higher values stay slower for longer, then snap closer to full speed near the end. 1 = linear.")]
@@ -160,6 +160,18 @@ public class EnemyShooterDebug : MonoBehaviour
     [Tooltip("When a bullet is reflected by Push Back, remove this startup slow so the reflected bullet immediately travels normally.")]
     [SerializeField] private bool removeStartupRampWhenReflected = true;
 
+    [Tooltip("Fades each spawned projectile from transparent to its normal tinted color without changing its collider size.")]
+    [SerializeField] private bool useProjectileStartupFade = true;
+
+    [Tooltip("Seconds for a projectile to become fully visible. When the movement wait below is enabled, this is also the first part of the stationary reaction window.")]
+    [SerializeField, Min(0.01f)] private float projectileStartupFadeDuration = 0.18f;
+
+    [Tooltip("Starting fraction of the projectile sprite's normal alpha. 0.10 keeps the bullet barely visible on its spawn frame.")]
+    [SerializeField, Range(0f, 1f)] private float projectileStartupInitialAlpha = 0.10f;
+
+    [Tooltip("Keeps the projectile completely stationary until its fade has finished. This guarantees it is fully visible before it is fired.")]
+    [SerializeField] private bool waitForProjectileFadeBeforeMovement = true;
+
     [Header("Runtime")]
     [SerializeField] private bool shootingEnabled = false;
     [SerializeField] private string lastBlockReason = "None";
@@ -167,6 +179,10 @@ public class EnemyShooterDebug : MonoBehaviour
     [SerializeField] private bool debugLosBlocked = false;
     [SerializeField] private string debugLosHitObject = "None";
     [SerializeField] private float lastSuccessfulShotTime = -999f;
+
+    [Header("Basic Attack Interrupt Debug")]
+    [SerializeField] private float debugTelegraphProgress;
+    [SerializeField] private string debugLastInterruptResult = "None";
 
     private struct TargetSample { public float time; public Vector2 pos; }
     private readonly List<TargetSample> samples = new List<TargetSample>(64);
@@ -183,6 +199,10 @@ public class EnemyShooterDebug : MonoBehaviour
     private Vector2 estimatedTargetVelocity;
     private bool hasLastTargetPosition = false;
     private bool isTelegraphing = false;
+    private bool telegraphCommitted = false;
+    private float telegraphStartedTime;
+    private float activeTelegraphDuration;
+    private Coroutine activeAttackRoutine;
 
     private const float TargetSearchInterval = 0.20f;
     private const float MinInterval = 0.03f;
@@ -217,6 +237,8 @@ public class EnemyShooterDebug : MonoBehaviour
 
     private void Update()
     {
+        debugTelegraphProgress = GetTelegraphProgress();
+
         ResolveTarget();
         RecordTargetSample();
 
@@ -262,9 +284,51 @@ public class EnemyShooterDebug : MonoBehaviour
 
         Vector2 baseDir = toAim / dist;
 
-        StartCoroutine(
+        activeAttackRoutine = StartCoroutine(
             TelegraphAndFireRoutine(origin, baseDir, useBurstFire)
         );
+    }
+
+    /// <summary>
+    /// Gives a basic attack one chance to defer this shooter's next attack.
+    /// Early telegraphs are canceled; committed telegraphs and active bursts
+    /// are protected so repeated basics cannot permanently suppress offense.
+    /// </summary>
+    public bool TryBasicAttackInterrupt(
+        float delay,
+        float commitPoint = 0.70f)
+    {
+        if (!isActiveAndEnabled || !shootingEnabled)
+        {
+            debugLastInterruptResult = "ShooterInactive";
+            return false;
+        }
+
+        if (isTelegraphing)
+        {
+            float progress = GetTelegraphProgress();
+
+            if (telegraphCommitted ||
+                progress >= Mathf.Clamp01(commitPoint))
+            {
+                debugLastInterruptResult =
+                    $"Committed({progress:0.00})";
+
+                return false;
+            }
+
+            CancelActiveAttackTelegraph();
+            burstShotsRemaining = 0;
+            DelayNextFireAtLeast(delay, "BasicAttackInterrupt");
+            lastBlockReason = "BasicAttackInterruptedTelegraph";
+            debugLastInterruptResult = "TelegraphInterrupted";
+            return true;
+        }
+
+        DelayNextFireAtLeast(delay, "BasicAttackOpening");
+        lastBlockReason = "BasicAttackOpening";
+        debugLastInterruptResult = "NextAttackDeferred";
+        return true;
     }
 
     public void SetShootingEnabled(bool enabled)
@@ -282,8 +346,7 @@ public class EnemyShooterDebug : MonoBehaviour
         else
         {
             ResetBurstStateForEnable();
-            isTelegraphing = false;
-            if (attackTelegraph != null) attackTelegraph.CancelTelegraph();
+            CancelActiveAttackTelegraph();
             ScheduleNextFire(999f, "ShootingDisabled");
             lastBlockReason = "ShootingDisabled";
         }
@@ -403,9 +466,16 @@ public class EnemyShooterDebug : MonoBehaviour
             yield break;
 
         isTelegraphing = true;
+        telegraphCommitted = false;
 
         EnemyTelegraphProfile profile =
             GetTelegraphProfile(pattern);
+
+        activeTelegraphDuration = profile != null
+            ? Mathf.Max(0.01f, profile.duration)
+            : 0f;
+
+        telegraphStartedTime = Time.time;
 
         Vector2 lockedDirection =
             initialDirection.sqrMagnitude > 0.0001f
@@ -431,10 +501,12 @@ public class EnemyShooterDebug : MonoBehaviour
             );
         }
 
+        telegraphCommitted = true;
+
         if (!shootingEnabled ||
             target == null)
         {
-            isTelegraphing = false;
+            FinishActiveAttack();
             yield break;
         }
 
@@ -456,7 +528,7 @@ public class EnemyShooterDebug : MonoBehaviour
                 "LOSRetryAfterTelegraph"
             );
 
-            isTelegraphing = false;
+            FinishActiveAttack();
             yield break;
         }
 
@@ -501,7 +573,58 @@ public class EnemyShooterDebug : MonoBehaviour
             );
         }
 
+        FinishActiveAttack();
+    }
+
+    private float GetTelegraphProgress()
+    {
+        if (!isTelegraphing)
+            return 0f;
+
+        if (telegraphCommitted || activeTelegraphDuration <= 0f)
+            return 1f;
+
+        return Mathf.Clamp01(
+            (Time.time - telegraphStartedTime) /
+            activeTelegraphDuration
+        );
+    }
+
+    private void CancelActiveAttackTelegraph()
+    {
+        if (activeAttackRoutine != null)
+        {
+            StopCoroutine(activeAttackRoutine);
+            activeAttackRoutine = null;
+        }
+
+        if (attackTelegraph != null)
+            attackTelegraph.CancelTelegraph();
+
         isTelegraphing = false;
+        telegraphCommitted = false;
+        activeTelegraphDuration = 0f;
+        debugTelegraphProgress = 0f;
+    }
+
+    private void FinishActiveAttack()
+    {
+        activeAttackRoutine = null;
+        isTelegraphing = false;
+        telegraphCommitted = false;
+        activeTelegraphDuration = 0f;
+        debugTelegraphProgress = 0f;
+    }
+
+    private void DelayNextFireAtLeast(float delay, string reason)
+    {
+        float requestedTime =
+            Time.time + Mathf.Max(0f, delay);
+
+        if (requestedTime > nextFireTime)
+            nextFireTime = requestedTime;
+
+        cooldownSetBy = reason;
     }
 
     private IEnumerator FireBurstSequenceAfterTelegraph(
@@ -1093,10 +1216,14 @@ public class EnemyShooterDebug : MonoBehaviour
                 out Rigidbody2D prb))
         {
             float initialMultiplier =
-                useProjectileStartupMotion
-                    ? Mathf.Clamp01(
-                        projectileStartupInitialSpeedMultiplier)
-                    : 1f;
+                useProjectileStartupMotion &&
+                useProjectileStartupFade &&
+                waitForProjectileFadeBeforeMovement
+                    ? 0f
+                    : useProjectileStartupMotion
+                        ? Mathf.Clamp01(
+                            projectileStartupInitialSpeedMultiplier)
+                        : 1f;
 
             Vector2 velocity =
                 dir * projectileSpeed * initialMultiplier;
@@ -1137,7 +1264,7 @@ public class EnemyShooterDebug : MonoBehaviour
         float ramp =
             Mathf.Max(0f, projectileStartupRampDuration);
 
-        if (hold <= 0f && ramp <= 0f)
+        if (hold <= 0f && ramp <= 0f && !useProjectileStartupFade)
             return;
 
         EnemyProjectileStartupRamp startup =
@@ -1155,7 +1282,11 @@ public class EnemyShooterDebug : MonoBehaviour
             Mathf.Clamp01(
                 projectileStartupInitialSpeedMultiplier),
             Mathf.Max(0.1f, projectileStartupEasePower),
-            removeStartupRampWhenReflected
+            removeStartupRampWhenReflected,
+            useProjectileStartupFade,
+            Mathf.Max(0.01f, projectileStartupFadeDuration),
+            Mathf.Clamp01(projectileStartupInitialAlpha),
+            waitForProjectileFadeBeforeMovement
         );
     }
 
@@ -1169,6 +1300,11 @@ public class EnemyShooterDebug : MonoBehaviour
     {
         nextFireTime = Time.time + Mathf.Max(0f, delay);
         cooldownSetBy = reason;
+    }
+
+    private void OnDisable()
+    {
+        CancelActiveAttackTelegraph();
     }
 
     private void ResolveTarget()

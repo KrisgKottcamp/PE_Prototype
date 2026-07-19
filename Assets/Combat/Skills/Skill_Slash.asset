@@ -26,6 +26,18 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 1152
   meleeMaxTargets: 10
+  destroysEnemyProjectiles: 1
+  appliesMeleeKnockback: 1
+  meleeKnockbackForce: 20
+  meleeKnockbackDuration: 0.2
+  hitstop:
+    enabled: 1
+    duration: 0.1
+    timeScale: 0.025
+  cameraShake:
+    enabled: 1
+    strength: 0.03
+    duration: 0.14
   firesProjectile: 0
   projectilePrefab: {fileID: 0}
   projectileSpeed: 14

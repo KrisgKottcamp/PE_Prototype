@@ -35,29 +35,109 @@ public class EnemyStunnable : MonoBehaviour
     [Header("Optional")]
     [SerializeField] private Rigidbody2D rb2d;
 
+    [Header("Basic Attack Interrupt")]
+    [Tooltip(
+        "Enemy shooters controlled by this reaction component. " +
+        "If empty, child shooters are discovered automatically."
+    )]
+    [SerializeField] private EnemyShooterDebug[] enemyShooters;
+
+    [Tooltip(
+        "The final portion of an enemy telegraph that basic attacks cannot cancel. " +
+        "0.70 means the attack becomes committed after 70% of its windup."
+    )]
+    [SerializeField, Range(0f, 1f)]
+    private float projectileCommitPoint = 0.70f;
+
     [Header("Debug")]
     [SerializeField] private bool debugLogs = false;
     [SerializeField] private string debugLastStunType = "None";
     [SerializeField] private float debugStunRemaining;
+    [SerializeField] private float debugBasicResolveRemaining;
+    [SerializeField] private string debugLastBasicInterrupt = "None";
 
     private Coroutine stunRoutine;
     private float stunEndTime;
     private bool activeDisableScripts;
     private bool activeFreezeRigidbody;
+    private float nextBasicInterruptTime;
 
     public bool IsStunned { get; private set; }
     public float StunRemaining => Mathf.Max(0f, stunEndTime - Time.time);
     public bool IsHardStunned => IsStunned && activeDisableScripts;
+    public float BasicResolveRemaining =>
+        Mathf.Max(0f, nextBasicInterruptTime - Time.time);
 
     private void Awake()
     {
         if (rb2d == null)
             rb2d = GetComponent<Rigidbody2D>();
+
+        if (enemyShooters == null || enemyShooters.Length == 0)
+            enemyShooters = GetComponentsInChildren<EnemyShooterDebug>(true);
     }
 
     private void Update()
     {
         debugStunRemaining = StunRemaining;
+        debugBasicResolveRemaining = BasicResolveRemaining;
+    }
+
+    /// <summary>
+    /// Applies a tight movement flinch on every basic hit, then attempts one
+    /// projectile interruption. A successful interruption starts resolve so
+    /// follow-up hits cannot continually reset the enemy's attack.
+    /// </summary>
+    public bool ReactToBasicAttack(
+        float flinchSeconds,
+        float interruptDelay,
+        float resolveSeconds)
+    {
+        if (flinchSeconds > 0f)
+        {
+            StartStun(
+                flinchSeconds,
+                false,
+                false,
+                "BasicAttackFlinch"
+            );
+        }
+
+        if (Time.time < nextBasicInterruptTime)
+        {
+            debugLastBasicInterrupt = "BlockedByResolve";
+            return false;
+        }
+
+        if (enemyShooters == null || enemyShooters.Length == 0)
+            enemyShooters = GetComponentsInChildren<EnemyShooterDebug>(true);
+
+        bool interrupted = false;
+
+        for (int i = 0; i < enemyShooters.Length; i++)
+        {
+            EnemyShooterDebug shooter = enemyShooters[i];
+
+            if (shooter == null)
+                continue;
+
+            interrupted |= shooter.TryBasicAttackInterrupt(
+                interruptDelay,
+                projectileCommitPoint
+            );
+        }
+
+        if (!interrupted)
+        {
+            debugLastBasicInterrupt = "NoInterruptibleShooter";
+            return false;
+        }
+
+        nextBasicInterruptTime =
+            Time.time + Mathf.Max(0f, resolveSeconds);
+
+        debugLastBasicInterrupt = "InterruptedAndResolveStarted";
+        return true;
     }
 
     /// <summary>
@@ -193,5 +273,8 @@ public class EnemyStunnable : MonoBehaviour
         activeFreezeRigidbody = false;
         stunRoutine = null;
         debugStunRemaining = 0f;
+        debugBasicResolveRemaining = 0f;
+        nextBasicInterruptTime = 0f;
+        debugLastBasicInterrupt = "None";
     }
 }

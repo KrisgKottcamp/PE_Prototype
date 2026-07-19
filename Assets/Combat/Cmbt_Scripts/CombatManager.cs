@@ -440,6 +440,7 @@ public class CombatManager : MonoBehaviour
             return;
 
         combatEnded = true;
+        APParticleSystem.Instance?.ClearAll();
 
         AttackMomentumResult encounterResult =
             attackMomentum != null
@@ -508,6 +509,7 @@ public class CombatManager : MonoBehaviour
             return;
 
         combatEnded = true;
+        APParticleSystem.Instance?.ClearAll();
         attackMomentum?.CompleteEncounter(false);
 
         RestoreNormalTime();

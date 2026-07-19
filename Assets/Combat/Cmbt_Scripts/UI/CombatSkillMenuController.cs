@@ -182,6 +182,10 @@ public class CombatSkillMenuController : MonoBehaviour
         if (skillPanelRoot != null)
             skillPanelRoot.SetActive(true);
 
+        // The menu must record normal/focus time, never a temporary hitstop
+        // scale. Otherwise closing it can restore near-zero time permanently.
+        HitstopManager.ReleaseForExternalTimeControl();
+
         prevTimeScale = Time.timeScale;
         prevFixedDelta = Time.fixedDeltaTime;
 

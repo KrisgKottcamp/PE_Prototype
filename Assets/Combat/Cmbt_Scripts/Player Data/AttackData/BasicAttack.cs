@@ -32,8 +32,48 @@ public class BasicAttack : MonoBehaviour
 
     [SerializeField] private PlayerAttackCommitment attackCommitment;
 
-    [Header("Stun")]
-    [SerializeField] private float stunSeconds = 0.25f;
+    [Header("Basic Attack Enemy Reaction")]
+    [Tooltip("Tight flinch plus one projectile interrupt for hits one and two.")]
+    [SerializeField] private BasicAttackReactionSettings normalHitReaction =
+        BasicAttackReactionSettings.Create(0.055f, 0.14f, 0.75f);
+
+    [Tooltip("Slightly stronger movement flinch on Audrey's third hit. Resolve still prevents repeated projectile cancellation.")]
+    [SerializeField] private BasicAttackReactionSettings thirdHitReaction =
+        BasicAttackReactionSettings.Create(0.09f, 0.14f, 0.75f);
+
+    [Header("Physical Hit Feedback")]
+    [Tooltip("Very small push applied by Audrey's first and second hits.")]
+    [SerializeField, Min(0f)] private float normalHitKnockbackForce = 0.75f;
+
+    [SerializeField, Min(0f)] private float normalHitKnockbackDuration = 0.07f;
+
+    [Tooltip("Stronger push on the third hit. Keep this well below Imogen's heavy knockback force of 8.")]
+    [SerializeField, Min(0f)] private float thirdHitKnockbackForce = 1.75f;
+
+    [SerializeField, Min(0f)] private float thirdHitKnockbackDuration = 0.10f;
+
+    [Header("Audrey Combo Hitstop")]
+    [Tooltip(
+        "One continuous hitstop/slow window shared by Audrey's three clicks. " +
+        "Duration is also the maximum real-time gap allowed before the chain releases."
+    )]
+    [SerializeField] private HitstopSettings comboChainHitstop =
+        HitstopSettings.Create(0.24f, 0.40f);
+
+    [Tooltip("Real-time ease from normal speed into Audrey's combo slowdown.")]
+    [SerializeField, Min(0f)]
+    private float comboHitstopBlendIn = 0.045f;
+
+    [Tooltip("Real-time ease back to normal speed when the combo window releases.")]
+    [SerializeField, Min(0f)]
+    private float comboHitstopBlendOut = 0.10f;
+
+    [Tooltip(
+        "Real-time tail after the third click. The previous click's remaining " +
+        "continuation time may be slightly longer."
+    )]
+    [SerializeField, Min(0f)]
+    private float thirdHitReleaseTail = 0.06f;
 
     [Header("Attack Momentum")]
     [SerializeField] private float momentumGainOnSuccessfulSwing = 8f;
@@ -51,6 +91,9 @@ public class BasicAttack : MonoBehaviour
     private float swingCdTimer;
     private float recoveryTimer;
     private int swingsRemaining;
+
+    private bool comboHitstopActive;
+    private float comboHitstopExpiresAtRealtime;
 
     private readonly Collider2D[] hitCols = new Collider2D[16];
     private readonly EnemyHealth[] uniqueEnemies = new EnemyHealth[16];
@@ -72,10 +115,20 @@ public class BasicAttack : MonoBehaviour
 
         UpdateMouseAim();
 
-        if (swingCdTimer > 0f) swingCdTimer -= Time.deltaTime;
+        UpdateComboHitstopState();
+
+        // Audrey must still be able to perform the next click while her
+        // continuous combo window is slowing scaled game time.
+        float attackDeltaTime = comboHitstopActive
+            ? Time.unscaledDeltaTime
+            : Time.deltaTime;
+
+        if (swingCdTimer > 0f)
+            swingCdTimer -= attackDeltaTime;
+
         if (recoveryTimer > 0f)
         {
-            recoveryTimer -= Time.deltaTime;
+            recoveryTimer -= attackDeltaTime;
             if (recoveryTimer <= 0f)
                 swingsRemaining = Mathf.Max(1, swingsPerBurst);
         }
@@ -90,8 +143,14 @@ public class BasicAttack : MonoBehaviour
         if (swingCdTimer > 0f) return;
         if (swingsRemaining <= 0) return;
 
+        bool isThirdHit = swingsRemaining == 1;
+        bool chainWasActive = comboHitstopActive;
+
         ApplyAttackCommitment();
-        DoAttack(lastAimDir);
+        bool connected = DoAttack(lastAimDir, isThirdHit);
+
+        if (connected || chainWasActive)
+            RefreshComboHitstop(isThirdHit);
 
         swingsRemaining--;
         swingCdTimer = swingCooldown;
@@ -149,6 +208,8 @@ public class BasicAttack : MonoBehaviour
 
     public void CancelCurrentAttack()
     {
+        comboHitstopActive = false;
+        comboHitstopExpiresAtRealtime = 0f;
         swingsRemaining = Mathf.Max(1, swingsPerBurst);
         swingCdTimer = 0f;
         recoveryTimer = Mathf.Max(
@@ -171,7 +232,7 @@ public class BasicAttack : MonoBehaviour
             lastAimDir = delta.normalized;
     }
 
-    private void DoAttack(Vector2 dir)
+    private bool DoAttack(Vector2 dir, bool isThirdHit)
     {
         if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
         dir = dir.normalized;
@@ -181,7 +242,7 @@ public class BasicAttack : MonoBehaviour
         SpawnVfx(center, dir);
 
         int count = Physics2D.OverlapCircleNonAlloc(center, radius, hitCols, enemyMask);
-        if (count <= 0) return;
+        if (count <= 0) return false;
 
         int uniqueCount = 0;
 
@@ -206,19 +267,112 @@ public class BasicAttack : MonoBehaviour
 
             var stunnable = enemy.GetComponentInParent<EnemyStunnable>();
             if (stunnable != null)
-                stunnable.Stun(stunSeconds);
+            {
+                BasicAttackReactionSettings reaction = isThirdHit
+                    ? thirdHitReaction
+                    : normalHitReaction;
+
+                reaction.Apply(stunnable);
+            }
+
+            ApplyHitKnockback(enemy, dir, isThirdHit);
 
             if (uniqueCount >= uniqueEnemies.Length) break;
         }
 
         if (uniqueCount > 0)
         {
-            GrantAP();
+            SpawnAPParticles(uniqueCount);
             AttackMomentumManager.Instance?.RegisterMomentum(momentumGainOnSuccessfulSwing);
         }
+
+        return uniqueCount > 0;
     }
 
-    private void GrantAP()
+    private void RefreshComboHitstop(bool isThirdHit)
+    {
+        if (!comboChainHitstop.enabled)
+        {
+            comboHitstopActive = false;
+            return;
+        }
+
+        HitstopSettings request = comboChainHitstop;
+
+        if (isThirdHit)
+            request.duration = Mathf.Max(0f, thirdHitReleaseTail);
+
+        HitstopManager.RequestSustained(
+            request,
+            comboHitstopBlendIn,
+            comboHitstopBlendOut
+        );
+
+        if (isThirdHit)
+        {
+            // No fourth click to wait for. The manager keeps only the short
+            // finisher tail (or any time still remaining from click two).
+            comboHitstopActive = false;
+            comboHitstopExpiresAtRealtime = 0f;
+            return;
+        }
+
+        comboHitstopActive = request.duration > 0f;
+        comboHitstopExpiresAtRealtime =
+            Time.realtimeSinceStartup + request.duration;
+    }
+
+    private void UpdateComboHitstopState()
+    {
+        if (!comboHitstopActive)
+            return;
+
+        if (Time.realtimeSinceStartup < comboHitstopExpiresAtRealtime)
+            return;
+
+        comboHitstopActive = false;
+        comboHitstopExpiresAtRealtime = 0f;
+    }
+
+    private void ApplyHitKnockback(
+        EnemyHealth enemy,
+        Vector2 fallbackDirection,
+        bool isThirdHit)
+    {
+        if (enemy == null)
+            return;
+
+        KnockbackReceiver2D receiver =
+            enemy.GetComponentInParent<KnockbackReceiver2D>();
+
+        if (receiver == null)
+            return;
+
+        Vector2 direction =
+            (Vector2)enemy.transform.position -
+            (Vector2)hitOrigin.position;
+
+        if (direction.sqrMagnitude < 0.0001f)
+            direction = fallbackDirection;
+        else
+            direction.Normalize();
+
+        float force = isThirdHit
+            ? thirdHitKnockbackForce
+            : normalHitKnockbackForce;
+
+        float duration = isThirdHit
+            ? thirdHitKnockbackDuration
+            : normalHitKnockbackDuration;
+
+        receiver.ApplyKnockback(
+            direction,
+            force,
+            duration
+        );
+    }
+
+    private void SpawnAPParticles(int uniqueCount)
     {
         var pm = PartyManager.Instance;
         if (pm == null) return;
@@ -226,10 +380,14 @@ public class BasicAttack : MonoBehaviour
         var active = pm.Active;
         if (active == null || active.def == null) return;
 
-        int maxAP = Mathf.Max(0, active.def.maxAP);
         int gain = Mathf.Max(0, active.def.apGainOnBasicHit);
 
-        active.currentAP = Mathf.Clamp(active.currentAP + gain, 0, maxAP);
+        APParticleSystem.SpawnRewardAcrossEnemies(
+            uniqueEnemies,
+            uniqueCount,
+            gain,
+            hitOrigin.position
+        );
     }
 
     private void SpawnVfx(Vector2 pos, Vector2 dir)

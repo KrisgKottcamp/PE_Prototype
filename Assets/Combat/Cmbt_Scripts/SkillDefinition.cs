@@ -48,6 +48,29 @@ public class SkillDefinition : ScriptableObject
     public LayerMask meleeHitMask;
     public int meleeMaxTargets = 1;
 
+    [Header("Melee Projectile Interaction")]
+    [Tooltip("If enabled, this melee skill destroys enemy-owned Projectile objects inside the same hitbox used for damage.")]
+    public bool destroysEnemyProjectiles = false;
+
+    [Header("Melee Knockback (uses KnockbackReceiver2D)")]
+    [Tooltip("If enabled, enemies damaged by this melee skill are pushed away from the caster using the existing knockback receiver.")]
+    public bool appliesMeleeKnockback = false;
+
+    [Min(0f)]
+    public float meleeKnockbackForce = 5f;
+
+    [Min(0f)]
+    public float meleeKnockbackDuration = 0.14f;
+
+    [Header("Hitstop (damaging skills)")]
+    [Tooltip("Requested when this skill confirms damage. Future melee and projectile skills inherit this starting preset and can override it per asset.")]
+    public HitstopSettings hitstop =
+        HitstopSettings.Create(0.050f, 0.035f);
+
+    [Header("Camera Shake (heavy damaging skills)")]
+    [Tooltip("Optional Cinemachine impulse requested when this skill confirms damage.")]
+    public CameraShakeSettings cameraShake;
+
     [Header("Projectile Skill (optional)")]
     public bool firesProjectile = false;
     public GameObject projectilePrefab;

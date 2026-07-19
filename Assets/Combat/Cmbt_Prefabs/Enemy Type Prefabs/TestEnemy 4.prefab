@@ -242,9 +242,9 @@ MonoBehaviour:
     profile: {fileID: 11400000, guid: eb40bd281d6332a4fa4548e76780798c, type: 2}
   - pattern: 2
     profile: {fileID: 11400000, guid: db886afbeac44a144973b7d89f3b4718, type: 2}
-  - pattern: 4
+  - pattern: 3
     profile: {fileID: 11400000, guid: 7c0dfd88b8948b44cb5b748390142fa4, type: 2}
-  - pattern: 5
+  - pattern: 6
     profile: {fileID: 11400000, guid: ddc6aaa2c5718464090881ecf6d59f46, type: 2}
   fallbackTelegraphProfile: {fileID: 0}
   lockAimDuringTelegraph: 1
@@ -253,11 +253,15 @@ MonoBehaviour:
   telegraphOnlyOncePerBurst: 1
   debugBurstFlowLogs: 0
   useProjectileStartupMotion: 1
-  projectileStartupHoldTime: 0.06
+  projectileStartupHoldTime: 0.08
   projectileStartupRampDuration: 0.28
   projectileStartupInitialSpeedMultiplier: 0.05
   projectileStartupEasePower: 2
   removeStartupRampWhenReflected: 1
+  useProjectileStartupFade: 1
+  projectileStartupFadeDuration: 0.18
+  projectileStartupInitialAlpha: 0.1
+  waitForProjectileFadeBeforeMovement: 1
   shootingEnabled: 1
   lastBlockReason: None
   cooldownSetBy: None

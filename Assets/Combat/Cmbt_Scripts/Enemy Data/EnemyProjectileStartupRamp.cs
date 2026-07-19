@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Gives enemy projectiles a readable startup:
-/// the whole pattern appears first, creeps slowly, then accelerates to full speed.
+/// the whole pattern fades in while stationary, holds briefly, then accelerates
+/// to full speed.
 ///
 /// This intentionally uses the existing SpeedModifier path when a Projectile
 /// component is present, because Project Eri's Projectile.FixedUpdate already
@@ -18,6 +19,7 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
     [SerializeField] private bool isConfigured;
     [SerializeField] private float debugCurrentMultiplier = 1f;
     [SerializeField] private float debugElapsed;
+    [SerializeField] private float debugCurrentAlphaMultiplier = 1f;
 
     private Vector2 direction = Vector2.right;
     private float fullSpeed = 7f;
@@ -26,14 +28,21 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
     private float initialMultiplier = 0.05f;
     private float easePower = 2f;
     private bool removeWhenReflected = true;
+    private bool useVisualFade = true;
+    private float visualFadeDuration = 0.18f;
+    private float initialVisualAlpha = 0.1f;
+    private bool waitForVisualFadeBeforeMovement = true;
 
     private float startTime;
     private int speedSourceId;
     private SpeedModifier speedModifier;
     private Rigidbody2D rb;
     private Projectile projectile;
+    private SpriteRenderer[] visualRenderers;
+    private Color[] originalVisualColors;
 
     private bool ownsSpeedModifierSource;
+    private bool visualColorsCaptured;
 
     public void Configure(
         Vector2 projectileDirection,
@@ -42,7 +51,11 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
         float startupRampDuration,
         float startupInitialMultiplier,
         float startupEasePower,
-        bool removeStartupWhenReflected)
+        bool removeStartupWhenReflected,
+        bool fadeVisualsIn,
+        float fadeDuration,
+        float startingAlpha,
+        bool waitForFadeBeforeMovement)
     {
         direction =
             projectileDirection.sqrMagnitude > 0.0001f
@@ -55,6 +68,10 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
         initialMultiplier = Mathf.Clamp01(startupInitialMultiplier);
         easePower = Mathf.Max(0.1f, startupEasePower);
         removeWhenReflected = removeStartupWhenReflected;
+        useVisualFade = fadeVisualsIn;
+        visualFadeDuration = Mathf.Max(0.01f, fadeDuration);
+        initialVisualAlpha = Mathf.Clamp01(startingAlpha);
+        waitForVisualFadeBeforeMovement = waitForFadeBeforeMovement;
 
         startTime = Time.time;
         isConfigured = true;
@@ -75,7 +92,9 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
             speedSourceId = SpeedModifier.GenerateSourceId();
 
         ownsSpeedModifierSource = true;
+        CaptureVisualColors();
         ApplyCurrentMultiplier();
+        ApplyVisualFade();
     }
 
     private void Awake()
@@ -99,8 +118,17 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
         }
 
         ApplyCurrentMultiplier();
+        ApplyVisualFade();
 
-        if (debugElapsed >= holdTime + rampDuration)
+        float startupDuration =
+            GetMovementStartDelay() +
+            holdTime +
+            rampDuration;
+
+        if (useVisualFade)
+            startupDuration = Mathf.Max(startupDuration, visualFadeDuration);
+
+        if (debugElapsed >= startupDuration)
             FinishAndRemove();
     }
 
@@ -149,14 +177,20 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
 
     private float CalculateMultiplier(float elapsed)
     {
-        if (elapsed < holdTime)
-            return initialMultiplier;
+        float movementStartTime =
+            GetMovementStartDelay() + holdTime;
+
+        // During the reveal and readable hold, the projectile is spawned but has
+        // not been fired yet. This guarantees the player sees the threat before
+        // it can travel into them at close range.
+        if (elapsed < movementStartTime)
+            return 0f;
 
         if (rampDuration <= 0f)
             return 1f;
 
         float t = Mathf.Clamp01(
-            (elapsed - holdTime) / rampDuration
+            (elapsed - movementStartTime) / rampDuration
         );
 
         float eased = Mathf.Pow(t, easePower);
@@ -168,10 +202,70 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
         );
     }
 
+    private float GetMovementStartDelay()
+    {
+        return useVisualFade && waitForVisualFadeBeforeMovement
+            ? visualFadeDuration
+            : 0f;
+    }
+
+    private void CaptureVisualColors()
+    {
+        visualRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+        originalVisualColors = new Color[visualRenderers.Length];
+
+        for (int i = 0; i < visualRenderers.Length; i++)
+        {
+            if (visualRenderers[i] != null)
+                originalVisualColors[i] = visualRenderers[i].color;
+        }
+
+        visualColorsCaptured = true;
+    }
+
+    private void ApplyVisualFade()
+    {
+        if (!visualColorsCaptured)
+            CaptureVisualColors();
+
+        float t = useVisualFade
+            ? Mathf.Clamp01(debugElapsed / visualFadeDuration)
+            : 1f;
+
+        t = Mathf.SmoothStep(0f, 1f, t);
+        debugCurrentAlphaMultiplier = Mathf.Lerp(initialVisualAlpha, 1f, t);
+
+        for (int i = 0; i < visualRenderers.Length; i++)
+        {
+            SpriteRenderer renderer = visualRenderers[i];
+            if (renderer == null)
+                continue;
+
+            Color color = originalVisualColors[i];
+            color.a *= debugCurrentAlphaMultiplier;
+            renderer.color = color;
+        }
+    }
+
+    private void RestoreVisualColors()
+    {
+        if (!visualColorsCaptured || visualRenderers == null || originalVisualColors == null)
+            return;
+
+        for (int i = 0; i < visualRenderers.Length && i < originalVisualColors.Length; i++)
+        {
+            if (visualRenderers[i] != null)
+                visualRenderers[i].color = originalVisualColors[i];
+        }
+
+        debugCurrentAlphaMultiplier = 1f;
+    }
+
     private void FinishAndRemove()
     {
         isConfigured = false;
         debugCurrentMultiplier = 1f;
+        RestoreVisualColors();
 
         if (speedModifier != null &&
             ownsSpeedModifierSource &&
@@ -198,6 +292,8 @@ public class EnemyProjectileStartupRamp : MonoBehaviour
 
     private void OnDisable()
     {
+        RestoreVisualColors();
+
         if (speedModifier != null &&
             ownsSpeedModifierSource &&
             speedSourceId != 0)

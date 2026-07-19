@@ -71,7 +71,9 @@ public class ProjectileShooter : MonoBehaviour
         LayerMask hitMask,
         bool awardApOnHit,
         float momentumGain = 0f,
-        bool startActiveScoringOnHit = false)
+        bool startActiveScoringOnHit = false,
+        HitstopSettings hitstop = default,
+        CameraShakeSettings cameraShake = default)
     {
         if (prefab == null)
             return null;
@@ -139,7 +141,9 @@ public class ProjectileShooter : MonoBehaviour
             hitMask,
             awardApOnHit,
             momentumGain,
-            startActiveScoringOnHit
+            startActiveScoringOnHit,
+            hitstop,
+            cameraShake
         );
 
         return proj;

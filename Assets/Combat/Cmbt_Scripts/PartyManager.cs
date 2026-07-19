@@ -54,6 +54,30 @@ public class PartyManager : MonoBehaviour
 
     public CharacterState Active => party[activeIndex];
 
+    /// <summary>
+    /// Adds AP to whichever character is active at the moment this is called.
+    /// Returns the amount that actually fit in that character's AP meter.
+    /// </summary>
+    public int AddAPToActive(int amount)
+    {
+        if (amount <= 0 || party == null || party.Count == 0)
+            return 0;
+
+        if (activeIndex < 0 || activeIndex >= party.Count)
+            return 0;
+
+        CharacterState active = party[activeIndex];
+
+        if (active == null || active.def == null)
+            return 0;
+
+        int maximum = Mathf.Max(0, active.def.maxAP);
+        int before = Mathf.Clamp(active.currentAP, 0, maximum);
+
+        active.currentAP = Mathf.Clamp(before + amount, 0, maximum);
+        return active.currentAP - before;
+    }
+
     public void SwapNext()
     {
         activeIndex = (activeIndex + 1) % party.Count;

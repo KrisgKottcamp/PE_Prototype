@@ -47,7 +47,15 @@ public class WhipAttack : MonoBehaviour
 
     [Header("Hit")]
     [SerializeField] private int damage = 7;
-    [SerializeField] private float stunSeconds = 0.15f;
+
+    [Header("Basic Attack Enemy Reaction")]
+    [SerializeField] private BasicAttackReactionSettings basicHitReaction =
+        BasicAttackReactionSettings.Create(0.065f, 0.12f, 0.85f);
+
+    [Header("Hitstop")]
+    [Tooltip("Requested once when Dominic's whip first connects during a swing.")]
+    [SerializeField] private HitstopSettings whipHitstop =
+        HitstopSettings.Create(0.035f, 0.045f);
 
     [Header("Timing")]
     [Tooltip("Dominic can start an attack every 0.4 seconds by default.")]
@@ -380,6 +388,7 @@ public class WhipAttack : MonoBehaviour
 
         int uniqueCount = 0;
         bool momentumGrantedThisSwing = false;
+        bool hitstopRequestedThisSwing = false;
 
         if (logAttackFired)
         {
@@ -451,7 +460,8 @@ public class WhipAttack : MonoBehaviour
                 previousEnd,
                 currentEnd,
                 ref uniqueCount,
-                ref momentumGrantedThisSwing
+                ref momentumGrantedThisSwing,
+                ref hitstopRequestedThisSwing
             );
 
             previousEnd = currentEnd;
@@ -499,7 +509,8 @@ public class WhipAttack : MonoBehaviour
                 start,
                 fullEnd,
                 ref uniqueCount,
-                ref momentumGrantedThisSwing
+                ref momentumGrantedThisSwing,
+                ref hitstopRequestedThisSwing
             );
 
             yield return null;
@@ -548,7 +559,8 @@ public class WhipAttack : MonoBehaviour
         Vector3 from,
         Vector3 to,
         ref int uniqueCount,
-        ref bool momentumGrantedThisSwing)
+        ref bool momentumGrantedThisSwing,
+        ref bool hitstopRequestedThisSwing)
     {
         Vector2 a = from;
         Vector2 b = to;
@@ -602,13 +614,19 @@ public class WhipAttack : MonoBehaviour
 
             enemy.TakeDamage(damage);
 
+            if (!hitstopRequestedThisSwing)
+            {
+                HitstopManager.Request(whipHitstop);
+                hitstopRequestedThisSwing = true;
+            }
+
             EnemyStunnable stunnable =
                 enemy.GetComponentInParent<EnemyStunnable>();
 
             if (stunnable != null)
-                stunnable.Stun(stunSeconds);
+                basicHitReaction.Apply(stunnable);
 
-            GrantAPForEnemyHit(enemy);
+            SpawnAPForEnemyHit(enemy);
 
             // Momentum is deliberately once per swing, unlike AP, which
             // continues to stack for every unique enemy hit.
@@ -650,7 +668,7 @@ public class WhipAttack : MonoBehaviour
         return false;
     }
 
-    private void GrantAPForEnemyHit(EnemyHealth enemy)
+    private void SpawnAPForEnemyHit(EnemyHealth enemy)
     {
         PartyManager pm = PartyManager.Instance;
 
@@ -662,13 +680,15 @@ public class WhipAttack : MonoBehaviour
         if (active == null || active.def == null)
             return;
 
-        int maxAP = Mathf.Max(0, active.def.maxAP);
-        int before = active.currentAP;
+        Vector2 enemyPosition = enemy != null
+            ? (Vector2)enemy.transform.position
+            : (Vector2)hitOrigin.position;
 
-        active.currentAP = Mathf.Clamp(
-            active.currentAP + apGainOnHit,
-            0,
-            maxAP
+        APParticleSystem.SpawnReward(
+            enemyPosition,
+            Mathf.Max(0, apGainOnHit),
+            enemyPosition - (Vector2)hitOrigin.position,
+            enemy
         );
 
         if (logApGain)
@@ -679,8 +699,8 @@ public class WhipAttack : MonoBehaviour
                     : "enemy";
 
             Debug.Log(
-                $"Whip AP +{apGainOnHit} from {enemyName}. " +
-                $"AP {before} -> {active.currentAP}",
+                $"Whip knocked {apGainOnHit} collectible AP " +
+                $"from {enemyName}.",
                 this
             );
         }

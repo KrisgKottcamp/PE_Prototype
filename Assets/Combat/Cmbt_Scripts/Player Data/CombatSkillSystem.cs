@@ -42,6 +42,8 @@ public class CombatSkillSystem : MonoBehaviour
     private bool isCasting;
 
     private readonly Collider2D[] hitCols = new Collider2D[16];
+    private readonly EnemyHealth[] uniqueMeleeEnemies =
+        new EnemyHealth[16];
 
     public class PendingCast
     {
@@ -324,12 +326,25 @@ public class CombatSkillSystem : MonoBehaviour
         if (skill.damage > 0)
             hitSomething = ApplyMeleeHitboxDamage(skill, dir);
 
+        if (skill.destroysEnemyProjectiles)
+            DestroyEnemyProjectilesInMeleeHitbox(skill, dir);
+
         // Impact VFX at hitbox center (even if miss, still looks consistent)
         Vector3 meleeCenter = (Vector2)vfxOrigin.position + dir * GetMeleeRange(skill);
         SpawnVfx(skill.impactVfxPrefab, meleeCenter, dir, skill.impactVfxAngleOffset, skill.impactVfxForwardOffset);
 
         if (hitSomething)
+        {
+            HitstopManager.Request(skill.hitstop);
+
+            CombatCameraShake.Request(
+                skill.cameraShake,
+                meleeCenter,
+                dir
+            );
+
             AwardSuccessfulSkillMomentum(skill);
+        }
 
         // Cost multiplier still increases on resolve, even on a miss.
         ApplySkillCostMultiplier(pending.ownerIndex);
@@ -442,7 +457,9 @@ public class CombatSkillSystem : MonoBehaviour
             mask,
             awardApOnHit: false,
             momentumGain: skill.momentumGain,
-            startActiveScoringOnHit: true
+            startActiveScoringOnHit: true,
+            hitstop: skill.hitstop,
+            cameraShake: skill.cameraShake
         );
     }
 
@@ -599,10 +616,105 @@ public class CombatSkillSystem : MonoBehaviour
             var enemy = col.GetComponentInParent<EnemyHealth>();
             if (enemy == null) continue;
 
+            bool alreadyHit = false;
+
+            for (int j = 0; j < applied; j++)
+            {
+                if (uniqueMeleeEnemies[j] == enemy)
+                {
+                    alreadyHit = true;
+                    break;
+                }
+            }
+
+            if (alreadyHit)
+                continue;
+
+            if (applied >= uniqueMeleeEnemies.Length)
+                break;
+
+            uniqueMeleeEnemies[applied] = enemy;
+
             enemy.TakeDamage(skill.damage);
+
+            if (skill.appliesMeleeKnockback)
+                ApplyMeleeSkillKnockback(skill, enemy, dir);
+
             applied++;
         }
 
         return applied > 0;
+    }
+
+    private void ApplyMeleeSkillKnockback(
+        SkillDefinition skill,
+        EnemyHealth enemy,
+        Vector2 fallbackDirection)
+    {
+        if (skill == null || enemy == null)
+            return;
+
+        KnockbackReceiver2D receiver =
+            enemy.GetComponentInParent<KnockbackReceiver2D>();
+
+        if (receiver == null)
+            return;
+
+        Vector2 origin = vfxOrigin != null
+            ? (Vector2)vfxOrigin.position
+            : (Vector2)transform.position;
+
+        Vector2 direction =
+            (Vector2)enemy.transform.position - origin;
+
+        if (direction.sqrMagnitude < 0.0001f)
+            direction = fallbackDirection;
+        else
+            direction.Normalize();
+
+        receiver.ApplyKnockback(
+            direction,
+            skill.meleeKnockbackForce,
+            skill.meleeKnockbackDuration
+        );
+    }
+
+    private int DestroyEnemyProjectilesInMeleeHitbox(
+        SkillDefinition skill,
+        Vector2 dir)
+    {
+        float range = GetMeleeRange(skill);
+        float radius = GetMeleeRadius(skill);
+        Vector2 center =
+            (Vector2)vfxOrigin.position + dir * range;
+
+        Projectile[] projectiles =
+            FindObjectsOfType<Projectile>(false);
+
+        int destroyed = 0;
+
+        for (int i = 0; i < projectiles.Length; i++)
+        {
+            Projectile projectile = projectiles[i];
+
+            if (projectile == null ||
+                projectile.Team != Projectile.ProjectileTeam.Enemy)
+            {
+                continue;
+            }
+
+            float distance = Vector2.Distance(
+                center,
+                projectile.transform.position
+            );
+
+            if (distance > radius)
+                continue;
+
+            Destroy(projectile.gameObject);
+            destroyed++;
+        }
+
+        return destroyed;
     }
 }

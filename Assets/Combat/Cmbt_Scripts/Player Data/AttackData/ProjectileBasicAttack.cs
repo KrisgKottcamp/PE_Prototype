@@ -35,6 +35,16 @@ public class ProjectileBasicAttack : MonoBehaviour
     [SerializeField] private int damage = 3;
     [SerializeField] private float stunSeconds = 0.15f;
 
+    [Header("Basic Attack Enemy Reaction")]
+    [Tooltip("Phil has the weakest interrupt and the longest resolve because it is ranged.")]
+    [SerializeField] private BasicAttackReactionSettings basicHitReaction =
+        BasicAttackReactionSettings.Create(0.035f, 0.08f, 0.90f);
+
+    [Header("Hitstop")]
+    [Tooltip("A short, light pause when Phil's basic projectile connects.")]
+    [SerializeField] private HitstopSettings projectileHitstop =
+        HitstopSettings.Create(0.018f, 0.08f);
+
     [Header("Attack Momentum")]
     [Tooltip(
         "Raw Momentum awarded when one basic projectile hits an enemy. " +
@@ -236,6 +246,8 @@ public class ProjectileBasicAttack : MonoBehaviour
                 ? pm.activeIndex
                 : -1;
 
+        projectile.ConfigureBasicAttackReaction(basicHitReaction);
+
         projectile.Fire(
             direction,
             ownerIndex,
@@ -246,7 +258,8 @@ public class ProjectileBasicAttack : MonoBehaviour
             projectileHitMask,
             awardAp: true,
             momentumGain: momentumGainOnHit,
-            startActiveScoringOnHit: false
+            startActiveScoringOnHit: false,
+            hitstop: projectileHitstop
         );
     }
 

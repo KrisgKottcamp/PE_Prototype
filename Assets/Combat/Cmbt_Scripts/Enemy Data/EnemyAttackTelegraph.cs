@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 
+[DefaultExecutionOrder(1000)]
 public class EnemyAttackTelegraph : MonoBehaviour
 {
     [Header("References")]
@@ -11,11 +12,20 @@ public class EnemyAttackTelegraph : MonoBehaviour
     [Header("Fallback Profile")]
     [SerializeField] private EnemyTelegraphProfile fallbackProfile;
 
+    [Header("Runtime Debug")]
+    [SerializeField] private string debugActiveProfile = "None";
+    [SerializeField] private int debugRendererCount;
+    [SerializeField, Range(0f, 1f)] private float debugNormalizedProgress;
+
     private Coroutine activeTelegraph;
     private Vector3 originalLocalPosition;
     private Vector3 originalLocalScale;
     private Quaternion originalLocalRotation;
     private Color[] originalColors;
+    private EnemyTelegraphProfile activeProfile;
+    private Vector2 activeDirection = Vector2.right;
+    private float activeElapsed;
+    private float activeNormalized;
 
     public bool IsTelegraphing => activeTelegraph != null;
 
@@ -35,6 +45,7 @@ public class EnemyAttackTelegraph : MonoBehaviour
         originalLocalScale = visualRoot.localScale;
         originalLocalRotation = visualRoot.localRotation;
         originalColors = new Color[spriteRenderers.Length];
+        debugRendererCount = spriteRenderers.Length;
         for (int i = 0; i < spriteRenderers.Length; i++)
             if (spriteRenderers[i] != null) originalColors[i] = spriteRenderers[i].color;
     }
@@ -57,7 +68,26 @@ public class EnemyAttackTelegraph : MonoBehaviour
     public void CancelTelegraph()
     {
         if (activeTelegraph != null) { StopCoroutine(activeTelegraph); activeTelegraph = null; }
+        ClearActiveVisualPass();
         RestoreVisuals();
+    }
+
+    /// <summary>
+    /// Applies the telegraph after normal enemy animation/visual scripts. This keeps
+    /// the warning readable even when another component also writes the child sprite
+    /// transform during Update or LateUpdate.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (activeProfile == null)
+            return;
+
+        ApplyTelegraphFrame(
+            activeProfile,
+            activeElapsed,
+            activeNormalized,
+            activeDirection
+        );
     }
 
     private IEnumerator TelegraphRoutine(EnemyTelegraphProfile profile, Vector2 lockedAttackDirection, Action onComplete)
@@ -65,19 +95,43 @@ public class EnemyAttackTelegraph : MonoBehaviour
         float duration = Mathf.Max(0.01f, profile.duration);
         float elapsed = 0f;
         Vector2 direction = lockedAttackDirection.sqrMagnitude > 0.0001f ? lockedAttackDirection.normalized : Vector2.right;
+        activeProfile = profile;
+        activeDirection = direction;
+        debugActiveProfile = profile.name;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float normalized = Mathf.Clamp01(elapsed / duration);
-            UpdatePosition(profile, elapsed, normalized, direction);
-            UpdateScale(profile, normalized);
-            UpdateRotation(profile, elapsed, normalized);
-            UpdateFlash(profile, elapsed, normalized);
+            activeElapsed = elapsed;
+            activeNormalized = normalized;
+            debugNormalizedProgress = normalized;
             yield return null;
         }
+        ClearActiveVisualPass();
         RestoreVisuals();
         activeTelegraph = null;
         onComplete?.Invoke();
+    }
+
+    private void ApplyTelegraphFrame(
+        EnemyTelegraphProfile profile,
+        float elapsed,
+        float normalized,
+        Vector2 direction)
+    {
+        UpdatePosition(profile, elapsed, normalized, direction);
+        UpdateScale(profile, normalized);
+        UpdateRotation(profile, elapsed, normalized);
+        UpdateFlash(profile, elapsed, normalized);
+    }
+
+    private void ClearActiveVisualPass()
+    {
+        activeProfile = null;
+        activeElapsed = 0f;
+        activeNormalized = 0f;
+        debugActiveProfile = "None";
+        debugNormalizedProgress = 0f;
     }
 
     private void UpdatePosition(EnemyTelegraphProfile profile, float elapsed, float normalized, Vector2 direction)

@@ -169,7 +169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97fb00bfedb6d874f84760fb4ece772d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 10
+  speed: 15
   lifetime: 2.5
   hitMask:
     serializedVersion: 2
@@ -189,6 +189,11 @@ MonoBehaviour:
   spawnProtectionTravelDistance: 0.45
   spawnCollisionMinimumAimDot: 0.8
   protectAgainstSpawnObstacleClips: 0
+  spawnObstacleProtectionMask:
+    serializedVersion: 2
+    m_Bits: 0
+  spawnObstacleProtectionTravelDistance: 0.55
   spawnObstacleForwardDotThreshold: 0.55
   spawnObstacleMinimumForwardDistance: 0.05
   logSpawnObstacleProtection: 0
+  logHits: 0

@@ -23,6 +23,9 @@ public class CharacterDefinition : ScriptableObject
     public float apRegenPerSecond = 0f;
     public int apGainOnBasicHit = 5;
 
+    [Tooltip("How close this character must be before loose AP particles begin flying toward the combat pawn.")]
+    [Min(0f)] public float apMagnetizationRange = 3f;
+
     [Header("Basic Attack")]
     public BasicAttackType basicAttackType = BasicAttackType.Melee;
 

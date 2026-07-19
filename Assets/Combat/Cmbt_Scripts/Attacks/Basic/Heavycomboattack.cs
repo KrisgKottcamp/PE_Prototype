@@ -6,8 +6,8 @@ using static CharacterDefinition;
 /// HeavyComboAttack — Imogen's basic attack.
 ///
 /// One click fires the full two-hit combo automatically:
-///   Hit 1: Immediate. Damage + stun. No knockback.
-///   Hit 2: After comboPunchDelay seconds. Damage + stun + knockback away from player.
+///   Hit 1: Immediate. Damage + tight reaction. No knockback.
+///   Hit 2: After comboPunchDelay seconds. Damage + stronger reaction + knockback.
 /// After hit 2 completes there is a comboCooldown before the player can attack again.
 ///
 /// Phase 2 aggression change:
@@ -44,15 +44,16 @@ public class HeavyComboAttack : MonoBehaviour
     [Tooltip("Damage dealt by the first punch.")]
     [SerializeField] private int hit1Damage = 6;
 
-    [Tooltip("Stun duration applied by the first punch.")]
-    [SerializeField] private float hit1StunSeconds = 0.15f;
-
     [Header("Hit 2")]
     [Tooltip("Damage dealt by the second punch.")]
     [SerializeField] private int hit2Damage = 10;
 
-    [Tooltip("Stun duration applied by the second punch.")]
-    [SerializeField] private float hit2StunSeconds = 0.25f;
+    [Header("Basic Attack Enemy Reaction")]
+    [SerializeField] private BasicAttackReactionSettings hit1Reaction =
+        BasicAttackReactionSettings.Create(0.055f, 0.14f, 0.75f);
+
+    [SerializeField] private BasicAttackReactionSettings hit2Reaction =
+        BasicAttackReactionSettings.Create(0.09f, 0.16f, 0.75f);
 
     [Tooltip(
         "Force of the knockback on the second hit. " +
@@ -62,6 +63,20 @@ public class HeavyComboAttack : MonoBehaviour
 
     [Tooltip("Duration of the knockback movement on the second hit.")]
     [SerializeField] private float knockbackDuration = 0.18f;
+
+    [Header("Hitstop")]
+    [Tooltip("Weight for Imogen's opening punch.")]
+    [SerializeField] private HitstopSettings hit1Hitstop =
+        HitstopSettings.Create(0.040f, 0.04f);
+
+    [Tooltip("Strongest basic-attack hitstop for Imogen's knockback finisher.")]
+    [SerializeField] private HitstopSettings hit2Hitstop =
+        HitstopSettings.Create(0.070f, 0.018f);
+
+    [Header("Camera Shake")]
+    [Tooltip("Small camera impact on Imogen's knockback finisher only.")]
+    [SerializeField] private CameraShakeSettings hit2CameraShake =
+        CameraShakeSettings.Create(0.18f, 0.10f);
 
     [Header("Attack Momentum")]
     [Tooltip(
@@ -250,7 +265,6 @@ public class HeavyComboAttack : MonoBehaviour
 
         DoHit(
             hit1Damage,
-            hit1StunSeconds,
             applyKnockback: false,
             comboAimDir,
             hit1MomentumGain
@@ -265,7 +279,6 @@ public class HeavyComboAttack : MonoBehaviour
 
         DoHit(
             hit2Damage,
-            hit2StunSeconds,
             applyKnockback: true,
             comboAimDir,
             hit2MomentumGain
@@ -278,7 +291,6 @@ public class HeavyComboAttack : MonoBehaviour
 
     private void DoHit(
         int damage,
-        float stunSeconds,
         bool applyKnockback,
         Vector2 dir,
         float momentumGain)
@@ -344,7 +356,13 @@ public class HeavyComboAttack : MonoBehaviour
                 enemy.GetComponentInParent<EnemyStunnable>();
 
             if (stunnable != null)
-                stunnable.Stun(stunSeconds);
+            {
+                BasicAttackReactionSettings reaction = applyKnockback
+                    ? hit2Reaction
+                    : hit1Reaction;
+
+                reaction.Apply(stunnable);
+            }
 
             if (applyKnockback)
             {
@@ -376,7 +394,22 @@ public class HeavyComboAttack : MonoBehaviour
 
         if (uniqueCount > 0)
         {
-            GrantAP();
+            HitstopManager.Request(
+                applyKnockback
+                    ? hit2Hitstop
+                    : hit1Hitstop
+            );
+
+            if (applyKnockback)
+            {
+                CombatCameraShake.Request(
+                    hit2CameraShake,
+                    center,
+                    dir
+                );
+            }
+
+            SpawnAPParticles(uniqueCount);
 
             AttackMomentumManager.Instance?.RegisterMomentum(
                 momentumGain
@@ -403,7 +436,7 @@ public class HeavyComboAttack : MonoBehaviour
         }
     }
 
-    private void GrantAP()
+    private void SpawnAPParticles(int uniqueCount)
     {
         PartyManager pm = PartyManager.Instance;
 
@@ -415,13 +448,13 @@ public class HeavyComboAttack : MonoBehaviour
         if (active == null || active.def == null)
             return;
 
-        int maxAP = Mathf.Max(0, active.def.maxAP);
         int gain = Mathf.Max(0, active.def.apGainOnBasicHit);
 
-        active.currentAP = Mathf.Clamp(
-            active.currentAP + gain,
-            0,
-            maxAP
+        APParticleSystem.SpawnRewardAcrossEnemies(
+            uniqueEnemies,
+            uniqueCount,
+            gain,
+            hitOrigin.position
         );
     }
 

@@ -334,6 +334,10 @@ public class PlayerFocusMode : MonoBehaviour
 
         float targetScale = Mathf.Clamp(focusTimeScale, 0.5f, 1f);
 
+        // Focus is a sustained time-scale owner. Finish any short hitstop first
+        // so preFocusTimeScale cannot capture a transient blend value.
+        HitstopManager.ReleaseForExternalTimeControl();
+
         // If another system has already slowed time more than Focus Mode would,
         // do not override it. Example: the skill menu at 0.12.
         if (avoidOverridingStrongerSlow && Time.timeScale < targetScale - TimeScaleEpsilon)

@@ -69,6 +69,11 @@ public class Projectile : MonoBehaviour
     [SerializeField] private bool tintTrailRenderersOnReflect = true;
     [SerializeField] private bool tintLineRenderersOnReflect = true;
 
+    [Header("Reflected Hitstop")]
+    [Tooltip("Applied when a Push Back-reflected projectile damages an enemy.")]
+    [SerializeField] private HitstopSettings reflectedHitstop =
+        HitstopSettings.Create(0.040f, 0.04f);
+
     private Vector2 direction = Vector2.right;
     private bool initialized = false;
     private float armedAt = 0f;
@@ -251,6 +256,8 @@ public class Projectile : MonoBehaviour
                 enemy.TakeDamage(damage);
             }
 
+            HitstopManager.Request(reflectedHitstop);
+
             Destroy(gameObject);
             return;
         }
@@ -338,6 +345,7 @@ public class Projectile : MonoBehaviour
                 : damage;
 
             enemy.TakeDamage(reflectedDamage);
+            HitstopManager.Request(reflectedHitstop);
             return;
         }
 

@@ -53,6 +53,11 @@ public class OilSpillDetonator : MonoBehaviour
     [SerializeField] private LayerMask enemyMask;
     [SerializeField] private int maxTargets = 32;
 
+    [Header("Detonation Hitstop")]
+    [Tooltip("One strong pause when ignition catches at least one enemy. Burn ticks deliberately do not request hitstop.")]
+    [SerializeField] private HitstopSettings detonationHitstop =
+        HitstopSettings.Create(0.085f, 0.012f);
+
     [Header("Ignition")]
     [SerializeField] private bool destroyIgnitingProjectile = true;
 
@@ -134,7 +139,10 @@ public class OilSpillDetonator : MonoBehaviour
         float radius = GetExplosionRadius();
 
         SpawnExplosionVfx(center);
-        ApplyBurnToEnemies(center, radius);
+        int affectedEnemies = ApplyBurnToEnemies(center, radius);
+
+        if (affectedEnemies > 0)
+            HitstopManager.Request(detonationHitstop);
 
         if (hideOilAfterDetonation)
             HideOil();
@@ -156,7 +164,7 @@ public class OilSpillDetonator : MonoBehaviour
         return Mathf.Max(0.01f, zoneCollider.radius * scale);
     }
 
-    private void ApplyBurnToEnemies(Vector2 center, float radius)
+    private int ApplyBurnToEnemies(Vector2 center, float radius)
     {
         if (enemyMask.value == 0)
         {
@@ -164,7 +172,7 @@ public class OilSpillDetonator : MonoBehaviour
                 "OilSpillDetonator: enemyMask is empty. Set it to EnemyHurtbox.",
                 this
             );
-            return;
+            return 0;
         }
 
         int count = Physics2D.OverlapCircleNonAlloc(
@@ -214,6 +222,8 @@ public class OilSpillDetonator : MonoBehaviour
                 break;
             }
         }
+
+        return uniqueCount;
     }
 
     private void StartBurn(EnemyHealth enemy)

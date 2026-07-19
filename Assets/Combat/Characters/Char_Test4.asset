@@ -18,6 +18,7 @@ MonoBehaviour:
   maxAP: 500
   apRegenPerSecond: 0
   apGainOnBasicHit: 5
+  apMagnetizationRange: 2.3
   basicAttackType: 3
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills:
