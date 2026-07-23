@@ -139,6 +139,10 @@ MonoBehaviour:
   smoothHealthChanges: 1
   healthSmoothSpeed: 12
   showMaximumHealth: 1
+  flashHealthBarOnHeal: 1
+  healingFlashColor: {r: 0.12, g: 1, b: 0.3, a: 1}
+  healingFlashDuration: 0.3
+  healingFlashPulseCount: 1
   knockedOutAlpha: 0.55
   normalAlpha: 1
   missingNameText: Unknown

@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -48,6 +49,13 @@ public class PartyHealthRow : MonoBehaviour
     [SerializeField]
     private bool showMaximumHealth = true;
 
+    [Header("Healing Flash")]
+    [SerializeField] private bool flashHealthBarOnHeal = true;
+    [SerializeField] private Color healingFlashColor =
+        new Color(0.12f, 1f, 0.30f, 1f);
+    [SerializeField, Min(0.05f)] private float healingFlashDuration = 1f;
+    [SerializeField, Min(0f)] private float healingFlashPulseCount = 3f;
+
     [Header("Knocked Out Appearance")]
     [SerializeField, Range(0f, 1f)]
     private float knockedOutAlpha = 0.55f;
@@ -73,6 +81,9 @@ public class PartyHealthRow : MonoBehaviour
 
     private float displayedHealth01 = 1f;
     private bool hasInitializedFill;
+    private Color baseHPFillColor = Color.white;
+    private bool hasCapturedBaseHPColor;
+    private Coroutine healingFlashRoutine;
 
     public int BoundPartyIndex => boundPartyIndex;
 
@@ -82,6 +93,18 @@ public class PartyHealthRow : MonoBehaviour
     private void Awake()
     {
         ValidateSetup();
+        CaptureBaseHPFillColor();
+    }
+
+    private void OnEnable()
+    {
+        PartyManager.PartyMemberHealed += HandlePartyMemberHealed;
+    }
+
+    private void OnDisable()
+    {
+        PartyManager.PartyMemberHealed -= HandlePartyMemberHealed;
+        StopHealingFlash(restoreColor: true);
     }
 
     /// <summary>
@@ -304,6 +327,80 @@ public class PartyHealthRow : MonoBehaviour
 
         if (rowCanvasGroup != null)
             rowCanvasGroup.alpha = normalAlpha;
+    }
+
+    private void HandlePartyMemberHealed(
+        int healedPartyIndex,
+        int restoredAmount)
+    {
+        if (!flashHealthBarOnHeal || restoredAmount <= 0 ||
+            healedPartyIndex != boundPartyIndex || hpFill == null)
+        {
+            return;
+        }
+
+        StartHealingFlash();
+    }
+
+    private void StartHealingFlash()
+    {
+        CaptureBaseHPFillColor();
+        StopHealingFlash(restoreColor: true);
+        healingFlashRoutine = StartCoroutine(HealingFlashRoutine());
+    }
+
+    private IEnumerator HealingFlashRoutine()
+    {
+        float duration = Mathf.Max(0.05f, healingFlashDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float normalized = Mathf.Clamp01(elapsed / duration);
+            float pulse = healingFlashPulseCount > 0f
+                ? Mathf.Lerp(
+                    0.68f,
+                    1f,
+                    Mathf.Abs(Mathf.Cos(
+                        normalized * Mathf.PI * healingFlashPulseCount
+                    ))
+                )
+                : 1f;
+            float strength = (1f - normalized) * pulse;
+
+            hpFill.color = Color.Lerp(
+                baseHPFillColor,
+                healingFlashColor,
+                strength
+            );
+
+            yield return null;
+        }
+
+        hpFill.color = baseHPFillColor;
+        healingFlashRoutine = null;
+    }
+
+    private void CaptureBaseHPFillColor()
+    {
+        if (hasCapturedBaseHPColor || hpFill == null)
+            return;
+
+        baseHPFillColor = hpFill.color;
+        hasCapturedBaseHPColor = true;
+    }
+
+    private void StopHealingFlash(bool restoreColor)
+    {
+        if (healingFlashRoutine != null)
+        {
+            StopCoroutine(healingFlashRoutine);
+            healingFlashRoutine = null;
+        }
+
+        if (restoreColor && hpFill != null && hasCapturedBaseHPColor)
+            hpFill.color = baseHPFillColor;
     }
 
     private void ValidateSetup()

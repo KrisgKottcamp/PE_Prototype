@@ -435,15 +435,10 @@ public class CombatSkillSystem : MonoBehaviour
         if (target == null || target.def == null)
             return false;
 
-        int before = target.currentHP;
-
-        target.currentHP = Mathf.Clamp(
-            target.currentHP + skill.heal,
-            0,
-            target.def.maxHP
-        );
-
-        return target.currentHP > before;
+        return pm.HealPartyMember(
+            targetIndex,
+            skill.heal
+        ) > 0;
     }
 
     private void FireSkillProjectile(SkillDefinition skill, Vector2 dir, int ownerIndex)

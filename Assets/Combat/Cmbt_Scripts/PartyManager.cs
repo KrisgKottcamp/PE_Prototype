@@ -5,6 +5,12 @@ public class PartyManager : MonoBehaviour
 {
     public static PartyManager Instance { get; private set; }
 
+    /// <summary>
+    /// Raised after a party member actually recovers HP.
+    /// Arguments are party index and the amount of HP restored.
+    /// </summary>
+    public static event System.Action<int, int> PartyMemberHealed;
+
     [Header("Party Setup")]
     [SerializeField] private List<CharacterDefinition> partyDefinitions = new();
 
@@ -76,6 +82,41 @@ public class PartyManager : MonoBehaviour
 
         active.currentAP = Mathf.Clamp(before + amount, 0, maximum);
         return active.currentAP - before;
+    }
+
+    /// <summary>
+    /// Shared healing entry point. Future spells, items, and regeneration can
+    /// use this so health UI and other positive feedback stay synchronized.
+    /// Returns the amount of HP that was actually restored.
+    /// </summary>
+    public int HealPartyMember(int partyIndex, int amount)
+    {
+        if (amount <= 0 || party == null ||
+            partyIndex < 0 || partyIndex >= party.Count)
+        {
+            return 0;
+        }
+
+        CharacterState target = party[partyIndex];
+
+        if (target == null || target.def == null)
+            return 0;
+
+        int maximumHP = Mathf.Max(0, target.def.maxHP);
+        int before = Mathf.Clamp(target.currentHP, 0, maximumHP);
+
+        target.currentHP = Mathf.Clamp(
+            before + amount,
+            0,
+            maximumHP
+        );
+
+        int restored = target.currentHP - before;
+
+        if (restored > 0)
+            PartyMemberHealed?.Invoke(partyIndex, restored);
+
+        return restored;
     }
 
     public void SwapNext()
