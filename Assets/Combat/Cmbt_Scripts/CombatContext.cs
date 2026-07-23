@@ -37,7 +37,6 @@ public class CombatContext : MonoBehaviour
         "roster, background, obstacle choices, and placement attempts."
     )]
     public int proceduralSeed = 0;
-    public int proceduralSeed;
 
     [Header("Overworld Encounter Runtime Data")]
     [Tooltip(
