@@ -102,6 +102,12 @@ public class DamageFlash2D : MonoBehaviour
 
     public void PlayFlash()
     {
+        // Damage and healing flashes can target the same sprite. Never capture
+        // the green flash material as the character's original material.
+        HealingFeedback2D healingFeedback =
+            GetComponent<HealingFeedback2D>();
+        healingFeedback?.CancelGreenFlashAndRestore();
+
         if (!EnsureReady())
             return;
 
@@ -112,6 +118,21 @@ public class DamageFlash2D : MonoBehaviour
             CaptureAndApplyFlashMaterials();
 
         flashRoutine = StartCoroutine(FlashRoutine());
+    }
+
+    /// <summary>
+    /// Ends an active white flash immediately and restores the real sprite
+    /// material. Healing feedback calls this before taking material ownership.
+    /// </summary>
+    public void CancelFlashAndRestore()
+    {
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        RestoreOriginalMaterials();
     }
 
     private bool EnsureReady()
@@ -255,18 +276,18 @@ public class DamageFlash2D : MonoBehaviour
                lower.Contains("telegraph") ||
                lower.Contains("debug") ||
                lower.Contains("preview") ||
-               lower.Contains("shadow");
+               lower.Contains("shadow") ||
+               lower.Contains("rotationpressure") ||
+               lower.Contains("apreadyglow") ||
+               lower.Contains("worldap") ||
+               lower.Contains("eriworldstatus") ||
+               lower.Contains("erirefusal") ||
+               lower.Contains("healingrefusal");
     }
 
     private void OnDisable()
     {
-        if (flashRoutine != null)
-        {
-            StopCoroutine(flashRoutine);
-            flashRoutine = null;
-        }
-
-        RestoreOriginalMaterials();
+        CancelFlashAndRestore();
     }
 
     private void OnDestroy()

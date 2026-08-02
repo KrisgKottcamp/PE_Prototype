@@ -384,7 +384,15 @@ MonoBehaviour:
   proceduralProfile: {fileID: 11400000, guid: 6c6da09371bdb664090658fd81d809aa, type: 2}
   proceduralSeed: 0
   activeEncounterId: 
-  removeEncounterOnVictory: 0
+  overworldReturnPlayerPosition: {x: 0, y: 0, z: 0}
+  overworldReturnEnemyPosition: {x: 0, y: 0, z: 0}
+  overworldReturnGraceSeconds: 4
+  hasExactOverworldReturn: 0
+  hasOverworldEncounterResult: 0
+  overworldEncounterWon: 0
+  playerOpeningAdvantage: 0
+  openingAdvantageAPPercent: 0.05
+  openingAdvantageConsumed: 0
 --- !u!1 &503756913
 GameObject:
   m_ObjectHideFlags: 0
@@ -565,6 +573,7 @@ GameObject:
   m_Component:
   - component: {fileID: 599064286}
   - component: {fileID: 599064287}
+  - component: {fileID: 599064288}
   m_Layer: 0
   m_Name: PartyManager
   m_TagString: Untagged
@@ -606,6 +615,30 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a31d79765153db344870948ab7d6b128, type: 2}
   activeIndex: 0
   party: []
+--- !u!114 &599064288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 599064285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f0d1cf06db54ed999073a7e0ada7e01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EriSupportManager
+  startingCapacity: 8
+  maximumCapacity: 12
+  unlockedCapacity: 8
+  currentHealingPoints: 8
+  partyHealFraction: 0.33333334
+  revivalPointCost: 2
+  partyReviveFraction: 0.33333334
+  eriMaximumHP: 300
+  eriCurrentHP: 300
+  eriSelfHealFraction: 0.25
+  eriSelfReviveFraction: 0.25
+  emergencyReviveCharacterName: Audrey
 --- !u!1 &693439719
 GameObject:
   m_ObjectHideFlags: 0

@@ -271,7 +271,11 @@ public class ArenaNavigationGrid : MonoBehaviour
             start,
             end,
             scratch,
-            false
+            false,
+            null,
+            0f,
+            0f,
+            0f
         );
     }
 
@@ -286,7 +290,11 @@ public class ArenaNavigationGrid : MonoBehaviour
                 start,
                 end,
                 scratch,
-                false))
+                false,
+                null,
+                0f,
+                0f,
+                0f))
         {
             return float.PositiveInfinity;
         }
@@ -319,7 +327,42 @@ public class ArenaNavigationGrid : MonoBehaviour
             start,
             end,
             output,
-            true
+            true,
+            null,
+            0f,
+            0f,
+            0f
+        );
+    }
+
+    /// <summary>
+    /// Finds a route that balances travel distance against exposure to moving
+    /// threats. A priority of zero is the ordinary shortest path. Higher
+    /// values allow a longer route when it keeps the agent farther from the
+    /// supplied threat positions.
+    /// </summary>
+    public bool TryFindPathAvoidingThreats(
+        Vector2 start,
+        Vector2 end,
+        IReadOnlyList<Vector2> threatPositions,
+        float safetyPriority,
+        float threatRadius,
+        float criticalDistance,
+        List<Vector2> output)
+    {
+        return TryFindPath(
+            start,
+            end,
+            output,
+            true,
+            threatPositions,
+            Mathf.Clamp01(safetyPriority),
+            Mathf.Max(0.1f, threatRadius),
+            Mathf.Clamp(
+                criticalDistance,
+                0.05f,
+                Mathf.Max(0.1f, threatRadius)
+            )
         );
     }
 
@@ -352,7 +395,11 @@ public class ArenaNavigationGrid : MonoBehaviour
         Vector2 start,
         Vector2 end,
         List<Vector2> output,
-        bool storeDebugPath)
+        bool storeDebugPath,
+        IReadOnlyList<Vector2> threatPositions,
+        float safetyPriority,
+        float threatRadius,
+        float criticalDistance)
     {
         output.Clear();
 
@@ -547,9 +594,32 @@ public class ArenaNavigationGrid : MonoBehaviour
                             ? 1.41421356f
                             : 1f;
 
+                    float danger =
+                        CalculateThreatDanger(
+                            neighbor.world,
+                            threatPositions,
+                            threatRadius,
+                            criticalDistance
+                        );
+
+                    // Distance always matters. Safety adds traversal cost only
+                    // where a route enters an enemy's influence, so an equally
+                    // safe shorter path still wins.
+                    float dangerMultiplier =
+                        1f +
+                        danger *
+                        Mathf.Lerp(
+                            0f,
+                            12f,
+                            Mathf.Pow(
+                                safetyPriority,
+                                1.25f
+                            )
+                        );
+
                     float tentative =
                         gScore[current] +
-                        stepCost;
+                        stepCost * dangerMultiplier;
 
                     if (tentative >=
                         gScore[neighborIndex])
@@ -602,17 +672,235 @@ public class ArenaNavigationGrid : MonoBehaviour
 
         raw.Reverse();
 
-        SmoothPath(
-            start,
-            end,
-            raw,
-            output
-        );
+        if (threatPositions != null &&
+            threatPositions.Count > 0 &&
+            safetyPriority > 0.001f)
+        {
+            SmoothDangerAwarePath(
+                start,
+                end,
+                raw,
+                threatPositions,
+                threatRadius,
+                criticalDistance,
+                output
+            );
+        }
+        else
+        {
+            SmoothPath(
+                start,
+                end,
+                raw,
+                output
+            );
+        }
 
         if (storeDebugPath)
             StoreDebugPath(output);
 
         return true;
+    }
+
+    private void SmoothDangerAwarePath(
+        Vector2 actualStart,
+        Vector2 actualEnd,
+        List<Vector2> raw,
+        IReadOnlyList<Vector2> threatPositions,
+        float threatRadius,
+        float criticalDistance,
+        List<Vector2> output)
+    {
+        output.Clear();
+
+        if (raw.Count == 0)
+        {
+            output.Add(actualEnd);
+            return;
+        }
+
+        List<Vector2> candidates =
+            new List<Vector2>(raw);
+
+        candidates[0] = actualStart;
+        candidates[
+            candidates.Count - 1
+        ] = actualEnd;
+
+        float[] cumulativeRoutedExposure =
+            new float[candidates.Count];
+
+        for (int i = 1;
+             i < candidates.Count;
+             i++)
+        {
+            cumulativeRoutedExposure[i] =
+                cumulativeRoutedExposure[i - 1] +
+                EstimateSegmentThreatExposure(
+                    candidates[i - 1],
+                    candidates[i],
+                    threatPositions,
+                    threatRadius,
+                    criticalDistance
+                );
+        }
+
+        int anchor = 0;
+
+        while (anchor <
+               candidates.Count - 1)
+        {
+            int furthest =
+                candidates.Count - 1;
+
+            while (furthest >
+                   anchor + 1)
+            {
+                bool clearGeometry =
+                    HasClearPath(
+                        candidates[anchor],
+                        candidates[furthest]
+                    );
+
+                float shortcutExposure =
+                    EstimateSegmentThreatExposure(
+                        candidates[anchor],
+                        candidates[furthest],
+                        threatPositions,
+                        threatRadius,
+                        criticalDistance
+                    );
+
+                float routedExposure =
+                    cumulativeRoutedExposure[furthest] -
+                    cumulativeRoutedExposure[anchor];
+
+                // Never let smoothing undo the safe route selected by A*.
+                // The small tolerance prevents harmless grid noise from
+                // leaving an excessive number of tiny waypoints.
+                bool preservesSafety =
+                    shortcutExposure <=
+                    routedExposure + cellSize * 0.2f;
+
+                if (clearGeometry && preservesSafety)
+                    break;
+
+                furthest--;
+            }
+
+            output.Add(
+                candidates[furthest]
+            );
+
+            anchor = furthest;
+        }
+    }
+
+    private float EstimateSegmentThreatExposure(
+        Vector2 start,
+        Vector2 end,
+        IReadOnlyList<Vector2> threatPositions,
+        float threatRadius,
+        float criticalDistance)
+    {
+        float distance =
+            Vector2.Distance(start, end);
+
+        if (distance <= 0.001f)
+        {
+            return CalculateThreatDanger(
+                start,
+                threatPositions,
+                threatRadius,
+                criticalDistance
+            );
+        }
+
+        int sampleCount =
+            Mathf.Max(
+                1,
+                Mathf.CeilToInt(
+                    distance /
+                    Mathf.Max(0.1f, cellSize * 0.5f)
+                )
+            );
+
+        float stepLength =
+            distance / sampleCount;
+        float exposure = 0f;
+
+        for (int i = 0;
+             i < sampleCount;
+             i++)
+        {
+            float t =
+                (i + 0.5f) /
+                sampleCount;
+
+            exposure +=
+                CalculateThreatDanger(
+                    Vector2.Lerp(start, end, t),
+                    threatPositions,
+                    threatRadius,
+                    criticalDistance
+                ) * stepLength;
+        }
+
+        return exposure;
+    }
+
+    private static float CalculateThreatDanger(
+        Vector2 position,
+        IReadOnlyList<Vector2> threatPositions,
+        float threatRadius,
+        float criticalDistance)
+    {
+        if (threatPositions == null ||
+            threatPositions.Count == 0 ||
+            threatRadius <= 0f)
+        {
+            return 0f;
+        }
+
+        float totalDanger = 0f;
+
+        for (int i = 0;
+             i < threatPositions.Count;
+             i++)
+        {
+            float distance =
+                Vector2.Distance(
+                    position,
+                    threatPositions[i]
+                );
+
+            if (distance >= threatRadius)
+                continue;
+
+            float influence =
+                1f - distance / threatRadius;
+
+            float danger =
+                influence * influence;
+
+            if (distance < criticalDistance)
+            {
+                danger +=
+                    1f +
+                    (1f -
+                     distance /
+                     Mathf.Max(
+                         0.05f,
+                         criticalDistance
+                     )) * 2f;
+            }
+
+            totalDanger += danger;
+        }
+
+        // Multiple enemies make a corridor more dangerous, while the cap
+        // keeps path costs numerically well behaved in crowded encounters.
+        return Mathf.Min(4f, totalDanger);
     }
 
     private void SmoothPath(

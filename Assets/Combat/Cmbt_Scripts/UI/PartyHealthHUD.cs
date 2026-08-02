@@ -105,6 +105,80 @@ public class PartyHealthHUD : MonoBehaviour
         RefreshRows(partyManager);
     }
 
+    /// <summary>
+    /// Gives living inactive party rows a restrained continuous readiness cue.
+    /// The cost-pressure UI owns the strength; this HUD only forwards it to
+    /// rows that are actually valid swap targets.
+    /// </summary>
+    public void SetRotationReadyCue(float strength)
+    {
+        PartyManager partyManager =
+            PartyManager.Instance;
+
+        strength = Mathf.Clamp01(strength);
+
+        for (int i = 0;
+             i < rows.Count;
+             i++)
+        {
+            PartyHealthRow row = rows[i];
+
+            if (row == null)
+                continue;
+
+            bool eligible =
+                partyManager != null &&
+                partyManager.party != null &&
+                i < partyManager.party.Count &&
+                i != partyManager.activeIndex &&
+                partyManager.party[i] != null &&
+                partyManager.party[i].currentHP > 0;
+
+            row.SetRotationReadyCue(
+                eligible ? strength : 0f,
+                oneShot: false
+            );
+        }
+    }
+
+    /// <summary>
+    /// Plays the stronger one-time cue when rotation first becomes advisable.
+    /// </summary>
+    public void TriggerRotationReadyPulse()
+    {
+        PartyManager partyManager =
+            PartyManager.Instance;
+
+        if (partyManager == null ||
+            partyManager.party == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < rows.Count &&
+             i < partyManager.party.Count;
+             i++)
+        {
+            PartyHealthRow row = rows[i];
+            PartyManager.CharacterState state =
+                partyManager.party[i];
+
+            if (row == null ||
+                i == partyManager.activeIndex ||
+                state == null ||
+                state.currentHP <= 0)
+            {
+                continue;
+            }
+
+            row.SetRotationReadyCue(
+                1f,
+                oneShot: true
+            );
+        }
+    }
+
     private void TryRebuildRows(bool force)
     {
         PartyManager partyManager = PartyManager.Instance;

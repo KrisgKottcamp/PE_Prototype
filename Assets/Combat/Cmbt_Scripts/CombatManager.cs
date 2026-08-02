@@ -5,9 +5,18 @@ public class CombatManager : MonoBehaviour
 {
     [Header("Prefabs")]
     [SerializeField] private GameObject combatPlayerPawnPrefab;
+    [SerializeField] private EriCombatCompanion eriCompanionPrefab;
 
     [Header("Scene References")]
     [SerializeField] private Transform playerSpawn;
+    [SerializeField] private Transform eriSpawn;
+
+    [Tooltip(
+        "Used when no dedicated Eri spawn is assigned."
+    )]
+    [SerializeField]
+    private Vector2 eriSpawnOffset =
+        new Vector2(-1.5f, 1f);
 
     [Tooltip(
         "Used only by Manual encounters, including boss arenas."
@@ -56,6 +65,7 @@ public class CombatManager : MonoBehaviour
     [SerializeField] private bool logRankBreakdown = true;
 
     private GameObject pawnInstance;
+    private EriCombatCompanion eriInstance;
     private readonly List<EnemyHealth> livingEnemies = new();
 
     private int encounterEnemyCount;
@@ -64,6 +74,7 @@ public class CombatManager : MonoBehaviour
     private int partyMemberDeaths;
 
     private bool combatEnded;
+    private bool defeatDeferredForEri;
     private float normalFixedDeltaTime;
 
     public static CombatManager Instance { get; private set; }
@@ -89,6 +100,7 @@ public class CombatManager : MonoBehaviour
             resultsPanel.HideImmediately();
 
         SpawnPlayerPawn();
+        SpawnEriCompanion();
         ApplyOpeningAdvantage();
         InitializeAttackMomentum();
         SpawnEncounterFromContext();
@@ -237,6 +249,57 @@ public class CombatManager : MonoBehaviour
             position,
             Quaternion.identity
         );
+    }
+
+    private void SpawnEriCompanion()
+    {
+        eriInstance =
+            FindObjectOfType<EriCombatCompanion>(true);
+
+        if (eriInstance != null)
+            return;
+
+        if (eriCompanionPrefab == null)
+        {
+            eriCompanionPrefab =
+                Resources.Load<EriCombatCompanion>(
+                    "EriSupport/EriCompanion_Prototype"
+                );
+        }
+
+        if (eriCompanionPrefab == null)
+        {
+            Debug.LogWarning(
+                "CombatManager: No Eri companion is present and no Eri Companion Prefab is assigned. Call Eri will be unavailable.",
+                this
+            );
+            return;
+        }
+
+        Vector3 position;
+
+        if (eriSpawn != null)
+        {
+            position = eriSpawn.position;
+        }
+        else if (pawnInstance != null)
+        {
+            position =
+                pawnInstance.transform.position +
+                (Vector3)eriSpawnOffset;
+        }
+        else
+        {
+            position =
+                (Vector3)eriSpawnOffset;
+        }
+
+        eriInstance =
+            Instantiate(
+                eriCompanionPrefab,
+                position,
+                Quaternion.identity
+            );
     }
 
     private void SpawnEncounterFromContext()
@@ -487,6 +550,9 @@ public class CombatManager : MonoBehaviour
 
         if (!anyAlive)
         {
+            if (TryDeferDefeatForEri())
+                return;
+
             EndCombatDefeat();
             return;
         }
@@ -499,25 +565,94 @@ public class CombatManager : MonoBehaviour
             return;
         }
 
+        CombatPawn pawn =
+            FindObjectOfType<CombatPawn>(true);
+
+        pawn?.
+            ContinueAfterPartySwap();
+
         CombatLockout lockout =
             FindObjectOfType<CombatLockout>(true);
 
         lockout?.TriggerLockout();
     }
 
-private void EndCombatVictory()
-{
-    if (combatEnded)
-        return;
+    private bool TryDeferDefeatForEri()
+    {
+        EriCombatCompanion eri =
+            EriCombatCompanion.ActiveInstance;
 
-    combatEnded = true;
-    APParticleSystem.Instance?.ClearAll();
-    ResolveOverworldEncounter(true);
+        if (eri == null)
+            return false;
 
-    AttackMomentumResult encounterResult =
-        attackMomentum != null
-            ? attackMomentum.CompleteEncounter(true)
-            : default;
+        bool rescueQueued =
+            eri.HasPendingRequest ||
+            eri.TryBeginEmergencyAudreyRevival();
+
+        if (!rescueQueued)
+            return false;
+
+        defeatDeferredForEri = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Called by Eri when an emergency delivery succeeds, becomes impossible,
+    /// or her self-revival timer expires.
+    /// </summary>
+    public void ReevaluateDeferredPartyDefeat()
+    {
+        if (combatEnded ||
+            !defeatDeferredForEri)
+        {
+            return;
+        }
+
+        PartyManager partyManager =
+            PartyManager.Instance;
+
+        if (partyManager != null)
+        {
+            for (int i = 0;
+                i < partyManager.party.Count;
+                i++)
+            {
+                if (partyManager.party[i].
+                    currentHP > 0)
+                {
+                    defeatDeferredForEri = false;
+                    return;
+                }
+            }
+        }
+
+        EriCombatCompanion eri =
+            EriCombatCompanion.ActiveInstance;
+
+        if (eri != null &&
+            (eri.HasPendingRequest ||
+             eri.TryBeginEmergencyAudreyRevival()))
+        {
+            return;
+        }
+
+        defeatDeferredForEri = false;
+        EndCombatDefeat();
+    }
+
+    private void EndCombatVictory()
+    {
+        if (combatEnded)
+            return;
+
+        combatEnded = true;
+        APParticleSystem.Instance?.ClearAll();
+        ResolveOverworldEncounter(true);
+
+        AttackMomentumResult encounterResult =
+            attackMomentum != null
+                ? attackMomentum.CompleteEncounter(true)
+                : default;
 
         float targetTime = ResolveTargetTime();
 
@@ -575,19 +710,19 @@ private void EndCombatVictory()
         }
     }
 
-private void EndCombatDefeat()
-{
-    if (combatEnded)
-        return;
+    private void EndCombatDefeat()
+    {
+        if (combatEnded)
+            return;
 
-    combatEnded = true;
-    APParticleSystem.Instance?.ClearAll();
-    ResolveOverworldEncounter(false);
-    attackMomentum?.CompleteEncounter(false);
+        combatEnded = true;
+        APParticleSystem.Instance?.ClearAll();
+        ResolveOverworldEncounter(false);
+        attackMomentum?.CompleteEncounter(false);
 
-    RestoreNormalTime();
-    ExitCombatToOverworld();
-}
+        RestoreNormalTime();
+        ExitCombatToOverworld();
+    }
 
     private void ResolveOverworldEncounter(bool playerWon)
     {
@@ -706,6 +841,9 @@ private void EndCombatDefeat()
 
         if (pawnInstance != null)
             Destroy(pawnInstance);
+
+        if (eriInstance != null)
+            Destroy(eriInstance.gameObject);
 
         if (SceneTransitionManager.Instance == null)
         {

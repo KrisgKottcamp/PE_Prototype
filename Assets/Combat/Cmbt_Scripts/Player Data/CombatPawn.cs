@@ -3,6 +3,13 @@ using UnityEngine;
 
 public class CombatPawn : MonoBehaviour
 {
+    /// <summary>
+    /// Raised when the shared combat pawn accepts damage.
+    /// Arguments are the active party index and actual HP lost.
+    /// Eri uses this to interrupt an in-progress healing delivery.
+    /// </summary>
+    public static event System.Action<int, int> AcceptedDamage;
+
     [Header("Hit Settings")]
     [SerializeField] private float invulnSeconds = 0.6f;
     [SerializeField] private MonoBehaviour[] disableOnDeath;
@@ -20,7 +27,8 @@ public class CombatPawn : MonoBehaviour
 
     [Header("Player Damage Hitstop")]
     [Tooltip("Base hitstop when the active player accepts damage.")]
-    [SerializeField] private HitstopSettings damageHitstop =
+    [SerializeField]
+    private HitstopSettings damageHitstop =
         HitstopSettings.Create(0.055f, 0.025f);
 
     [Tooltip("Scales hitstop duration by the amount of health lost. The time scale remains unchanged.")]
@@ -37,7 +45,8 @@ public class CombatPawn : MonoBehaviour
 
     [Header("Player Damage Camera Shake")]
     [Tooltip("Camera impact requested whenever the player accepts damage.")]
-    [SerializeField] private CameraShakeSettings damageCameraShake =
+    [SerializeField]
+    private CameraShakeSettings damageCameraShake =
         CameraShakeSettings.Create(0.28f, 0.14f);
 
     [Tooltip("Damage at or above this value uses the maximum camera shake strength multiplier.")]
@@ -78,6 +87,7 @@ public class CombatPawn : MonoBehaviour
     [SerializeField, Min(0.01f)] private float flashInterval = 0.08f;
 
     public bool IsInvulnerable { get; private set; }
+    public bool IsDown { get; private set; }
 
     private Coroutine flashRoutine;
     private DamageFlash2D damageFlash;
@@ -131,20 +141,23 @@ public class CombatPawn : MonoBehaviour
             return;
         }
 
-        int hpBefore = active.currentHP;
+        int damagedPartyIndex =
+            partyManager.activeIndex;
 
-        active.currentHP = Mathf.Max(
-            0,
-            active.currentHP - amount
+        int actualDamage =
+            partyManager.DamagePartyMember(
+                damagedPartyIndex,
+                amount
+            );
+
+        if (actualDamage <= 0)
+            return;
+
+        damageFlash?.PlayFlash();
+        AcceptedDamage?.Invoke(
+            damagedPartyIndex,
+            actualDamage
         );
-
-        int actualDamage = Mathf.Max(
-            0,
-            hpBefore - active.currentHP
-        );
-
-        if (actualDamage > 0)
-            damageFlash?.PlayFlash();
 
         RequestDamageHitstop(actualDamage);
         RequestDamageCameraShake(actualDamage);
@@ -352,6 +365,11 @@ public class CombatPawn : MonoBehaviour
 
     private void OnDeath()
     {
+        if (IsDown)
+            return;
+
+        IsDown = true;
+
         AttackMomentumManager.Instance?.
             ResetForCharacterDefeat();
 
@@ -365,5 +383,53 @@ public class CombatPawn : MonoBehaviour
         }
 
         CombatManager.Instance?.NotifyPlayerDown();
+    }
+
+    /// <summary>
+    /// Reactivates the shared pawn after Eri revives the party from a wipe.
+    /// Party HP and activeIndex must already be updated before this is called.
+    /// </summary>
+    public void ReviveAfterEri()
+    {
+        ReactivateSharedPawn();
+    }
+
+    /// <summary>
+    /// The same scene pawn represents the next living character after a
+    /// normal defeat. Clear the down flag before that character can be hit.
+    /// </summary>
+    public void ContinueAfterPartySwap()
+    {
+        ReactivateSharedPawn();
+    }
+
+    private void ReactivateSharedPawn()
+    {
+        IsDown = false;
+        IsInvulnerable = false;
+
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        SetSpritesVisible(true);
+
+        if (disableOnDeath != null)
+        {
+            for (int i = 0; i < disableOnDeath.Length; i++)
+            {
+                if (disableOnDeath[i] != null)
+                    disableOnDeath[i].enabled = true;
+            }
+        }
+
+        CombatPawnVisuals visuals =
+            GetComponent<CombatPawnVisuals>();
+
+        visuals?.Refresh();
+
+        StartCoroutine(InvulnWindow());
     }
 }

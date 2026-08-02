@@ -13,7 +13,8 @@ public enum SkillExecutionType
     Default,    // auto-detects from firesProjectile / heal / damage
     PushBack,   // AoE knockback + projectile reflect
     AoE,        // generic AoE zone
-    SpeedBoost  // temporary party-pawn movement boost with visual trail
+    SpeedBoost, // temporary party-pawn movement boost with visual trail
+    EriHealingCall // no AP; asks the scene Eri companion to deliver healing
 }
 
 [CreateAssetMenu(menuName = "Game/Skills/Skill Definition")]

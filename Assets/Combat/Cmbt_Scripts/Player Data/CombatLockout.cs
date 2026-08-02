@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class CombatLockout : MonoBehaviour
@@ -8,26 +9,92 @@ public class CombatLockout : MonoBehaviour
     [Header("Disable During Lockout")]
     [SerializeField] private MonoBehaviour[] disableScripts; // TopDownMover, BasicAttack later, etc.
 
-    public bool IsLockedOut { get; private set; }
+    private readonly HashSet<Object> externalOwners =
+        new HashSet<Object>();
+
+    private Coroutine timedRoutine;
+    private bool timedLockActive;
+
+    public bool IsLockedOut =>
+        timedLockActive ||
+        externalOwners.Count > 0;
 
     public void TriggerLockout()
     {
-        if (IsLockedOut) return;
-        StartCoroutine(LockoutRoutine());
+        TriggerLockout(lockoutSeconds);
     }
 
-    private IEnumerator LockoutRoutine()
+    public void TriggerLockout(float seconds)
     {
-        IsLockedOut = true;
+        if (timedRoutine != null)
+            StopCoroutine(timedRoutine);
+
+        timedRoutine = StartCoroutine(
+            LockoutRoutine(
+                Mathf.Max(0f, seconds)
+            )
+        );
+    }
+
+    /// <summary>
+    /// Adds an interruptible external action lock. Eri uses this while the
+    /// player is committed to receiving a heal.
+    /// </summary>
+    public void AcquireExternalLock(Object owner)
+    {
+        if (owner == null)
+            return;
+
+        externalOwners.Add(owner);
+        ApplyControlState();
+    }
+
+    public void ReleaseExternalLock(Object owner)
+    {
+        if (owner == null)
+            return;
+
+        externalOwners.Remove(owner);
+        ApplyControlState();
+    }
+
+    private IEnumerator LockoutRoutine(float seconds)
+    {
+        timedLockActive = true;
+        ApplyControlState();
+
+        if (seconds > 0f)
+            yield return new WaitForSeconds(seconds);
+
+        timedLockActive = false;
+        timedRoutine = null;
+        ApplyControlState();
+    }
+
+    private void ApplyControlState()
+    {
+        bool controlsEnabled =
+            !IsLockedOut;
 
         for (int i = 0; i < disableScripts.Length; i++)
-            if (disableScripts[i] != null) disableScripts[i].enabled = false;
+        {
+            if (disableScripts[i] != null)
+            {
+                disableScripts[i].enabled =
+                    controlsEnabled;
+            }
+        }
+    }
 
-        yield return new WaitForSeconds(lockoutSeconds);
+    private void OnDisable()
+    {
+        externalOwners.Clear();
+        timedLockActive = false;
 
-        for (int i = 0; i < disableScripts.Length; i++)
-            if (disableScripts[i] != null) disableScripts[i].enabled = true;
-
-        IsLockedOut = false;
+        if (timedRoutine != null)
+        {
+            StopCoroutine(timedRoutine);
+            timedRoutine = null;
+        }
     }
 }

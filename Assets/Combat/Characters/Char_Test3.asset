@@ -15,13 +15,14 @@ MonoBehaviour:
   displayName: Imogen
   maxHP: 100
   combatMoveSpeed: 3.75
-  maxAP: 500
+  maxAP: 150
   apRegenPerSecond: 0
   apGainOnBasicHit: 20
   apMagnetizationRange: 1.6
   basicAttackType: 2
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills:
+  - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
   - {fileID: 11400000, guid: d607b1a150ef239429333485c3da7918, type: 2}
   - {fileID: 11400000, guid: 21b8f1ca2b4b7b64180ed2634030a9e0, type: 2}
   skillCostIncreaseMultiplier: 3

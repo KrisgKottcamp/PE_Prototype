@@ -54,6 +54,7 @@ public class PartyTargetPanel : MonoBehaviour
     private Func<int, bool> filter;
     private Action<int> onConfirm;
     private Action onCancel;
+    private bool includeEriTarget;
 
     private int selected;
     private bool open;
@@ -65,6 +66,8 @@ public class PartyTargetPanel : MonoBehaviour
     private struct TargetEntry
     {
         public int partyIndex;
+        public bool isEri;
+        public string displayName;
         public bool selectable;
         public int currentHP;
         public int maximumHP;
@@ -84,7 +87,8 @@ public class PartyTargetPanel : MonoBehaviour
         string title,
         Func<int, bool> filterFn,
         Action<int> confirm,
-        Action cancel)
+        Action cancel,
+        bool includeEri = false)
     {
         open = true;
         selected = 0;
@@ -92,6 +96,7 @@ public class PartyTargetPanel : MonoBehaviour
         filter = filterFn;
         onConfirm = confirm;
         onCancel = cancel;
+        includeEriTarget = includeEri;
 
         if (titleText != null)
             titleText.text = title;
@@ -123,6 +128,7 @@ public class PartyTargetPanel : MonoBehaviour
         filter = null;
         onConfirm = null;
         onCancel = null;
+        includeEriTarget = false;
     }
 
     private void Update()
@@ -221,12 +227,53 @@ public class PartyTargetPanel : MonoBehaviour
                 new TargetEntry
                 {
                     partyIndex = i,
+                    isEri = false,
+                    displayName =
+                        state.def != null
+                            ? state.def.displayName
+                            : $"Member {i}",
                     selectable = selectable,
                     currentHP = currentHP,
                     maximumHP = maximumHP,
                     health01 = currentHP / (float)maximumHP
                 }
             );
+        }
+
+        if (includeEriTarget)
+        {
+            EriSupportManager support =
+                EriSupportManager.Instance;
+            int eriIndex = EriSupportManager.SelfTargetIndex;
+
+            if (support != null &&
+                (filter == null || filter(eriIndex)))
+            {
+                int maximumHP = Mathf.Max(
+                    1,
+                    support.EriMaximumHP);
+                int currentHP = Mathf.Clamp(
+                    support.EriCurrentHP,
+                    0,
+                    maximumHP);
+                bool isFullHealth = currentHP >= maximumHP;
+                bool selectable =
+                    !preventSelectingFullHealthTargets ||
+                    !isFullHealth;
+
+                entries.Add(
+                    new TargetEntry
+                    {
+                        partyIndex = eriIndex,
+                        isEri = true,
+                        displayName = "Eri",
+                        selectable = selectable,
+                        currentHP = currentHP,
+                        maximumHP = maximumHP,
+                        health01 = currentHP / (float)maximumHP
+                    }
+                );
+            }
         }
 
         if (entries.Count == 0)
@@ -372,14 +419,12 @@ public class PartyTargetPanel : MonoBehaviour
             TargetEntry entry =
                 entries[row];
 
-            if (entry.partyIndex < 0 ||
-                entry.partyIndex >= pm.party.Count)
+            if (!entry.isEri &&
+                (entry.partyIndex < 0 ||
+                 entry.partyIndex >= pm.party.Count))
             {
                 continue;
             }
-
-            PartyManager.CharacterState state =
-                pm.party[entry.partyIndex];
 
             Color rowColor =
                 GetEntryColor(entry);
@@ -398,11 +443,7 @@ public class PartyTargetPanel : MonoBehaviour
 
             sb.Append(isSelected ? "> " : "  ");
 
-            sb.Append(
-                state != null && state.def != null
-                    ? state.def.displayName
-                    : $"Member {entry.partyIndex}"
-            );
+            sb.Append(entry.displayName);
 
             sb.Append("  (HP ");
             sb.Append(entry.currentHP);
@@ -410,8 +451,14 @@ public class PartyTargetPanel : MonoBehaviour
             sb.Append(entry.maximumHP);
             sb.Append(")");
 
-            if (entry.partyIndex == pm.activeIndex)
+            if (!entry.isEri &&
+                entry.partyIndex == pm.activeIndex)
+            {
                 sb.Append("  [YOU]");
+            }
+
+            if (entry.isEri)
+                sb.Append("  [ERI]");
 
             if (!entry.selectable)
             {
@@ -501,7 +548,7 @@ public class PartyTargetPanel : MonoBehaviour
 
     private int FindEntryIndexForPartyIndex(int partyIndex)
     {
-        if (partyIndex < 0)
+        if (partyIndex == -1)
             return -1;
 
         for (int i = 0; i < entries.Count; i++)

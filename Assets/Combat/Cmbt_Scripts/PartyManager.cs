@@ -11,6 +11,18 @@ public class PartyManager : MonoBehaviour
     /// </summary>
     public static event System.Action<int, int> PartyMemberHealed;
 
+    /// <summary>
+    /// Raised after a party member actually loses HP.
+    /// Arguments are party index and the amount of HP lost.
+    /// </summary>
+    public static event System.Action<int, int> PartyMemberDamaged;
+
+    /// <summary>
+    /// Raised when a defeated party member returns with positive HP.
+    /// Arguments are party index and restored HP.
+    /// </summary>
+    public static event System.Action<int, int> PartyMemberRevived;
+
     [Header("Party Setup")]
     [SerializeField] private List<CharacterDefinition> partyDefinitions = new();
 
@@ -39,6 +51,9 @@ public class PartyManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         BuildPartyIfEmpty();
+
+        if (GetComponent<EriSupportManager>() == null)
+            gameObject.AddComponent<EriSupportManager>();
     }
 
     private void BuildPartyIfEmpty()
@@ -117,6 +132,119 @@ public class PartyManager : MonoBehaviour
             PartyMemberHealed?.Invoke(partyIndex, restored);
 
         return restored;
+    }
+
+    /// <summary>
+    /// Shared party damage entry point. Returns the amount of HP actually lost.
+    /// </summary>
+    public int DamagePartyMember(int partyIndex, int amount)
+    {
+        if (amount <= 0 || party == null ||
+            partyIndex < 0 || partyIndex >= party.Count)
+        {
+            return 0;
+        }
+
+        CharacterState target = party[partyIndex];
+
+        if (target == null || target.def == null)
+            return 0;
+
+        int maximumHP = Mathf.Max(0, target.def.maxHP);
+        int before = Mathf.Clamp(target.currentHP, 0, maximumHP);
+
+        target.currentHP = Mathf.Clamp(
+            before - amount,
+            0,
+            maximumHP
+        );
+
+        int lost = before - target.currentHP;
+
+        if (lost > 0)
+            PartyMemberDamaged?.Invoke(partyIndex, lost);
+
+        return lost;
+    }
+
+    /// <summary>
+    /// Restores a defeated party member. This is intentionally separate from
+    /// normal healing so callers cannot accidentally revive with a heal.
+    /// </summary>
+    public int RevivePartyMember(int partyIndex, int amount)
+    {
+        if (amount <= 0 || party == null ||
+            partyIndex < 0 || partyIndex >= party.Count)
+        {
+            return 0;
+        }
+
+        CharacterState target = party[partyIndex];
+
+        if (target == null || target.def == null ||
+            target.currentHP > 0)
+        {
+            return 0;
+        }
+
+        int maximumHP = Mathf.Max(1, target.def.maxHP);
+        int restored = Mathf.Clamp(amount, 1, maximumHP);
+
+        target.currentHP = restored;
+
+        PartyMemberRevived?.Invoke(partyIndex, restored);
+        PartyMemberHealed?.Invoke(partyIndex, restored);
+
+        return restored;
+    }
+
+    public int FindPartyIndexByDisplayName(string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName) ||
+            party == null)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < party.Count; i++)
+        {
+            CharacterState state = party[i];
+
+            if (state == null || state.def == null)
+                continue;
+
+            if (string.Equals(
+                    state.def.displayName,
+                    displayName,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    public void RestoreAllPartyHP()
+    {
+        if (party == null)
+            return;
+
+        for (int i = 0; i < party.Count; i++)
+        {
+            CharacterState state = party[i];
+
+            if (state == null || state.def == null)
+                continue;
+
+            int before = state.currentHP;
+            state.currentHP = Mathf.Max(0, state.def.maxHP);
+
+            int restored = state.currentHP - before;
+
+            if (restored > 0)
+                PartyMemberHealed?.Invoke(i, restored);
+        }
     }
 
     public void SwapNext()

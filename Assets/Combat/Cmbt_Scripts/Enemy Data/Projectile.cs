@@ -71,7 +71,8 @@ public class Projectile : MonoBehaviour
 
     [Header("Reflected Hitstop")]
     [Tooltip("Applied when a Push Back-reflected projectile damages an enemy.")]
-    [SerializeField] private HitstopSettings reflectedHitstop =
+    [SerializeField]
+    private HitstopSettings reflectedHitstop =
         HitstopSettings.Create(0.040f, 0.04f);
 
     private Vector2 direction = Vector2.right;
@@ -298,6 +299,12 @@ public class Projectile : MonoBehaviour
 
     private bool IsValidTargetTag(Collider2D other)
     {
+        // Eri is intentionally not tagged as the combat player, otherwise
+        // legacy enemy target searches could replace the real player with her.
+        // Detect her support component directly instead.
+        if (other.GetComponentInParent<EriCombatCompanion>() != null)
+            return true;
+
         if (validTargetTags == null || validTargetTags.Length == 0)
             return false;
 

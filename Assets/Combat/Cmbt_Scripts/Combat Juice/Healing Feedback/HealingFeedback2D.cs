@@ -131,6 +131,12 @@ public sealed class HealingFeedback2D : MonoBehaviour
 
     private void PlayGreenFlash()
     {
+        // Healing can occur immediately after damage (especially Eri's
+        // automatic self-heal). Restore any white flash before capturing the
+        // sprite's original material for the green flash.
+        DamageFlash2D damageFlash = GetComponent<DamageFlash2D>();
+        damageFlash?.CancelFlashAndRestore();
+
         if (!EnsureFlashReady())
             return;
 
@@ -141,6 +147,21 @@ public sealed class HealingFeedback2D : MonoBehaviour
             CaptureAndApplyFlashMaterials();
 
         flashRoutine = StartCoroutine(GreenFlashRoutine());
+    }
+
+    /// <summary>
+    /// Ends only the green sprite flash. Healing particles and camera feedback
+    /// continue normally. DamageFlash2D calls this before applying white.
+    /// </summary>
+    public void CancelGreenFlashAndRestore()
+    {
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        RestoreOriginalMaterials();
     }
 
     private bool EnsureFlashReady()
@@ -566,11 +587,7 @@ public sealed class HealingFeedback2D : MonoBehaviour
 
     private void OnDisable()
     {
-        if (flashRoutine != null)
-        {
-            StopCoroutine(flashRoutine);
-            flashRoutine = null;
-        }
+        CancelGreenFlashAndRestore();
 
         if (burstRoutine != null)
         {
@@ -578,7 +595,6 @@ public sealed class HealingFeedback2D : MonoBehaviour
             burstRoutine = null;
         }
 
-        RestoreOriginalMaterials();
         ClearBurstVisuals();
     }
 

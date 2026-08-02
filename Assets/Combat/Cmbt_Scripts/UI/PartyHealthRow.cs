@@ -56,6 +56,16 @@ public class PartyHealthRow : MonoBehaviour
     [SerializeField, Min(0.05f)] private float healingFlashDuration = 1f;
     [SerializeField, Min(0f)] private float healingFlashPulseCount = 3f;
 
+    [Header("Rotation Ready Cue")]
+    [Tooltip("Lets this inactive living character advertise that switching is efficient.")]
+    [SerializeField] private bool enableRotationReadyCue = true;
+    [SerializeField] private Color rotationReadyColor =
+        new Color(0.38f, 1f, 0.86f, 1f);
+    [SerializeField, Range(0f, 1f)] private float rotationReadyTint = 0.42f;
+    [SerializeField, Range(0f, 0.2f)] private float rotationReadyScale = 0.065f;
+    [SerializeField, Min(0.1f)] private float rotationPulseSpeed = 1.8f;
+    [SerializeField, Min(0.1f)] private float oneShotPulseDuration = 0.72f;
+
     [Header("Knocked Out Appearance")]
     [SerializeField, Range(0f, 1f)]
     private float knockedOutAlpha = 0.55f;
@@ -85,6 +95,12 @@ public class PartyHealthRow : MonoBehaviour
     private bool hasCapturedBaseHPColor;
     private Coroutine healingFlashRoutine;
 
+    private Color basePortraitColor = Color.white;
+    private Vector3 basePortraitScale = Vector3.one;
+    private bool hasCapturedPortraitAppearance;
+    private float rotationCueStrength;
+    private float rotationOneShotRemaining;
+
     public int BoundPartyIndex => boundPartyIndex;
 
     public PartyManager.CharacterState BoundState =>
@@ -94,6 +110,7 @@ public class PartyHealthRow : MonoBehaviour
     {
         ValidateSetup();
         CaptureBaseHPFillColor();
+        CaptureBasePortraitAppearance();
     }
 
     private void OnEnable()
@@ -105,6 +122,9 @@ public class PartyHealthRow : MonoBehaviour
     {
         PartyManager.PartyMemberHealed -= HandlePartyMemberHealed;
         StopHealingFlash(restoreColor: true);
+        rotationCueStrength = 0f;
+        rotationOneShotRemaining = 0f;
+        RestorePortraitAppearance();
     }
 
     /// <summary>
@@ -265,11 +285,38 @@ public class PartyHealthRow : MonoBehaviour
                         : normalAlpha;
             }
         }
+
+        TickRotationReadyCue(isKnockedOut);
+    }
+
+    /// <summary>
+    /// Called by PartyHealthHUD. Continuous strength is used for the quiet
+    /// shimmer; oneShot adds the stronger threshold-crossing pulse.
+    /// </summary>
+    public void SetRotationReadyCue(
+        float strength,
+        bool oneShot)
+    {
+        rotationCueStrength =
+            enableRotationReadyCue
+                ? Mathf.Clamp01(strength)
+                : 0f;
+
+        if (oneShot && enableRotationReadyCue)
+        {
+            rotationOneShotRemaining =
+                Mathf.Max(
+                    rotationOneShotRemaining,
+                    oneShotPulseDuration
+                );
+        }
     }
 
     private void RefreshIdentity(
         CharacterDefinition definition)
     {
+        RestorePortraitAppearance();
+
         if (nameText != null)
         {
             nameText.text =
@@ -292,6 +339,10 @@ public class PartyHealthRow : MonoBehaviour
                 portrait != null;
 
             portraitImage.preserveAspect = true;
+
+            CaptureBasePortraitAppearance(
+                force: true
+            );
         }
     }
 
@@ -327,6 +378,123 @@ public class PartyHealthRow : MonoBehaviour
 
         if (rowCanvasGroup != null)
             rowCanvasGroup.alpha = normalAlpha;
+
+        rotationCueStrength = 0f;
+        rotationOneShotRemaining = 0f;
+        RestorePortraitAppearance();
+    }
+
+    private void TickRotationReadyCue(
+        bool isKnockedOut)
+    {
+        if (portraitImage == null)
+            return;
+
+        CaptureBasePortraitAppearance();
+
+        if (rotationOneShotRemaining > 0f)
+        {
+            rotationOneShotRemaining =
+                Mathf.Max(
+                    0f,
+                    rotationOneShotRemaining -
+                    Time.unscaledDeltaTime
+                );
+        }
+
+        float oneShot = 0f;
+
+        if (rotationOneShotRemaining > 0f)
+        {
+            float duration =
+                Mathf.Max(
+                    0.1f,
+                    oneShotPulseDuration
+                );
+
+            float elapsed01 =
+                1f -
+                rotationOneShotRemaining /
+                duration;
+
+            oneShot =
+                Mathf.Sin(
+                    Mathf.Clamp01(elapsed01) *
+                    Mathf.PI
+                );
+        }
+
+        float effectiveStrength =
+            isKnockedOut
+                ? 0f
+                : Mathf.Max(
+                    rotationCueStrength,
+                    oneShot
+                );
+
+        if (effectiveStrength <= 0.001f)
+        {
+            RestorePortraitAppearance();
+            return;
+        }
+
+        float pulse =
+            0.5f +
+            0.5f * Mathf.Sin(
+                Time.unscaledTime *
+                rotationPulseSpeed *
+                Mathf.PI * 2f
+            );
+
+        float visualStrength =
+            effectiveStrength *
+            Mathf.Lerp(0.58f, 1f, pulse);
+
+        portraitImage.color =
+            Color.Lerp(
+                basePortraitColor,
+                rotationReadyColor,
+                rotationReadyTint *
+                visualStrength
+            );
+
+        portraitImage.rectTransform.localScale =
+            basePortraitScale *
+            (1f +
+             rotationReadyScale *
+             visualStrength);
+    }
+
+    private void CaptureBasePortraitAppearance(
+        bool force = false)
+    {
+        if (portraitImage == null ||
+            (hasCapturedPortraitAppearance &&
+             !force))
+        {
+            return;
+        }
+
+        basePortraitColor =
+            portraitImage.color;
+        basePortraitScale =
+            portraitImage.rectTransform.
+                localScale;
+        hasCapturedPortraitAppearance = true;
+    }
+
+    private void RestorePortraitAppearance()
+    {
+        if (portraitImage == null ||
+            !hasCapturedPortraitAppearance)
+        {
+            return;
+        }
+
+        portraitImage.color =
+            basePortraitColor;
+        portraitImage.rectTransform.localScale =
+            basePortraitScale;
     }
 
     private void HandlePartyMemberHealed(

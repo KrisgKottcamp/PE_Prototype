@@ -15,13 +15,14 @@ MonoBehaviour:
   displayName: Dominic
   maxHP: 90
   combatMoveSpeed: 4
-  maxAP: 500
+  maxAP: 150
   apRegenPerSecond: 0
   apGainOnBasicHit: 5
   apMagnetizationRange: 2.3
   basicAttackType: 3
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills:
+  - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
   - {fileID: 11400000, guid: 9f62822f16956a74ebfc00d85efc8625, type: 2}
   - {fileID: 11400000, guid: 2b7c72cf93e9e1c46827553e390d2c64, type: 2}
   - {fileID: 11400000, guid: 393668a7639a23044876a527bf84023b, type: 2}

@@ -15,14 +15,14 @@ MonoBehaviour:
   displayName: Phil
   maxHP: 50
   combatMoveSpeed: 3.65
-  maxAP: 500
+  maxAP: 150
   apRegenPerSecond: 0
   apGainOnBasicHit: 3
   apMagnetizationRange: 2
   basicAttackType: 1
   basicAttackProjectilePrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
   startingSkills:
-  - {fileID: 11400000, guid: 0026b615976d7c04cb25ee2fa58f0fbe, type: 2}
+  - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
   - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
   skillCostIncreaseMultiplier: 3
   unlocks: []

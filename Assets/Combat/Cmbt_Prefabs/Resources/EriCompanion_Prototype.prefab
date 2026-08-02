@@ -1,0 +1,285 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4175530916096821870
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4048109001499927234}
+  - component: {fileID: 5518918032915975923}
+  - component: {fileID: 3936734351279227884}
+  - component: {fileID: 1361379227582419016}
+  - component: {fileID: 8545869479759771359}
+  - component: {fileID: -4061340836966565663}
+  m_Layer: 11
+  m_Name: EriCompanion_Prototype
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4048109001499927234
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3.63555, y: -3.8537, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!212 &5518918032915975923
+SpriteRenderer:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 0
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: -1660877859
+  m_SortingLayer: 3
+  m_SortingOrder: 8
+  m_MaskInteraction: 0
+  m_Sprite: {fileID: 21300000, guid: bd5910ba01206c24aa8c8c3888ee11fd, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_FlipX: 0
+  m_FlipY: 0
+  m_DrawMode: 0
+  m_Size: {x: 0.75, y: 1.3}
+  m_AdaptiveModeThreshold: 0.5
+  m_SpriteTileMode: 0
+  m_WasSpriteAssigned: 1
+  m_SpriteSortPoint: 0
+--- !u!50 &3936734351279227884
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 0
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 1
+  m_SleepingMode: 1
+  m_CollisionDetection: 1
+  m_Constraints: 4
+--- !u!58 &1361379227582419016
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_Radius: 0.24
+--- !u!114 &8545869479759771359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2aaf1ef55da5425f8aa12d1ce5153570, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EriCombatCompanion
+  body: {fileID: 0}
+  bodyCollider: {fileID: 0}
+  visualRenderers: []
+  navigationGrid: {fileID: 0}
+  tacticalLocomotion: {fileID: 0}
+  tacticalBrain: {fileID: 0}
+  routeSafetyPriority: 0.67
+  routeThreatRadius: 3.8
+  routeCriticalDistance: 1.55
+  moveSpeed: 4.8
+  followDistance: 2.1
+  followTolerance: 0.55
+  orbitRetargetSeconds: 1.4
+  threatMask:
+    serializedVersion: 2
+    m_Bits: 1536
+  threatScanRadius: 4.2
+  severeThreatRadius: 1.6
+  evadeDistance: 3.2
+  threatScanInterval: 0.1
+  deliveryRange: 1.15
+  callerStationarySeconds: 0.3
+  callerMoveThreshold: 0.05
+  deliverySeconds: 1
+  emergencyRetryDelay: 0.75
+  automaticSelfHealThreshold: 0.25
+  selfReviveDelaySeconds: 15
+  pathRefreshSeconds: 0.25
+  waypointArrivalDistance: 0.14
+  damageFlash: {fileID: 0}
+  eriHealingFeedback: {fileID: 0}
+  logStateChanges: 0
+  enableWorldStatusArcs: 1
+  worldStatusLocalOffset: {x: 0, y: -0.28}
+  worldHealthArcRadius: 0.25
+  worldHealthArcSegments: 18
+  worldHealthArcThickness: 0.0264
+  worldHealthFillColor: {r: 0.94, g: 0.18, b: 0.16, a: 0.92}
+  worldHealthEmptyColor: {r: 0.22, g: 0.035, b: 0.03, a: 0.42}
+  worldHealingArcRadius: 0.34
+  worldHealingArcThickness: 0.0942
+  worldHealingFillColor: {r: 0.5330188, g: 1, b: 0.7930633, a: 0.94}
+  worldHealingEmptyColor: {r: 0.0242969, g: 0.24528301, b: 0.1793787, a: 0.42}
+  worldStatusSortingOrderOffset: 4
+  state: 0
+  pendingTargetIndex: -1
+  pendingTargetWasDowned: 0
+  emergencyRequest: 0
+  selfReviveRemaining: 0
+  lastCancelReason: None
+--- !u!114 &-4061340836966565663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4175530916096821870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b37ab6c2acf4e65a6a9fe87c80d7781, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EriTacticalBrain
+  locomotion: {fileID: 0}
+  navigationGrid: {fileID: 0}
+  bodyCollider: {fileID: 0}
+  minimumPlayerDistance: 4.6
+  preferredPlayerDistance: 5.8
+  maximumPlayerDistance: 7.2
+  positionCandidateCount: 16
+  decisionInterval: 0.38
+  minimumSlotCommitSeconds: 0.9
+  maximumSlotCommitSeconds: 1.7
+  playerRepositionThreshold: 1.2
+  enemyPersonalSpace: 3
+  emergencyEnemyDistance: 1.8
+  emergencyEvadeDistance: 4.2
+  hardLeashDistance: 10
+  emergencySpeedMultiplier: 1.22
+  routeSafetyPriority: 0.67
+  routeThreatRadius: 3.8
+  routeCriticalDistance: 1.55
+  safetyWeight: 4.5
+  backlineWeight: 3.2
+  ringWeight: 2.2
+  pathCostWeight: 0.16
+  lineOfSightBonus: 0.65
+  currentSlotBias: 1.25
+  enemyRefreshInterval: 0.3
+  playerPressureRadius: 6.5
+  concentratedPressureRatio: 0.6
+  concentratedPressureMinimumEnemies: 2
+  enableSupportFire: 1
+  weakenedEnemyHealth01: 0.35
+  shotChancePerOpportunity: 0.4
+  minimumShotCooldown: 4.5
+  maximumShotCooldown: 7
+  supportShotDamage: 30
+  supportShotSpeed: 11
+  supportShotLifetime: 2
+  supportShotVisualSize: 0.34
+  supportShotColor: {r: 0.45, g: 1, b: 0.82, a: 1}
+  supportShotCollisionMask:
+    serializedVersion: 2
+    m_Bits: 0
+  currentTacticalSlot: {x: 0, y: 0}
+  hasTacticalSlot: 0
+  currentIntent: Waiting
+  livingEnemyCount: 0
+  playerPressureCount: 0
+  closestEnemyDistance: 0
+  currentSlotScore: 0
+  currentRouteExposure: 0
+  supportFireStatus: Waiting

@@ -466,7 +466,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   combatPlayerPawnPrefab: {fileID: 6170445591022180168, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
+  eriCompanionPrefab: {fileID: 0}
   playerSpawn: {fileID: 75719374}
+  eriSpawn: {fileID: 0}
+  eriSpawnOffset: {x: -1.5, y: 1}
   enemySpawnsParent: {fileID: 2053632814}
   proceduralArenaGenerator: {fileID: 0}
   logProceduralGeneration: 1
@@ -1160,6 +1163,10 @@ MonoBehaviour:
   hpText: {fileID: 0}
   smooth: 1
   smoothSpeed: 12
+  flashHealthBarOnHeal: 1
+  healingFlashColor: {r: 0.12, g: 1, b: 0.3, a: 1}
+  healingFlashDuration: 1
+  healingFlashPulseCount: 3
 --- !u!114 &206606210
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1189,6 +1196,57 @@ MonoBehaviour:
   apFill: {fileID: 794495090}
   smooth: 1
   smoothSpeed: 12
+  costMultiplierText: {fileID: 0}
+  costLabel: COST
+  normalCostColor: {r: 0.84, g: 0.93, b: 0.95, a: 1}
+  pressuredCostColor: {r: 1, g: 0.68, b: 0.24, a: 1}
+  pressureBeginsAt: 1.2
+  fullPressureAt: 2.2
+  pressureColor: {r: 1, g: 0.63, b: 0.2, a: 1}
+  maximumAPTint: 0.72
+  enableAffordableSkillGlow: 1
+  affordableSkillGlowColor: {r: 0.56, g: 0.92, b: 1, a: 0.72}
+  affordableGlowRadius: 0.18
+  affordableGlowSoftness: 2.4
+  affordableGlowIntensity: 0.26
+  affordableGlowMinimumPulse: 0.76
+  affordableGlowMaximumPulse: 1
+  affordableGlowPulseDuration: 2.8
+  affordableGlowFadeSpeed: 4
+  affordableGlowSortingOrderOffset: -1
+  enableWorldAPPrototype: 1
+  worldAPLocalOffset: {x: 0, y: -0.3}
+  worldAPArcRadius: 0.34
+  worldAPArcSegments: 18
+  worldAPArcThickness: 0.022
+  worldAPSkillNodeSize: 0.11
+  worldAPFillColor: {r: 0.24, g: 0.92, b: 1, a: 0.68}
+  worldAPEmptyColor: {r: 0.08, g: 0.14, b: 0.16, a: 0.3}
+  worldAPUnavailableNodeColor: {r: 0.56, g: 0.64, b: 0.67, a: 0.79607844}
+  worldAPAffordableNodeColor: {r: 0, g: 1, b: 0.33329916, a: 1}
+  worldAPNodeBackdropColor: {r: 0.015, g: 0.025, b: 0.03, a: 0.72}
+  worldAPInflatedNodeColor: {r: 1, g: 0.68, b: 0.22, a: 0.88}
+  worldAPOverMaximumNodeColor: {r: 1, g: 0.34, b: 0.26, a: 0.9}
+  showBriefWorldAPNumber: 1
+  worldAPNumberDuration: 0.8
+  worldAPNumberColor: {r: 0.78, g: 0.98, b: 1, a: 0.9}
+  worldAPSortingOrderOffset: -8
+  enableSweatCue: 1
+  sweatActivationSkillUses: 1
+  sweatHeadLocalOffset: {x: 0, y: 0.68}
+  sweatColor: {r: 1, g: 1, b: 1, a: 0.88}
+  sweatSpriteOverride: {fileID: 0}
+  sweatSizeRange: {x: 0.18, y: 0.25}
+  minimumSweatDropsPerSecond: 0.75
+  maximumSweatDropsPerSecond: 1.75
+  sweatSortingLayer: Foreground
+  sweatSortingOrder: 165
+  currentCostMultiplier: 1
+  currentResolvedSkillUses: 0
+  currentPressure: 0
+  currentSweatPressure: 0
+  hasAffordableAPSkill: 0
+  activePartyIndex: -1
 --- !u!114 &206606212
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1239,6 +1297,8 @@ MonoBehaviour:
   titleText: {fileID: 83387391}
   listText: {fileID: 146786682}
   confirmKey: 32
+  altConfirmKey: 13
+  confirmWithLeftClick: 1
   cancelKey: 9
   upKey: 119
   downKey: 115
@@ -1254,7 +1314,7 @@ MonoBehaviour:
   fullHealthUnavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 1}
   fullHealthTag: '[FULL]'
   showHealthConditionTags: 0
-  openMenuRefreshInterval: 0.1
+  openPanelRefreshInterval: 0.1
 --- !u!1 &238885541
 GameObject:
   m_ObjectHideFlags: 0
@@ -7067,12 +7127,57 @@ MonoBehaviour:
   idleAgentGrace: 1.8
   blockedLosPressureWeight: 0.65
   idleAgentPressureWeight: 0.45
+  useAttackSlots: 1
+  avoidAnchorsInSmallSquads: 1
+  allowOverlappingEnemyAttacks: 1
+  normalSimultaneousAttackers: 3
+  highPressureSimultaneousAttackers: 5
+  useAliveCountAsAttackCap: 1
+  highPressureTwoSlotThreshold: 0.72
+  maximumThreatGapSeconds: 0.85
+  urgentThreatGapSeconds: 1.2
+  threatGapPressureRampSeconds: 2
+  attackSlotLeaseSeconds: 3
+  allowHighPressureSecondSlot: 1
+  usePincerPositioning: 1
+  playerVelocitySharpness: 10
+  playerVelocityDeadZone: 0.25
+  pincerDefaultRadius: 3.2
+  pincerSideOffset: 2.8
+  pincerFrontOffset: 3
+  pincerSupportOffset: 3.8
+  escapeCutoffAhead: 2.2
+  escapeCutoffSide: 1.5
+  antiClumpRadius: 1.25
+  hardClumpRadius: 0.65
+  antiClumpScoreWeight: 1.4
+  crossfireScoreWeight: 1.2
+  idealCrossfireAngle: 85
+  usePlayerAttentionTracking: 1
+  playerAttentionDuration: 1.35
+  attentionMaxPlayerDistanceToFocus: 4.25
+  attentionMinimumAliveEnemies: 2
+  attentionRefreshCooldown: 0.06
+  damageFocusRaisesPressure: 1
+  damageFocusPressureBoost: 0.18
   debugLogs: 1
   drawGizmos: 1
+  debugAttackSlots: 0
   debugCurrentPressure: 0
   debugBlockedLosRatio: 0
   debugIdleAgentRatio: 0
   debugAnyEnemySeesPlayer: 0
+  debugAliveAgents: 0
+  debugAllowedAttackSlots: 1
+  debugUsedAttackSlots: 0
+  debugThreatGapSeconds: 0
+  debugThreatGapUrgent: 0
+  debugAttackSlotOwners: None
+  debugPlayerVelocity: {x: 0, y: 0}
+  debugPincerState: None
+  debugPlayerFocusTarget: None
+  debugPlayerFocusRemaining: 0
+  debugOpportunityFlankState: None
 --- !u!1 &2033796758
 GameObject:
   m_ObjectHideFlags: 0

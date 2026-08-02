@@ -171,13 +171,19 @@ public class CombatSkillMenuController : MonoBehaviour
         if (isOpen)
             return;
 
+        CachePawnRefs();
+
+        if (pawnLockout != null &&
+            pawnLockout.IsLockedOut)
+        {
+            return;
+        }
+
         isOpen = true;
         selectingPartyTarget = false;
         selectingPlacement = false;
         selectedIndex = 0;
         nextOpenPanelRefreshTime = 0f;
-
-        CachePawnRefs();
 
         if (skillPanelRoot != null)
             skillPanelRoot.SetActive(true);
@@ -449,10 +455,39 @@ public class CombatSkillMenuController : MonoBehaviour
         string title =
             GetAllyTargetTitle(skill);
 
+        if (skill.executionType ==
+            SkillExecutionType.EriHealingCall)
+        {
+            EriSupportManager support =
+                EriSupportManager.Instance;
+
+            if (support != null)
+            {
+                title =
+                    $"Eri {support.CurrentHealingPoints}/" +
+                    $"{support.UnlockedCapacity} - " +
+                    "Choose Ally";
+            }
+        }
+
         partyTargetPanel.Open(
             title,
             filterFn: (i) =>
             {
+                if (skill.executionType ==
+                    SkillExecutionType.EriHealingCall &&
+                    i == EriSupportManager.SelfTargetIndex)
+                {
+                    EriSupportManager support =
+                        EriSupportManager.Instance;
+
+                    // Keep Eri visible as a disabled [FULL] row when she does
+                    // not currently need healing.
+                    return support != null &&
+                        !support.IsEriDefeated &&
+                        support.CurrentHealingPoints > 0;
+                }
+
                 PartyManager pm = PartyManager.Instance;
 
                 if (pm == null || pm.party == null)
@@ -465,6 +500,13 @@ public class CombatSkillMenuController : MonoBehaviour
 
                 if (st == null)
                     return false;
+
+                if (skill.executionType ==
+                    SkillExecutionType.EriHealingCall)
+                {
+                    return skillSystem.
+                        CanUseEriHealingOnTarget(i);
+                }
 
                 if (includeDowned)
                     return true;
@@ -503,7 +545,10 @@ public class CombatSkillMenuController : MonoBehaviour
                     skillPanelRoot.SetActive(true);
 
                 RefreshSkillText();
-            }
+            },
+            includeEri:
+                skill.executionType ==
+                SkillExecutionType.EriHealingCall
         );
     }
 
@@ -654,11 +699,6 @@ public class CombatSkillMenuController : MonoBehaviour
             if (skill == null)
                 continue;
 
-            int cost =
-                skillSystem != null
-                    ? skillSystem.GetScaledCost(skill)
-                    : skill.baseApCost;
-
             bool canUse =
                 skillSystem != null &&
                 skillSystem.CanUse(skill);
@@ -685,11 +725,26 @@ public class CombatSkillMenuController : MonoBehaviour
             sb.Append(isSelected ? "> " : "  ");
             sb.Append(skill.displayName);
             sb.Append("  (");
-            sb.Append(cost);
-            sb.Append(" AP)");
+            sb.Append(
+                skillSystem != null
+                    ? skillSystem.GetCostDisplay(skill)
+                    : $"{skill.baseApCost} AP"
+            );
+            sb.Append(")");
 
-            if (!canUse && showNoApTag)
+            if (!canUse &&
+                showNoApTag &&
+                skill.executionType !=
+                SkillExecutionType.EriHealingCall)
+            {
                 sb.Append("  [NO AP]");
+            }
+
+            if (skill.executionType ==
+                SkillExecutionType.EriHealingCall)
+            {
+                sb.Append("  [ERI]");
+            }
 
             if (skill.requiresPartyTarget)
                 sb.Append("  [ALLY]");

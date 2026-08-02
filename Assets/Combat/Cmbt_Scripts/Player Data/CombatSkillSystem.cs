@@ -76,6 +76,12 @@ public class CombatSkillSystem : MonoBehaviour
         var pm = PartyManager.Instance;
         if (pm == null || skill == null) return int.MaxValue;
 
+        if (skill.executionType ==
+            SkillExecutionType.EriHealingCall)
+        {
+            return 0;
+        }
+
         float mult = Mathf.Max(1f, pm.Active.skillCostMultiplier);
         return Mathf.Max(0, Mathf.CeilToInt(skill.baseApCost * mult));
     }
@@ -85,7 +91,61 @@ public class CombatSkillSystem : MonoBehaviour
         var pm = PartyManager.Instance;
         if (pm == null || skill == null) return false;
 
-        return pm.Active.currentAP >= GetScaledCost(skill);
+        if (skill.executionType ==
+            SkillExecutionType.EriHealingCall)
+        {
+            EriSupportManager support =
+                EriSupportManager.Instance;
+
+            EriCombatCompanion companion =
+                EriCombatCompanion.ActiveInstance;
+
+            return support != null &&
+                companion != null &&
+                !support.IsEriDefeated &&
+                support.CurrentHealingPoints > 0 &&
+                !companion.HasPendingRequest;
+        }
+
+        return pm.Active.currentAP >=
+            GetScaledCost(skill);
+    }
+
+    public bool CanUseEriHealingOnTarget(
+        int partyIndex)
+    {
+        EriSupportManager support =
+            EriSupportManager.Instance;
+
+        EriCombatCompanion companion =
+            EriCombatCompanion.ActiveInstance;
+
+        return support != null &&
+            companion != null &&
+            !companion.HasPendingRequest &&
+            support.CanRequestPartyTarget(
+                partyIndex
+            );
+    }
+
+    public string GetCostDisplay(
+        SkillDefinition skill)
+    {
+        if (skill == null)
+            return string.Empty;
+
+        if (skill.executionType ==
+            SkillExecutionType.EriHealingCall)
+        {
+            EriSupportManager support =
+                EriSupportManager.Instance;
+
+            return support != null
+                ? $"Eri {support.CurrentHealingPoints}/{support.UnlockedCapacity}"
+                : "Eri unavailable";
+        }
+
+        return $"{GetScaledCost(skill)} AP";
     }
 
     /// <summary>
@@ -129,11 +189,23 @@ public class CombatSkillSystem : MonoBehaviour
         var owner = pm.party[ownerIndex];
         if (owner == null || owner.def == null) return false;
 
-        int cost = GetScaledCost(skill);
-        if (owner.currentAP < cost) return false;
+        bool usesEriHealing =
+            skill.executionType ==
+            SkillExecutionType.EriHealingCall;
 
-        // Spend AP immediately
-        owner.currentAP -= cost;
+        int cost =
+            usesEriHealing
+                ? 0
+                : GetScaledCost(skill);
+
+        if (!usesEriHealing &&
+            owner.currentAP < cost)
+        {
+            return false;
+        }
+
+        if (!usesEriHealing)
+            owner.currentAP -= cost;
 
         // Cache aim direction at commit time (feels consistent)
         Vector2 dir = GetAimDir();
@@ -214,6 +286,32 @@ public class CombatSkillSystem : MonoBehaviour
         dir = dir.normalized;
 
         // 0) Custom execution types
+        if (skill.executionType ==
+            SkillExecutionType.EriHealingCall)
+        {
+            EriCombatCompanion companion =
+                EriCombatCompanion.ActiveInstance;
+
+            bool requested =
+                partyTargetIndex.HasValue &&
+                companion != null &&
+                companion.TryRequestHealing(
+                    transform,
+                    partyTargetIndex.Value
+                );
+
+            if (!requested)
+            {
+                Debug.LogWarning(
+                    "Call Eri could not begin. Eri may be defeated, busy, missing from the scene, or unable to heal the selected target.",
+                    this
+                );
+            }
+
+            isCasting = false;
+            yield break;
+        }
+
         if (skill.executionType == SkillExecutionType.PushBack)
         {
             PushBack pushBack = GetComponent<PushBack>();

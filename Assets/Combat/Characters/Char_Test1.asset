@@ -15,13 +15,14 @@ MonoBehaviour:
   displayName: Audrey
   maxHP: 100
   combatMoveSpeed: 4
-  maxAP: 500
+  maxAP: 150
   apRegenPerSecond: 0
   apGainOnBasicHit: 10
   apMagnetizationRange: 1.6
   basicAttackType: 0
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills:
+  - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
   - {fileID: 11400000, guid: 2b7c72cf93e9e1c46827553e390d2c64, type: 2}
   - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
   skillCostIncreaseMultiplier: 3
