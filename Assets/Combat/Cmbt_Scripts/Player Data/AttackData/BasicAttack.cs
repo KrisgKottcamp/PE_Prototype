@@ -94,6 +94,7 @@ public class BasicAttack : MonoBehaviour
 
     private bool comboHitstopActive;
     private float comboHitstopExpiresAtRealtime;
+    private CombatBasicAttackRouter basicAttackRouter;
 
     private readonly Collider2D[] hitCols = new Collider2D[16];
     private readonly EnemyHealth[] uniqueEnemies = new EnemyHealth[16];
@@ -101,6 +102,9 @@ public class BasicAttack : MonoBehaviour
     private void Awake()
     {
         if (hitOrigin == null) hitOrigin = transform;
+        basicAttackRouter = GetComponent<CombatBasicAttackRouter>();
+        if (basicAttackRouter == null)
+            basicAttackRouter = GetComponentInParent<CombatBasicAttackRouter>();
         swingsRemaining = Mathf.Max(1, swingsPerBurst);
         ResolveAttackCommitment();
     }
@@ -147,6 +151,7 @@ public class BasicAttack : MonoBehaviour
         bool chainWasActive = comboHitstopActive;
 
         ApplyAttackCommitment();
+        basicAttackRouter?.RequestReleaseShake(lastAimDir);
         bool connected = DoAttack(lastAimDir, isThirdHit);
 
         if (connected || chainWasActive)

@@ -809,6 +809,7 @@ GameObject:
   - component: {fileID: 145993668}
   - component: {fileID: 145993671}
   - component: {fileID: 145993672}
+  - component: {fileID: 145993673}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -884,7 +885,7 @@ Transform:
   m_GameObject: {fileID: 145993667}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -3.1975393, y: -3.9478998, z: -10}
+  m_LocalPosition: {x: -3.232019, y: -4.2668505, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -966,6 +967,34 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   CustomBlends: {fileID: 0}
+--- !u!114 &145993673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145993667}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b01f43bb419747bfa9d947fc7f99a394, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatAimReticle
+  aimTrackerOverride: {fileID: 0}
+  automaticallyFindAimTracker: 1
+  aimTrackerSearchInterval: 0.25
+  reticleSprite: {fileID: 0}
+  reticleSizePixels: {x: 72, y: 72}
+  reticleColor: {r: 0, g: 0, b: 0, a: 1}
+  outlineColor: {r: 0, g: 0, b: 0, a: 0.9}
+  outlineDistance: {x: 1.25, y: -1.25}
+  canvasSortingOrder: 32000
+  rotationDegreesPerSecond: 0
+  hideSystemCursor: 1
+  hideWhenPointerLeavesGameView: 1
+  restorePreviousCursorStateOnDisable: 1
+  boundAimTracker: None
+  reticleVisible: 0
+  suppressed: 0
 --- !u!1 &146786681
 GameObject:
   m_ObjectHideFlags: 0
@@ -2139,6 +2168,7 @@ GameObject:
   - component: {fileID: 376299903}
   - component: {fileID: 376299905}
   - component: {fileID: 376299906}
+  - component: {fileID: 376299907}
   m_Layer: 0
   m_Name: CinemachineCamera
   m_TagString: Untagged
@@ -2218,7 +2248,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   TrackerSettings:
     BindingMode: 4
-    PositionDamping: {x: 1, y: 1, z: 1}
+    PositionDamping: {x: 0, y: 0, z: 1}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
@@ -2236,13 +2266,45 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   BoundingShape2D: {fileID: 1621097057}
-  Damping: 0.5
+  Damping: 0
   SlowingDistance: 5
   OversizeWindow:
     Enabled: 0
     MaxWindowSize: 0
     Padding: 0
   m_LegacyMaxWindowSize: -2
+--- !u!114 &376299907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 376299902}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c94f414d2b54ef6b347dcfa6810b93f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatAimCameraController
+  aimTrackerOverride: {fileID: 0}
+  automaticallyFindAimTracker: 1
+  aimTrackerSearchInterval: 0.25
+  maximumLeadScreenFraction: {x: 0.16, y: 0.12}
+  centerDeadZone: 0.1
+  leadResponseExponent: 1.35
+  followSmoothTime: 0.12
+  maximumFollowSpeed: 100
+  useUnscaledTime: 1
+  recenterWhenCursorLeavesGameView: 1
+  teleportSnapDistance: 6
+  pixelSnapCameraTarget: 0
+  assetsPixelsPerUnit: 100
+  cinemachineCamera: {fileID: 0}
+  maintainFollowBinding: 1
+  restoreOriginalFollowOnDisable: 1
+  boundAimTracker: None
+  debugNormalizedCursor: {x: 0, y: 0}
+  debugLeadWorldOffset: {x: 0, y: 0}
+  debugTargetPosition: {x: 0, y: 0}
 --- !u!1 &383548636
 GameObject:
   m_ObjectHideFlags: 0
@@ -2495,11 +2557,11 @@ PolygonCollider2D:
   m_AutoTiling: 0
   m_Points:
     m_Paths:
-    - - {x: -9.758593, y: 4.703476}
-      - {x: -9.852619, y: -3.3145893}
-      - {x: -1.0135846, y: -3.211742}
-      - {x: 6.197791, y: -3.2761633}
-      - {x: 6.2224774, y: 4.764928}
+    - - {x: -10.781904, y: 5.392645}
+      - {x: -10.729744, y: -4.567624}
+      - {x: -1.0971203, y: -4.443893}
+      - {x: 6.886961, y: -4.508315}
+      - {x: 6.932531, y: 5.4749813}
   m_UseDelaunayMesh: 1
 --- !u!4 &523219119
 Transform:
@@ -5638,8 +5700,8 @@ Transform:
   m_GameObject: {fileID: 1406632750}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -9.42, y: 3.38, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -9.39, y: 4.13, z: 0}
+  m_LocalScale: {x: 1, y: 1.2125, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1714095875}
@@ -5906,8 +5968,8 @@ Transform:
   m_GameObject: {fileID: 1490204751}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.84, y: -6.09, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.86715, y: -7.31, z: 0}
+  m_LocalScale: {x: 1.1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1714095875}
@@ -6503,7 +6565,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1566031717
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7068,11 +7130,11 @@ PolygonCollider2D:
   m_AutoTiling: 0
   m_Points:
     m_Paths:
-    - - {x: -10.65374, y: -0.9223652}
-      - {x: -10.477584, y: -9.4154415}
-      - {x: 1.5212688, y: -9.555124}
-      - {x: 7.7056546, y: -9.34717}
-      - {x: 7.90168, y: -1.2305298}
+    - - {x: -12.030249, y: 2.0371299}
+      - {x: -12.244104, y: -12.443763}
+      - {x: 0.6494796, y: -12.468734}
+      - {x: 10.275141, y: -12.581968}
+      - {x: 10.310572, y: 1.9124997}
   m_UseDelaunayMesh: 0
 --- !u!212 &1621097058
 SpriteRenderer:
@@ -7613,8 +7675,8 @@ Transform:
   m_GameObject: {fileID: 1719641920}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.86, y: 4.97, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.95697, y: 6.32, z: 0}
+  m_LocalScale: {x: 1.0625, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1714095875}
@@ -7730,6 +7792,9 @@ MonoBehaviour:
   invalidColor: {r: 1, g: 0, b: 0, a: 0.35}
   rangeIndicatorPrefab: {fileID: 0}
   rangeColor: {r: 1, g: 1, b: 1, a: 0.15}
+  aimColor: {r: 1, g: 1, b: 1, a: 0.75}
+  aimLineWidth: 0.04
+  aimSortingOrder: 100
 --- !u!224 &1774833439
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7912,8 +7977,8 @@ Transform:
   m_GameObject: {fileID: 1811029830}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 10.65, y: 3.28, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 11.03, y: 4.1805, z: 0}
+  m_LocalScale: {x: 1, y: 1.2320312, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1714095875}

@@ -43,6 +43,22 @@ public class SkillDefinition : ScriptableObject
     public bool includeDownedTargets = false;
     public string partyTargetMenuTitle = "Choose ally";
 
+    [Header("Directional Aim Confirmation")]
+    [Tooltip("If true, choosing this skill opens a directional aim step before the cast resolves.")]
+    public bool requiresAimConfirmation = false;
+
+    [Tooltip("Length of the directional preview shown while aiming.")]
+    [Min(0.1f)]
+    public float aimPreviewRange = 8f;
+
+    [Tooltip("Radius of the endpoint preview. For melee skills, match the melee hit radius.")]
+    [Min(0.01f)]
+    public float aimPreviewRadius = 0.15f;
+
+    [Tooltip("Full cone angle shown by the directional preview. Leave at 0 for a single aim line.")]
+    [Range(0f, 360f)]
+    public float aimPreviewConeAngle = 0f;
+
     [Header("Melee Hitbox (used when firesProjectile is false and damage > 0)")]
     public float meleeRange = 0.9f;
     public float meleeRadius = 0.4f;

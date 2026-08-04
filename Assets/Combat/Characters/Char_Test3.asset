@@ -27,5 +27,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 21b8f1ca2b4b7b64180ed2634030a9e0, type: 2}
   skillCostIncreaseMultiplier: 3
   unlocks: []
-  combatSprite: {fileID: -3801119290158128424, guid: e2d845dd226e0f94a965f73776ebe4cf, type: 3}
+  combatSprite: {fileID: 21300000, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
   portraitSprite: {fileID: -8563271677356080694, guid: 96842285eba745c4b82738eac8d16033, type: 3}

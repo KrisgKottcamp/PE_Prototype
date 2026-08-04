@@ -28,17 +28,44 @@ public class PushBack : MonoBehaviour
 
     public bool Execute()
     {
+        return Execute(Vector2.up, 360f);
+    }
+
+    public bool Execute(Vector2 aimDirection, float coneAngle)
+    {
         Vector2 center = transform.position;
+        Vector2 direction =
+            aimDirection.sqrMagnitude > 0.0001f
+                ? aimDirection.normalized
+                : Vector2.up;
+
+        // A zero angle preserves the original radial behavior for older skill
+        // assets that have not opted into a directional cone.
+        float resolvedConeAngle =
+            coneAngle > 0.01f
+                ? Mathf.Clamp(coneAngle, 0f, 360f)
+                : 360f;
 
         SpawnBubble(center);
 
-        int pushedEnemies = PushEnemies(center);
-        int reflectedProjectiles = ReflectProjectiles(center);
+        int pushedEnemies = PushEnemies(
+            center,
+            direction,
+            resolvedConeAngle
+        );
+        int reflectedProjectiles = ReflectProjectiles(
+            center,
+            direction,
+            resolvedConeAngle
+        );
 
         return pushedEnemies > 0 || reflectedProjectiles > 0;
     }
 
-    private int PushEnemies(Vector2 center)
+    private int PushEnemies(
+        Vector2 center,
+        Vector2 aimDirection,
+        float coneAngle)
     {
         int count = Physics2D.OverlapCircleNonAlloc(
             center,
@@ -61,6 +88,15 @@ public class PushBack : MonoBehaviour
 
             if (knockback == null)
                 continue;
+
+            if (!IsInsideAimCone(
+                center,
+                knockback.transform.position,
+                aimDirection,
+                coneAngle))
+            {
+                continue;
+            }
 
             bool alreadyHit = false;
 
@@ -100,7 +136,10 @@ public class PushBack : MonoBehaviour
         return uniqueCount;
     }
 
-    private int ReflectProjectiles(Vector2 center)
+    private int ReflectProjectiles(
+        Vector2 center,
+        Vector2 aimDirection,
+        float coneAngle)
     {
         int layer = LayerFromMask(reflectedProjectileLayer);
 
@@ -130,11 +169,44 @@ public class PushBack : MonoBehaviour
             if (distance > radius)
                 continue;
 
+            if (!IsInsideAimCone(
+                center,
+                projectile.transform.position,
+                aimDirection,
+                coneAngle))
+            {
+                continue;
+            }
+
             projectile.Reflect(transform, layer, tracker);
             reflectedCount++;
         }
 
         return reflectedCount;
+    }
+
+    private static bool IsInsideAimCone(
+        Vector2 center,
+        Vector2 target,
+        Vector2 aimDirection,
+        float coneAngle)
+    {
+        if (coneAngle >= 359.9f)
+            return true;
+
+        Vector2 offset = target - center;
+
+        if (offset.sqrMagnitude < 0.0001f)
+            return true;
+
+        float minimumDot = Mathf.Cos(
+            coneAngle * 0.5f * Mathf.Deg2Rad
+        );
+
+        return Vector2.Dot(
+            offset.normalized,
+            aimDirection
+        ) >= minimumDot;
     }
 
     private static int LayerFromMask(LayerMask mask)

@@ -22,6 +22,7 @@ public class ProjectileBasicAttack : MonoBehaviour
     [SerializeField, Min(0f)] private float damageCancelRecovery = 0.18f;
 
     [SerializeField] private PlayerAttackCommitment attackCommitment;
+    private CombatBasicAttackRouter basicAttackRouter;
 
     [Header("Projectile")]
     [SerializeField] private Transform muzzle;
@@ -68,6 +69,9 @@ public class ProjectileBasicAttack : MonoBehaviour
         if (muzzle == null)
             muzzle = transform;
 
+        basicAttackRouter = GetComponent<CombatBasicAttackRouter>();
+        if (basicAttackRouter == null)
+            basicAttackRouter = GetComponentInParent<CombatBasicAttackRouter>();
         shotsRemaining = Mathf.Max(1, shotsPerBurst);
         ResolveAttackCommitment();
     }
@@ -130,6 +134,7 @@ public class ProjectileBasicAttack : MonoBehaviour
         }
 
         ApplyAttackCommitment();
+        basicAttackRouter?.RequestReleaseShake(aimDir);
         Fire();
 
         shotsRemaining--;

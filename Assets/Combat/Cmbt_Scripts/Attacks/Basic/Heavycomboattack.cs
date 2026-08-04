@@ -133,6 +133,7 @@ public class HeavyComboAttack : MonoBehaviour
     private Camera cam;
     private Vector2 lastAimDir = Vector2.up;
     private Vector2 comboAimDir;
+    private CombatBasicAttackRouter basicAttackRouter;
 
     private float cooldownTimer;
     private bool comboRunning;
@@ -147,6 +148,9 @@ public class HeavyComboAttack : MonoBehaviour
         if (hitOrigin == null)
             hitOrigin = transform;
 
+        basicAttackRouter = GetComponent<CombatBasicAttackRouter>();
+        if (basicAttackRouter == null)
+            basicAttackRouter = GetComponentInParent<CombatBasicAttackRouter>();
         ResolveAttackCommitment();
     }
 
@@ -189,6 +193,7 @@ public class HeavyComboAttack : MonoBehaviour
 
         // Both hits use the direction committed when the combo begins.
         comboAimDir = lastAimDir;
+        basicAttackRouter?.RequestReleaseShake(comboAimDir);
         comboRoutine = StartCoroutine(ComboRoutine());
     }
 

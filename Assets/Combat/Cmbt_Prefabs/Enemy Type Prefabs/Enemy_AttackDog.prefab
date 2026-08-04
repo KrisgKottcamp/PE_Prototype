@@ -254,6 +254,14 @@ MonoBehaviour:
   forceCloseThreatAttacks: 1
   holdThreatSecondsRange: {x: 0.3, y: 0.75}
   allowHoldThreatToAttack: 1
+  useSquadAttackSlots: 1
+  attackSlotRetryDelay: 0.16
+  threatGapCanHurryLunge: 1
+  debugAttackSlot: None
+  useSquadPincerTargets: 1
+  pincerTargetScoreWeight: 1.25
+  useSquadEscapeCutoffPrediction: 1
+  debugPincerTarget: None
   telegraphSeconds: 0.5
   aimLockFraction: 0.52
   backstepSeconds: 0.22
@@ -371,9 +379,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyStunnable
   defaultStunSeconds: 0.25
+  disableConfiguredScriptsDuringStun: 0
+  freezeRigidbodyDuringStun: 0
   disableScripts:
   - {fileID: 4436637789845180927}
   rb2d: {fileID: 7709175904219788449}
+  enemyShooters: []
+  projectileCommitPoint: 0.7
+  debugLogs: 0
+  debugLastStunType: None
+  debugStunRemaining: 0
+  debugBasicResolveRemaining: 0
+  debugLastBasicInterrupt: None
 --- !u!114 &1849778292739392877
 MonoBehaviour:
   m_ObjectHideFlags: 0

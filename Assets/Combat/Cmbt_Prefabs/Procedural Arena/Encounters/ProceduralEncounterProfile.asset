@@ -16,9 +16,9 @@ MonoBehaviour:
   designerNotes: 
   backgroundVariants:
   - {fileID: -971165736088576676, guid: d444b230fba26bb4c8fef2dc2e0ef25e, type: 3}
-  minimumEnemyCount: 1
-  maximumEnemyCount: 4
-  useWeightedEnemyCount: 1
+  minimumEnemyCount: 2
+  maximumEnemyCount: 6
+  useWeightedEnemyCount: 0
   enemyCountWeights:
   - enemyCount: 1
     weight: 1
@@ -29,7 +29,7 @@ MonoBehaviour:
   - enemyCount: 4
     weight: 1
   minimumDifficultyBudget: 4
-  maximumDifficultyBudget: 6
+  maximumDifficultyBudget: 10
   enemyRules:
   - enemy: {fileID: 11400000, guid: a9523818adeabf14d8901ed633990ff8, type: 2}
     weight: 3

@@ -20,6 +20,10 @@ MonoBehaviour:
   requiresPartyTarget: 0
   includeDownedTargets: 0
   partyTargetMenuTitle: Choose ally
+  requiresAimConfirmation: 1
+  aimPreviewRange: 0.9
+  aimPreviewRadius: 0.4
+  aimPreviewConeAngle: 0
   meleeRange: 0.9
   meleeRadius: 0.4
   meleeHitMask:
@@ -47,7 +51,7 @@ MonoBehaviour:
   projectileHitMask:
     serializedVersion: 2
     m_Bits: 0
-  damage: 50
+  damage: 80
   heal: 0
   impactDelay: 0.1
   castVfxPrefab: {fileID: 6400882652763300098, guid: 2d933487017735743a887f7ea2af8348, type: 3}

@@ -475,7 +475,7 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
@@ -766,7 +766,7 @@ MonoBehaviour:
   projectileHitMask:
     serializedVersion: 2
     m_Bits: 1152
-  damage: 5
+  damage: 1
   stunSeconds: 0.15
   basicHitReaction:
     enabled: 1
@@ -840,6 +840,14 @@ MonoBehaviour:
   projectileAttack: {fileID: 5701958380578643245}
   heavyComboAttack: {fileID: 4034515412725252725}
   whipAttack: {fileID: -8863248767788800456}
+  releaseShake:
+    enabled: 1
+    strength: 0.035
+    duration: 0.045
+  meleeShakeMultiplier: 1
+  projectileShakeMultiplier: 0.8
+  heavyComboShakeMultiplier: 1.1
+  whipShakeMultiplier: 0.9
 --- !u!114 &7843633549860200545
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -853,6 +861,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   aimOrigin: {fileID: 4624380704858928614}
+  aimCamera: {fileID: 0}
+  automaticallyUseMainCamera: 1
 --- !u!114 &5471647765637961015
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -146,6 +146,7 @@ public class WhipAttack : MonoBehaviour
     private Vector2 lastAimDir = Vector2.right;
     private Vector2 lastMouseWorld;
     private bool hasMouseWorld;
+    private CombatBasicAttackRouter basicAttackRouter;
 
     private float cooldownTimer;
     private bool swingRunning;
@@ -159,6 +160,9 @@ public class WhipAttack : MonoBehaviour
         if (hitOrigin == null)
             hitOrigin = transform;
 
+        basicAttackRouter = GetComponent<CombatBasicAttackRouter>();
+        if (basicAttackRouter == null)
+            basicAttackRouter = GetComponentInParent<CombatBasicAttackRouter>();
         ResolveAttackCommitment();
         SetupWhipLine();
     }
@@ -231,6 +235,7 @@ public class WhipAttack : MonoBehaviour
         cooldownTimer = attackCooldown;
 
         ApplySwingCommitment();
+        basicAttackRouter?.RequestReleaseShake(dir);
 
         swingRoutine = StartCoroutine(
             WhipSwingRoutine(dir, desiredReach)

@@ -52,6 +52,7 @@ public class CombatSkillSystem : MonoBehaviour
         public int ownerIndex;
         public int apCost;
         public Vector2 aimDirAtCommit;
+        public bool castVfxDeferred;
     }
 
     private void Awake()
@@ -172,10 +173,14 @@ public class CombatSkillSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Starts a cast, spends AP immediately, spawns cast VFX immediately, then returns a PendingCast.
+    /// Starts a cast, spends AP immediately, and returns a PendingCast.
+    /// Cast VFX can be deferred until directional aim is confirmed.
     /// Use ResolveCast(pending, partyTargetIndex) to finish it, or CancelCast(pending) to refund.
     /// </summary>
-    public bool BeginCast(SkillDefinition skill, out PendingCast pending)
+    public bool BeginCast(
+        SkillDefinition skill,
+        out PendingCast pending,
+        bool deferCastVfx = false)
     {
         pending = null;
 
@@ -215,17 +220,12 @@ public class CombatSkillSystem : MonoBehaviour
             skill = skill,
             ownerIndex = ownerIndex,
             apCost = cost,
-            aimDirAtCommit = dir
+            aimDirAtCommit = dir,
+            castVfxDeferred = deferCastVfx
         };
 
-        // Cast VFX now
-        SpawnVfx(
-            skill.castVfxPrefab,
-            vfxOrigin.position,
-            dir,
-            skill.castVfxAngleOffset,
-            skill.castVfxForwardOffset
-        );
+        if (!deferCastVfx)
+            SpawnCastVfx(pending);
 
         return true;
     }
@@ -260,6 +260,45 @@ public class CombatSkillSystem : MonoBehaviour
         if (isCasting) return;
 
         StartCoroutine(ResolveRoutine(pending, partyTargetIndex));
+    }
+
+    /// <summary>
+    /// Commits the final direction selected by the aim-confirmation step, then
+    /// resolves the cast exactly like a normal non-party-target skill.
+    /// </summary>
+    public void ResolveCastWithAim(PendingCast pending, Vector2 aimDirection)
+    {
+        if (pending == null || pending.skill == null) return;
+
+        if (aimDirection.sqrMagnitude > 0.0001f)
+            pending.aimDirAtCommit = aimDirection.normalized;
+
+        if (pending.castVfxDeferred)
+            SpawnCastVfx(pending);
+
+        ResolveCast(pending, null);
+    }
+
+    private void SpawnCastVfx(PendingCast pending)
+    {
+        if (pending == null || pending.skill == null) return;
+
+        Vector2 direction =
+            pending.aimDirAtCommit.sqrMagnitude > 0.0001f
+                ? pending.aimDirAtCommit.normalized
+                : Vector2.up;
+
+        SkillDefinition skill = pending.skill;
+
+        SpawnVfx(
+            skill.castVfxPrefab,
+            vfxOrigin.position,
+            direction,
+            skill.castVfxAngleOffset,
+            skill.castVfxForwardOffset
+        );
+
+        pending.castVfxDeferred = false;
     }
 
     // ----------------------------
@@ -318,7 +357,10 @@ public class CombatSkillSystem : MonoBehaviour
             bool succeeded = false;
 
             if (pushBack != null)
-                succeeded = pushBack.Execute();
+                succeeded = pushBack.Execute(
+                    dir,
+                    skill.aimPreviewConeAngle
+                );
             else
                 Debug.LogWarning(
                     $"Skill '{skill.name}' is PushBack type but no PushBack component found on pawn."

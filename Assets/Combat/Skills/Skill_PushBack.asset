@@ -20,17 +20,33 @@ MonoBehaviour:
   requiresPartyTarget: 0
   includeDownedTargets: 0
   partyTargetMenuTitle: Choose ally
+  requiresAimConfirmation: 1
+  aimPreviewRange: 3
+  aimPreviewRadius: 0.2
+  aimPreviewConeAngle: 100
   meleeRange: 0.9
   meleeRadius: 0.4
   meleeHitMask:
     serializedVersion: 2
     m_Bits: 0
   meleeMaxTargets: 1
+  destroysEnemyProjectiles: 0
+  appliesMeleeKnockback: 0
+  meleeKnockbackForce: 5
+  meleeKnockbackDuration: 0.14
+  hitstop:
+    enabled: 1
+    duration: 0.05
+    timeScale: 0.035
+  cameraShake:
+    enabled: 0
+    strength: 0
+    duration: 0
   firesProjectile: 0
   projectilePrefab: {fileID: 0}
   projectileSpeed: 14
   projectileLifetime: 2.5
-  projectileDamage: 8
+  projectileDamage: 25
   projectileStunSeconds: 0.25
   projectileHitMask:
     serializedVersion: 2

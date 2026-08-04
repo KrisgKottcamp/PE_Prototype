@@ -7,7 +7,7 @@ using TMPro;
 /// <summary>
 /// Put this on your CombatHUD scene object, not on the pawn prefab.
 /// Drives the skill list panel, slows time heavily, disables pawn control,
-/// supports party-target skills, and supports placement skills.
+/// supports party-target, placement, and directional-aim skills.
 /// </summary>
 public class CombatSkillMenuController : MonoBehaviour
 {
@@ -74,6 +74,7 @@ public class CombatSkillMenuController : MonoBehaviour
     private bool isOpen;
     private bool selectingPartyTarget;
     private bool selectingPlacement;
+    private bool selectingDirectionalAim;
 
     private int selectedIndex;
 
@@ -125,6 +126,25 @@ public class CombatSkillMenuController : MonoBehaviour
 
                 CloseSkillPanel();
             }
+
+            return;
+        }
+
+        if (selectingDirectionalAim)
+        {
+            if (Input.GetKeyDown(cancelKey))
+            {
+                CancelDirectionalAim();
+                return;
+            }
+
+            bool aimConfirmPressed = Input.GetKeyDown(confirmKey);
+
+            if (confirmWithLeftClick)
+                aimConfirmPressed |= Input.GetMouseButtonDown(0);
+
+            if (aimConfirmPressed)
+                ConfirmDirectionalAim();
 
             return;
         }
@@ -182,6 +202,7 @@ public class CombatSkillMenuController : MonoBehaviour
         isOpen = true;
         selectingPartyTarget = false;
         selectingPlacement = false;
+        selectingDirectionalAim = false;
         selectedIndex = 0;
         nextOpenPanelRefreshTime = 0f;
 
@@ -240,6 +261,18 @@ public class CombatSkillMenuController : MonoBehaviour
             selectingPlacement = false;
         }
 
+        if (selectingDirectionalAim)
+        {
+            if (placement != null)
+                placement.EndDirectionalAim();
+
+            if (skillSystem != null && pendingCast != null)
+                skillSystem.CancelCast(pendingCast);
+
+            pendingCast = null;
+            selectingDirectionalAim = false;
+        }
+
         CloseSkillPanel();
     }
 
@@ -251,6 +284,7 @@ public class CombatSkillMenuController : MonoBehaviour
         isOpen = false;
         selectingPartyTarget = false;
         selectingPlacement = false;
+        selectingDirectionalAim = false;
 
         if (skillPanelRoot != null)
             skillPanelRoot.SetActive(false);
@@ -409,6 +443,12 @@ public class CombatSkillMenuController : MonoBehaviour
         if (skill.usesPlacement)
         {
             BeginPlacementSkill(skill);
+            return;
+        }
+
+        if (skill.requiresAimConfirmation)
+        {
+            BeginDirectionalAimSkill(skill);
             return;
         }
 
@@ -658,6 +698,84 @@ public class CombatSkillMenuController : MonoBehaviour
                 }
             }
         );
+    }
+
+    private void BeginDirectionalAimSkill(SkillDefinition skill)
+    {
+        if (placement == null)
+        {
+            Debug.LogWarning(
+                "CombatSkillMenuController: placement controller not assigned; directional aim cannot start."
+            );
+
+            return;
+        }
+
+        if (!skillSystem.BeginCast(
+            skill,
+            out pendingCast,
+            deferCastVfx: true))
+        {
+            RefreshSkillText();
+            return;
+        }
+
+        selectingDirectionalAim = true;
+
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
+
+        placement.BeginDirectionalAim(
+            skill.aimPreviewRange,
+            skill.aimPreviewRadius,
+            skill.aimPreviewConeAngle,
+            skillSystem.transform
+        );
+    }
+
+    private void ConfirmDirectionalAim()
+    {
+        if (placement == null ||
+            !placement.ConfirmDirectionalAim(out Vector2 aimDirection))
+        {
+            return;
+        }
+
+        CombatSkillSystem.PendingCast cast = pendingCast;
+        pendingCast = null;
+        selectingDirectionalAim = false;
+
+        skillSystem.ResolveCastWithAim(cast, aimDirection);
+
+        if (closePanelAfterCast)
+        {
+            CloseSkillPanel();
+        }
+        else
+        {
+            if (skillPanelRoot != null)
+                skillPanelRoot.SetActive(true);
+
+            RefreshSkillText();
+        }
+    }
+
+    private void CancelDirectionalAim()
+    {
+        if (placement != null)
+            placement.EndDirectionalAim();
+
+        if (skillSystem != null && pendingCast != null)
+            skillSystem.CancelCast(pendingCast);
+
+        pendingCast = null;
+        selectingDirectionalAim = false;
+
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(true);
+
+        // Keep the menu open so time remains slowed after backing out of aim.
+        RefreshSkillText();
     }
 
     private void RefreshSkillText()
