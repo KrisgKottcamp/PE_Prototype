@@ -42,12 +42,12 @@ MonoBehaviour:
   projectilePrefab: {fileID: 7666303392692351521, guid: 730e3ffb110ccf241a827615b250e29a, type: 3}
   projectileSpeed: 14
   projectileLifetime: 2.5
-  projectileDamage: 30
+  projectileDamage: 60
   projectileStunSeconds: 0.25
   projectileHitMask:
     serializedVersion: 2
     m_Bits: 1152
-  damage: 50
+  damage: 80
   heal: 0
   impactDelay: 0.1
   castVfxPrefab: {fileID: 0}

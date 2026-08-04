@@ -47,7 +47,7 @@ MonoBehaviour:
   projectileHitMask:
     serializedVersion: 2
     m_Bits: 0
-  damage: 30
+  damage: 50
   heal: 0
   impactDelay: 0.1
   castVfxPrefab: {fileID: 6400882652763300098, guid: 2d933487017735743a887f7ea2af8348, type: 3}

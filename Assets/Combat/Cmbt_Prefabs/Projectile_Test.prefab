@@ -30,8 +30,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -5.78607, y: -4.86744, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -111,7 +111,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rb: {fileID: 9000629432750736177}
-  speed: 2
+  speed: 3
   lifetime: 50
   armDelay: 0.03
   damage: 35
@@ -129,6 +129,10 @@ MonoBehaviour:
   tintSpriteRenderersOnReflect: 1
   tintTrailRenderersOnReflect: 1
   tintLineRenderersOnReflect: 1
+  reflectedHitstop:
+    enabled: 1
+    duration: 0.04
+    timeScale: 0.04
 --- !u!212 &-1518053620354522506
 SpriteRenderer:
   serializedVersion: 2

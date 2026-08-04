@@ -2166,7 +2166,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 0}
+    TrackingTarget: {fileID: 4624380704858928614, guid: 65d5dd0114f5c1b488808aff8a4f1362, type: 3}
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
@@ -2198,7 +2198,7 @@ Transform:
   m_GameObject: {fileID: 376299902}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -7.81, y: -6.97, z: -10}
+  m_LocalPosition: {x: -3.232019, y: -4.2668505, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

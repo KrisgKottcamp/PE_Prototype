@@ -28,8 +28,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.018, y: 0.004, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 4624380704858928614}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -410,9 +410,9 @@ GameObject:
   - component: {fileID: 4566015598488280250}
   - component: {fileID: 6592017857662128205}
   - component: {fileID: 191217448221442475}
+  - component: {fileID: 5701958380578643245}
   - component: {fileID: 2598302185313225213}
   - component: {fileID: -7457408312686432886}
-  - component: {fileID: 5701958380578643245}
   - component: {fileID: -93335120722698322}
   - component: {fileID: 7843633549860200545}
   - component: {fileID: 5471647765637961015}
@@ -702,7 +702,7 @@ MonoBehaviour:
   hitOrigin: {fileID: 1688005057641213542}
   range: 0.8
   radius: 0.35
-  damage: 1
+  damage: 5
   enemyMask:
     serializedVersion: 2
     m_Bits: 1024
@@ -738,6 +738,47 @@ MonoBehaviour:
   attackVfxPrefab: {fileID: 2055744915509529528, guid: 76c08226e6716d24e81adeccf16b4425, type: 3}
   vfxAngleOffset: 0
   drawGizmos: 1
+--- !u!114 &5701958380578643245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2b26339b48248245a10cd358c4cd70f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fireKey: 324
+  shotsPerBurst: 3
+  shotCooldown: 0.06
+  burstRecovery: 0.6
+  shotMoveMultiplier: 0.82
+  shotCommitmentDuration: 0.07
+  damageCancelRecovery: 0.18
+  attackCommitment: {fileID: 0}
+  muzzle: {fileID: 4624380704858928614}
+  projectilePrefab: {fileID: 6862829599791500612, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
+  projectileSpeed: 20
+  projectileLifetime: 2.5
+  muzzleForwardOffset: 0.15
+  projectileHitMask:
+    serializedVersion: 2
+    m_Bits: 1152
+  damage: 5
+  stunSeconds: 0.15
+  basicHitReaction:
+    enabled: 1
+    flinchSeconds: 0.035
+    interruptDelay: 0.08
+    resolveSeconds: 0.9
+  projectileHitstop:
+    enabled: 1
+    duration: 0.018
+    timeScale: 0.08
+  momentumGainOnHit: 2
+  angleOffset: 0
 --- !u!114 &2598302185313225213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -783,47 +824,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &5701958380578643245
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6170445591022180168}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2b26339b48248245a10cd358c4cd70f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  fireKey: 324
-  shotsPerBurst: 3
-  shotCooldown: 0.12
-  burstRecovery: 0.6
-  shotMoveMultiplier: 0.82
-  shotCommitmentDuration: 0.07
-  damageCancelRecovery: 0.18
-  attackCommitment: {fileID: 0}
-  muzzle: {fileID: 4624380704858928614}
-  projectilePrefab: {fileID: 6862829599791500612, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
-  projectileSpeed: 10
-  projectileLifetime: 2.5
-  muzzleForwardOffset: 0.15
-  projectileHitMask:
-    serializedVersion: 2
-    m_Bits: 1152
-  damage: 1
-  stunSeconds: 0.15
-  basicHitReaction:
-    enabled: 1
-    flinchSeconds: 0.035
-    interruptDelay: 0.08
-    resolveSeconds: 0.9
-  projectileHitstop:
-    enabled: 1
-    duration: 0.018
-    timeScale: 0.08
-  momentumGainOnHit: 2
-  angleOffset: 0
 --- !u!114 &-93335120722698322
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -986,8 +986,8 @@ MonoBehaviour:
   hit2CommitmentDuration: 0.2
   damageCancelRecovery: 0.25
   attackCommitment: {fileID: 0}
-  hit1Damage: 1
-  hit2Damage: 2
+  hit1Damage: 5
+  hit2Damage: 10
   hit1Reaction:
     enabled: 1
     flinchSeconds: 0.055
@@ -1080,7 +1080,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   obstacleSkin: 0.03
-  damage: 1
+  damage: 12
   basicHitReaction:
     enabled: 1
     flinchSeconds: 0.065

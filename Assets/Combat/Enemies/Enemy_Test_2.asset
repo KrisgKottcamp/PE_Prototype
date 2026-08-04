@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Enemy_Test_2
   m_EditorClassIdentifier: Assembly-CSharp::EnemyDefinition
   displayName: 
-  maxHP: 75
+  maxHP: 175
   prefab: {fileID: 99964620462346716, guid: c0c8b2d476132bd48a60aa04f1967684, type: 3}

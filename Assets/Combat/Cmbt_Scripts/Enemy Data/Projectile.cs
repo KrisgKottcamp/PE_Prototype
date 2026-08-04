@@ -59,7 +59,24 @@ public class Projectile : MonoBehaviour
     [SerializeField] private bool destroyOnSolidHit = true;
     [SerializeField] private LayerMask solidMask;
 
+    [Header("Despawn Safety")]
+    [Tooltip(
+        "Hard lifetime cap even when a prefab has an excessively long " +
+        "configured lifetime. Prevents missed projectiles accumulating.")]
+    [SerializeField, Min(0.1f)] private float maximumLifetime = 8f;
+    [Tooltip(
+        "Hard lifetime after reflection. This still applies when reflected " +
+        "projectiles are configured to ignore their normal lifetime.")]
+    [SerializeField, Min(0.1f)] private float reflectedMaximumLifetime = 6f;
+    [Tooltip(
+        "Projectile despawns after travelling this far from its latest spawn " +
+        "or reflection point. Set to 0 to disable the distance safeguard.")]
+    [SerializeField, Min(0f)] private float maximumTravelDistance = 40f;
+
     [Header("Reflection Behavior")]
+    [Tooltip(
+        "Ignores the normal lifetime after reflection, but the reflected " +
+        "safety lifetime and travel-distance cap still apply.")]
     [SerializeField] private bool reflectedProjectilesIgnoreLifetime = true;
 
     [Tooltip("Color applied when this projectile gets reflected by Push Back.")]
@@ -71,14 +88,15 @@ public class Projectile : MonoBehaviour
 
     [Header("Reflected Hitstop")]
     [Tooltip("Applied when a Push Back-reflected projectile damages an enemy.")]
-    [SerializeField]
-    private HitstopSettings reflectedHitstop =
+    [SerializeField] private HitstopSettings reflectedHitstop =
         HitstopSettings.Create(0.040f, 0.04f);
 
     private Vector2 direction = Vector2.right;
     private bool initialized = false;
     private float armedAt = 0f;
     private float destroyAt = float.MaxValue;
+    private float safetyDestroyAt = float.MaxValue;
+    private Vector2 travelOrigin;
     private Transform ownerRoot;
     private ReflectDamageTracker reflectTracker;
 
@@ -99,6 +117,9 @@ public class Projectile : MonoBehaviour
     {
         armedAt = Time.time + Mathf.Max(0f, armDelay);
         destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
+        safetyDestroyAt =
+            Time.time + Mathf.Max(0.1f, maximumLifetime);
+        travelOrigin = transform.position;
 
         hasBeenReflected = false;
         reflectTracker = null;
@@ -125,6 +146,22 @@ public class Projectile : MonoBehaviour
 
     private void FixedUpdate()
     {
+        bool exceededSafetyLifetime =
+            Time.time >= safetyDestroyAt;
+
+        bool exceededTravelDistance =
+            maximumTravelDistance > 0f &&
+            ((Vector2)transform.position - travelOrigin).
+                sqrMagnitude >=
+            maximumTravelDistance * maximumTravelDistance;
+
+        if (exceededSafetyLifetime ||
+            exceededTravelDistance)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         bool shouldUseLifetime = !hasBeenReflected || !reflectedProjectilesIgnoreLifetime;
 
         if (shouldUseLifetime && Time.time >= destroyAt)
@@ -175,7 +212,8 @@ public class Projectile : MonoBehaviour
     /// <summary>
     /// Called by PushBack.
     /// Reverses direction, changes ownership, changes layer, clears enemy collision ignores,
-    /// tints the projectile, and optionally disables lifetime despawn.
+    /// tints the projectile, and optionally replaces its normal lifetime with
+    /// the reflected safety lifetime.
     /// </summary>
     public void Reflect(Transform newOwner, int newLayer = -1, ReflectDamageTracker tracker = null)
     {
@@ -203,6 +241,10 @@ public class Projectile : MonoBehaviour
         ApplyReflectedVisualTint();
 
         armedAt = Time.time + Mathf.Max(0f, armDelay);
+        safetyDestroyAt =
+            Time.time +
+            Mathf.Max(0.1f, reflectedMaximumLifetime);
+        travelOrigin = transform.position;
 
         if (reflectedProjectilesIgnoreLifetime)
             destroyAt = float.MaxValue;

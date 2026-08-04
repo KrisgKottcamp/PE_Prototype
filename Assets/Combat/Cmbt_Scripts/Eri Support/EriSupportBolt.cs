@@ -13,6 +13,8 @@ public sealed class EriSupportBolt : MonoBehaviour
     private Vector2 direction;
     private float speed;
     private float expiresAt;
+    private Vector2 travelOrigin;
+    private float maximumTravelDistanceSquared;
     private int damage;
     private LayerMask collisionMask;
     private bool resolved;
@@ -92,8 +94,13 @@ public sealed class EriSupportBolt : MonoBehaviour
                 : Vector2.up;
         bolt.damage = Mathf.Max(1, damage);
         bolt.speed = Mathf.Max(0.1f, speed);
-        bolt.expiresAt =
-            Time.time + Mathf.Max(0.1f, lifetime);
+        float safeLifetime = Mathf.Max(0.1f, lifetime);
+        bolt.expiresAt = Time.time + safeLifetime;
+        bolt.travelOrigin = origin;
+        float maximumTravelDistance =
+            bolt.speed * safeLifetime * 1.25f + 0.5f;
+        bolt.maximumTravelDistanceSquared =
+            maximumTravelDistance * maximumTravelDistance;
         bolt.collisionMask = collisionMask;
         bolt.trailRenderer =
             AddTrail(
@@ -117,6 +124,14 @@ public sealed class EriSupportBolt : MonoBehaviour
         if (resolved)
             return;
 
+        // Keep expiry independent from physics collision resolution. This also
+        // protects bolts that have already left every collider in the arena.
+        if (Time.time >= expiresAt)
+        {
+            Resolve();
+            return;
+        }
+
         float pulse =
             1f +
             Mathf.Sin(Time.time * 24f) *
@@ -138,6 +153,14 @@ public sealed class EriSupportBolt : MonoBehaviour
         }
 
         Vector2 current = transform.position;
+
+        if ((current - travelOrigin).sqrMagnitude >=
+            maximumTravelDistanceSquared)
+        {
+            Resolve();
+            return;
+        }
+
         float distance =
             speed * Time.fixedDeltaTime;
 

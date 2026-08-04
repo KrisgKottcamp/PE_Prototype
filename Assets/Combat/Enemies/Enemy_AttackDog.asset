@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Enemy_AttackDog
   m_EditorClassIdentifier: Assembly-CSharp::EnemyDefinition
   displayName: Attack Dog
-  maxHP: 50
+  maxHP: 150
   prefab: {fileID: 4360248949720635547, guid: b5865e14e6d91e842ab0dc384a7d2f82, type: 3}

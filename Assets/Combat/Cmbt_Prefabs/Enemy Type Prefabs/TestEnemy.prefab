@@ -24,6 +24,8 @@ GameObject:
   - component: {fileID: 991255888047839382}
   - component: {fileID: 5243475557449673624}
   - component: {fileID: 889431934497075718}
+  - component: {fileID: 6010973497524430864}
+  - component: {fileID: 5115181037909754810}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -197,7 +199,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   projectilePrefab: {fileID: 6088773528821479106, guid: 0a4f42c47b1fc2f4ca363dc0520e42a0, type: 3}
   muzzle: {fileID: 0}
-  projectileSpeed: 3
+  projectileSpeed: 3.5
   applyVelocityToRigidbody: 0
   useBurstFire: 1
   shotsPerBurst: 3
@@ -267,6 +269,8 @@ MonoBehaviour:
   debugLosBlocked: 0
   debugLosHitObject: None
   lastSuccessfulShotTime: -999
+  debugTelegraphProgress: 0
+  debugLastInterruptResult: None
 --- !u!114 &273839630491619014
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -305,9 +309,13 @@ MonoBehaviour:
   - {fileID: 3715463728703913041}
   - {fileID: -3799086166338868606}
   rb2d: {fileID: 0}
+  enemyShooters: []
+  projectileCommitPoint: 0.7
   debugLogs: 0
   debugLastStunType: None
   debugStunRemaining: 0
+  debugBasicResolveRemaining: 0
+  debugLastBasicInterrupt: None
 --- !u!114 &7665401624113410786
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -675,6 +683,9 @@ MonoBehaviour:
   visualRoot: {fileID: 5190861271293861576}
   spriteRenderers: []
   fallbackProfile: {fileID: 0}
+  debugActiveProfile: None
+  debugRendererCount: 0
+  debugNormalizedProgress: 0
 --- !u!114 &-5411453713712291072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -691,6 +702,7 @@ MonoBehaviour:
   navigationGrid: {fileID: 0}
   owner: {fileID: 0}
   profile: {fileID: 0}
+  slowReceiver: {fileID: 0}
   hasDestination: 0
   destination: {x: 0, y: 0}
   debugPathStatus: Idle
@@ -704,6 +716,9 @@ MonoBehaviour:
   debugCurrentVelocity: {x: 0, y: 0}
   debugCurrentSpeed: 0
   debugMotionMode: Idle
+  debugIsSlowed: 0
+  debugSlowMovementMultiplier: 1
+  debugSlowSource: None
 --- !u!114 &991255888047839382
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -774,7 +789,8 @@ MonoBehaviour:
   enemyHealth: {fileID: 5696765117373536081}
   locomotion: {fileID: -5411453713712291072}
   actionRunner: {fileID: 5243475557449673624}
-  visualGuard: {fileID: 0}
+  visualGuard: {fileID: 5115181037909754810}
+  slowReceiver: {fileID: 6010973497524430864}
   legacyAIBehaviours:
   - {fileID: -3799086166338868606}
   preserveChildVisualsWhenSwitchingBackend: 1
@@ -798,6 +814,51 @@ MonoBehaviour:
   debugRuntimeReadiness: Waiting for SquadDirectorV2
   debugHasPlayerTarget: 0
   debugHasProfile: 0
+--- !u!114 &6010973497524430864
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0daa73a58d200c647a5c37b7b56451e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySlowReceiverV2
+  minimumMovementMultiplier: 0.05
+  logApplications: 0
+  debugIsSlowed: 0
+  debugMovementMultiplier: 1
+  debugActiveSources: 0
+  debugStrongestSource: None
+--- !u!114 &5115181037909754810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c792d6ae14ed984a8a43153e3f2096f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemyVisualGuardV2
+  protectVisuals: 1
+  ignoreRootSpriteRenderer: 1
+  restoreEveryLateUpdate: 1
+  protectDescendantRenderersWithSprites: 1
+  minimumVisibleAlpha: 0.95
+  protectChildVisualScale: 1
+  useFallbackScaleWhenCapturedScaleIsZero: 1
+  fallbackVisibleScale: {x: 1, y: 1, z: 1}
+  zeroScaleThreshold: 0.01
+  forceCapturedScaleEveryFrame: 0
+  logVisualRestores: 0
+  debugProtectedRendererCount: 1
+  debugLastRestore: Captured 1
+  debugLastScaleRestore: Captured scale state
+  debugFirstProtectedScale: {x: 1, y: 1, z: 1}
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0
