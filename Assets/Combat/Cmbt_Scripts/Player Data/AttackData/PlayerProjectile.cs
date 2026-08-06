@@ -474,6 +474,16 @@ public class PlayerProjectile : MonoBehaviour
             }
         }
 
+        SpellProjectile spellProj = other.GetComponent<SpellProjectile>();
+        if (spellProj == null)
+            spellProj = other.GetComponentInParent<SpellProjectile>();
+        if (spellProj != null && spellProj.IsReflectable)
+        {
+            Vector2 reflectDir = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector2.right;
+            spellProj.Reflect(reflectDir);
+            return;
+        }
+
         if (((1 << other.gameObject.layer) & hitMask.value) == 0)
             return;
 

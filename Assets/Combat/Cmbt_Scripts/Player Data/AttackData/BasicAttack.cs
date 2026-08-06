@@ -180,6 +180,8 @@ public class BasicAttack : MonoBehaviour
 
         SpawnVfx(center, dir);
 
+        SpellProjectile.ReflectInArea(center, radius, dir);
+
         int count = Physics2D.OverlapCircleNonAlloc(center, radius, hitCols, enemyMask);
         if (count <= 0) return;
 

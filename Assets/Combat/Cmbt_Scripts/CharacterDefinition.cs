@@ -30,10 +30,17 @@ public class CharacterDefinition : ScriptableObject
     public GameObject basicAttackProjectilePrefab;
 
 
-    [Header("Skills")]
+    [Header("Skills (Legacy)")]
     public List<SkillDefinition> startingSkills = new();
     [Tooltip("After using any skill, multiply all skill AP costs by this value (stacking) until you swap.")]
     public float skillCostIncreaseMultiplier = 1.25f;
+
+    [Header("Spells")]
+    [Tooltip("Spells this character starts with.")]
+    public List<SpellDefinition> startingSpells = new();
+
+    [Header("Spell Progression")]
+    public List<SpellUnlock> spellUnlocks = new();
 
     [Header("Progression")]
     public List<SkillUnlock> unlocks = new();
@@ -48,5 +55,12 @@ public class CharacterDefinition : ScriptableObject
     {
         public int levelRequired = 2;
         public SkillDefinition skill;
+    }
+
+    [Serializable]
+    public class SpellUnlock
+    {
+        public int levelRequired = 2;
+        public SpellDefinition spell;
     }
 }

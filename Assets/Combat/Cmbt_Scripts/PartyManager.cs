@@ -24,6 +24,7 @@ public class PartyManager : MonoBehaviour
 
         public float skillCostMultiplier = 1f;
         public List<SkillDefinition> unlockedSkills = new();
+        public List<SpellDefinition> unlockedSpells = new();
     }
 
     private void Awake()
@@ -48,6 +49,7 @@ public class PartyManager : MonoBehaviour
             st.skillCostMultiplier = 1f;
 
             st.unlockedSkills.AddRange(def.startingSkills);
+            st.unlockedSpells.AddRange(def.startingSpells);
             party.Add(st);
         }
     }

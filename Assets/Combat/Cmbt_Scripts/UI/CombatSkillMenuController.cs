@@ -81,12 +81,25 @@ public class CombatSkillMenuController : MonoBehaviour
     private float prevFixedDelta = 0.02f;
 
     private CombatSkillSystem skillSystem;
+    private SpellCaster spellCaster;
+    private AimTracker aimTracker;
     private CombatLockout pawnLockout;
     private MonoBehaviour[] pawnControlScripts;
 
     private CombatSkillSystem.PendingCast pendingCast;
 
     private float nextOpenPanelRefreshTime;
+
+    // Unified menu entry that can be either a legacy skill or a new spell
+    private struct MenuEntry
+    {
+        public SkillDefinition skill;
+        public SpellDefinition spell;
+        public bool IsSpell => spell != null;
+        public string DisplayName => IsSpell ? spell.displayName : (skill != null ? skill.displayName : "???");
+    }
+
+    private readonly List<MenuEntry> menuEntries = new();
 
     private void Awake()
     {
@@ -254,16 +267,36 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void CachePawnRefs()
     {
-        skillSystem = FindObjectOfType<CombatSkillSystem>(true);
+        GameObject pawn = null;
 
-        if (skillSystem == null)
+        GameObject playerObj = GameObject.FindGameObjectWithTag("PlayerCombatPawn");
+        if (playerObj != null)
+            pawn = playerObj;
+
+        skillSystem = pawn != null ? pawn.GetComponent<CombatSkillSystem>()
+            : FindObjectOfType<CombatSkillSystem>(true);
+
+        if (pawn == null && skillSystem != null)
+            pawn = skillSystem.gameObject;
+
+        spellCaster = pawn != null ? pawn.GetComponent<SpellCaster>() : null;
+        if (spellCaster == null && pawn != null)
+            spellCaster = pawn.AddComponent<SpellCaster>();
+        aimTracker = pawn != null ? pawn.GetComponent<AimTracker>() : null;
+
+        if (skillSystem == null && spellCaster == null)
         {
             pawnControlScripts = null;
             pawnLockout = null;
             return;
         }
 
-        GameObject pawn = skillSystem.gameObject;
+        if (pawn == null)
+        {
+            pawnControlScripts = null;
+            pawnLockout = null;
+            return;
+        }
 
         pawnLockout = pawn.GetComponent<CombatLockout>();
 
@@ -334,43 +367,59 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private int GetSkillCount()
     {
-        PartyManager pm = PartyManager.Instance;
+        RebuildMenuEntries();
+        return menuEntries.Count;
+    }
 
-        if (pm == null ||
-            pm.Active == null ||
-            pm.Active.unlockedSkills == null)
+    private void RebuildMenuEntries()
+    {
+        menuEntries.Clear();
+
+        PartyManager pm = PartyManager.Instance;
+        if (pm == null || pm.Active == null)
+            return;
+
+        // Legacy skills first
+        if (pm.Active.unlockedSkills != null)
         {
-            return 0;
+            for (int i = 0; i < pm.Active.unlockedSkills.Count; i++)
+            {
+                if (pm.Active.unlockedSkills[i] != null)
+                    menuEntries.Add(new MenuEntry { skill = pm.Active.unlockedSkills[i] });
+            }
         }
 
-        return pm.Active.unlockedSkills.Count;
+        // New spells
+        if (pm.Active.unlockedSpells != null)
+        {
+            for (int i = 0; i < pm.Active.unlockedSpells.Count; i++)
+            {
+                if (pm.Active.unlockedSpells[i] != null)
+                    menuEntries.Add(new MenuEntry { spell = pm.Active.unlockedSpells[i] });
+            }
+        }
     }
 
     private void ConfirmSelection()
     {
-        PartyManager pm = PartyManager.Instance;
+        RebuildMenuEntries();
 
-        if (pm == null ||
-            pm.Active == null ||
-            pm.Active.unlockedSkills == null)
+        if (menuEntries.Count == 0)
+            return;
+
+        selectedIndex = Mathf.Clamp(selectedIndex, 0, menuEntries.Count - 1);
+
+        MenuEntry entry = menuEntries[selectedIndex];
+
+        // --- New spell path ---
+        if (entry.IsSpell)
         {
+            ConfirmSpellSelection(entry.spell);
             return;
         }
 
-        List<SkillDefinition> skills = pm.Active.unlockedSkills;
-
-        if (skills.Count == 0)
-            return;
-
-        selectedIndex =
-            Mathf.Clamp(
-                selectedIndex,
-                0,
-                skills.Count - 1
-            );
-
-        SkillDefinition skill = skills[selectedIndex];
-
+        // --- Legacy skill path ---
+        SkillDefinition skill = entry.skill;
         if (skill == null)
             return;
 
@@ -403,6 +452,38 @@ public class CombatSkillMenuController : MonoBehaviour
         }
 
         bool ok = skillSystem.TryUseSkill(skill);
+
+        if (ok)
+        {
+            if (closePanelAfterCast)
+                CloseSkillPanel();
+            else
+                RefreshSkillText();
+        }
+        else
+        {
+            RefreshSkillText();
+        }
+    }
+
+    private void ConfirmSpellSelection(SpellDefinition spell)
+    {
+        if (spellCaster == null)
+        {
+            Debug.LogWarning(
+                "CombatSkillMenuController: No SpellCaster found. Add SpellCaster to the combat pawn."
+            );
+            return;
+        }
+
+        if (!spellCaster.CanCast(spell))
+        {
+            RefreshSkillText();
+            return;
+        }
+
+        Vector2 aimDir = aimTracker != null ? aimTracker.AimDir : Vector2.right;
+        bool ok = spellCaster.Cast(spell, aimDir);
 
         if (ok)
         {
@@ -618,58 +699,62 @@ public class CombatSkillMenuController : MonoBehaviour
 
         listText.richText = true;
 
-        PartyManager pm = PartyManager.Instance;
+        RebuildMenuEntries();
 
-        if (pm == null || pm.Active == null)
-        {
-            listText.text = "No PartyManager.";
-            return;
-        }
-
-        List<SkillDefinition> skills = pm.Active.unlockedSkills;
-
-        if (skills == null || skills.Count == 0)
+        if (menuEntries.Count == 0)
         {
             listText.text = "No skills.";
             return;
         }
 
-        selectedIndex =
-            Mathf.Clamp(
-                selectedIndex,
-                0,
-                skills.Count - 1
-            );
+        selectedIndex = Mathf.Clamp(selectedIndex, 0, menuEntries.Count - 1);
 
         StringBuilder sb = new StringBuilder(256);
 
-        for (int i = 0; i < skills.Count; i++)
+        for (int i = 0; i < menuEntries.Count; i++)
         {
-            SkillDefinition skill = skills[i];
+            MenuEntry entry = menuEntries[i];
+            bool isSelected = i == selectedIndex;
 
-            if (skill == null)
-                continue;
+            string displayName;
+            string costText;
+            bool canUse;
+            string tags = "";
 
-            int cost =
-                skillSystem != null
+            if (entry.IsSpell)
+            {
+                displayName = entry.spell.displayName;
+                float cd = spellCaster != null ? spellCaster.GetCooldownRemaining(entry.spell) : 0f;
+                canUse = spellCaster != null && spellCaster.CanCast(entry.spell);
+                costText = cd > 0f ? $"CD {cd:0.0}s" : SpellBaseTag(entry.spell.spellBase);
+
+                if (entry.spell.spellBase == SpellBase.Movement)
+                    tags += "  [MOVE]";
+                else if (entry.spell.spellBase == SpellBase.Stat)
+                    tags += "  [BUFF]";
+            }
+            else
+            {
+                SkillDefinition skill = entry.skill;
+                displayName = skill.displayName;
+
+                int cost = skillSystem != null
                     ? skillSystem.GetScaledCost(skill)
                     : skill.baseApCost;
 
-            bool canUse =
-                skillSystem != null &&
-                skillSystem.CanUse(skill);
+                canUse = skillSystem != null && skillSystem.CanUse(skill);
+                costText = $"{cost} AP";
 
-            bool isSelected =
-                i == selectedIndex;
+                if (!canUse && showNoApTag)
+                    tags += "  [NO AP]";
+                if (skill.requiresPartyTarget)
+                    tags += "  [ALLY]";
+                if (skill.usesPlacement)
+                    tags += "  [PLACE]";
+            }
 
-            Color rowColor =
-                GetSkillRowColor(
-                    isSelected,
-                    canUse
-                );
-
-            string rowColorHex =
-                ColorUtility.ToHtmlStringRGB(rowColor);
+            Color rowColor = GetSkillRowColor(isSelected, canUse);
+            string rowColorHex = ColorUtility.ToHtmlStringRGB(rowColor);
 
             sb.Append("<color=#");
             sb.Append(rowColorHex);
@@ -679,19 +764,11 @@ public class CombatSkillMenuController : MonoBehaviour
                 sb.Append("<b>");
 
             sb.Append(isSelected ? "> " : "  ");
-            sb.Append(skill.displayName);
+            sb.Append(displayName);
             sb.Append("  (");
-            sb.Append(cost);
-            sb.Append(" AP)");
-
-            if (!canUse && showNoApTag)
-                sb.Append("  [NO AP]");
-
-            if (skill.requiresPartyTarget)
-                sb.Append("  [ALLY]");
-
-            if (skill.usesPlacement)
-                sb.Append("  [PLACE]");
+            sb.Append(costText);
+            sb.Append(")");
+            sb.Append(tags);
 
             if (isSelected && boldSelectedSkill)
                 sb.Append("</b>");
@@ -701,6 +778,17 @@ public class CombatSkillMenuController : MonoBehaviour
         }
 
         listText.text = sb.ToString();
+    }
+
+    private static string SpellBaseTag(SpellBase spellBase)
+    {
+        switch (spellBase)
+        {
+            case SpellBase.Casting: return "CAST";
+            case SpellBase.Movement: return "MOVE";
+            case SpellBase.Stat: return "BUFF";
+            default: return "SPELL";
+        }
     }
 
     private Color GetSkillRowColor(

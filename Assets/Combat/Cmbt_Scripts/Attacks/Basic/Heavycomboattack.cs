@@ -299,6 +299,8 @@ public class HeavyComboAttack : MonoBehaviour
 
         SpawnVfx(vfxPrefab, center, dir);
 
+        SpellProjectile.ReflectInArea(center, hitRadius, dir);
+
         int count = Physics2D.OverlapCircleNonAlloc(
             center,
             hitRadius,

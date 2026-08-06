@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f2bcfc50a9dbb549b85dd8143d1ce75, type: 3}
+  m_Name: Ignite
+  m_EditorClassIdentifier: Assembly-CSharp::EffectDefinition
+  displayName: 
+  effectId: 
+  duration: 10
+  hpChangePerTick: -10
+  tickInterval: 1
+  hpRampMultiplier: 1
+  movementSpeedMultiplier: 1
+  movementRampMultiplier: 1
+  apChangePerTick: 0
+  apRampMultiplier: 1
+  refreshOnReapply: 1
+  maxStacks: 1
+  applyVfxPrefab: {fileID: 0}
+  persistentVfxPrefab: {fileID: 0}

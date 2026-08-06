@@ -24,6 +24,22 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2b7c72cf93e9e1c46827553e390d2c64, type: 2}
   - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
   skillCostIncreaseMultiplier: 3
+  startingSpells:
+  - {fileID: 11400000, guid: c7622c5d213aa0c41bad29371ddad644, type: 2}
+  - {fileID: 11400000, guid: 93a3d8c846fa7b943a2d3078ab5b25a7, type: 2}
+  - {fileID: 11400000, guid: 75902f8c8222c7c48babc8e5168b6831, type: 2}
+  - {fileID: 11400000, guid: fe99aeb7d3f295c42b736516697b15b9, type: 2}
+  - {fileID: 11400000, guid: 9e2749e4677e53a499cd9fb4716bbbaf, type: 2}
+  - {fileID: 11400000, guid: 4948618c84f1a43478983b294ef3f14e, type: 2}
+  - {fileID: 11400000, guid: b1f0d326cd919bf48bf07794260bc022, type: 2}
+  - {fileID: 11400000, guid: b5a849d1734a81a4aa58f61c4ead7ca4, type: 2}
+  - {fileID: 11400000, guid: 50bf3759dc321a44aa6e288854079127, type: 2}
+  - {fileID: 11400000, guid: d5bcc4907a29ac7409caeea54f5ab35c, type: 2}
+  - {fileID: 11400000, guid: bcd4414fdec2cc74e8abfa341e42b8f6, type: 2}
+  - {fileID: 11400000, guid: 25f278ec86f498344847b58f9ee2979d, type: 2}
+  - {fileID: 11400000, guid: b6d27643eba02664caec23f6643d5074, type: 2}
+  - {fileID: 11400000, guid: 14a584e1e9547f34d904fe7cebedc24c, type: 2}
+  spellUnlocks: []
   unlocks: []
   combatSprite: {fileID: 3427114271967980436, guid: e138aabb28c253d4bb71b8822e0461ad, type: 3}
   portraitSprite: {fileID: 21300000, guid: 14df120889e70894d930815fa037536a, type: 3}

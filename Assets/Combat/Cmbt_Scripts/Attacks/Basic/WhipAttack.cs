@@ -575,6 +575,8 @@ public class WhipAttack : MonoBehaviour
             enemyMask
         );
 
+        SpellProjectile.ReflectInArea(center, length * 0.5f, dir);
+
         for (int i = 0; i < count; i++)
         {
             Collider2D col = hitCols[i];
