@@ -137,6 +137,10 @@ namespace ProjectEri.SkillSystemV2
                     SpellValidationSeverity.Error,
                     "Assign a delivery definition."));
             }
+            else
+            {
+                delivery.CollectValidationIssues(issues);
+            }
 
             if (effects == null || effects.Count == 0)
             {

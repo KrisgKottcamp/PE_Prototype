@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
@@ -16,9 +17,16 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private string displayName;
 
+        [Header("Player Targeting")]
+        [Tooltip("Optional. Player controllers use this to aim and confirm the delivery. Enemy AI ignores it and supplies CastContext directly.")]
+        [SerializeField]
+        private PlayerTargetingDefinition playerTargeting;
+
         public string DisplayName => string.IsNullOrWhiteSpace(displayName)
             ? name
             : displayName;
+
+        public PlayerTargetingDefinition PlayerTargeting => playerTargeting;
 
         public abstract CastTargetingRequirement TargetingRequirement
         {
@@ -54,6 +62,21 @@ namespace ProjectEri.SkillSystemV2
 
             rejectionReason = string.Empty;
             return true;
+        }
+
+        public virtual void CollectValidationIssues(
+            List<SpellValidationIssue> issues)
+        {
+            if (issues == null || playerTargeting == null)
+                return;
+
+            if (!playerTargeting.Supports(TargetingRequirement))
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    $"Player targeting '{playerTargeting.DisplayName}' does not provide " +
+                    $"the context required by delivery '{DisplayName}'."));
+            }
         }
 
         public abstract ISpellDeliveryExecution CreateExecution(
