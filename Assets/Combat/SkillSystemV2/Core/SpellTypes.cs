@@ -37,7 +37,8 @@ namespace ProjectEri.SkillSystemV2
         MissingResourceProvider,
         InsufficientResources,
         ChainBudgetExceeded,
-        DeliveryFailed
+        DeliveryFailed,
+        TriggeredQueueFull
     }
 
     public enum SpellValidationSeverity

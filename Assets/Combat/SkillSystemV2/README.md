@@ -21,11 +21,16 @@ skill system. It does not replace the current combat skill scripts yet.
   and time slowdown without spending resources before confirmation.
 - Initial deliveries cover self, instant target, area-at-point, melee arc, and
   collision-safe 2D projectiles.
+- Universal effect receiver contracts decouple spell assets from player,
+  enemy, prop, and summon implementations.
+- Effects now cover damage, healing, impulse/pushback, resources/AP, statuses,
+  spawning, gameplay signals, and safely queued secondary spells.
+- Reference `SpellVitality`, `SpellResourcePool`, `StatusController`, and
+  `Rigidbody2DImpulseReceiver` components make V2 independently testable.
 
 ## Still deliberately deferred
 
 - Beam, persistent-zone, summon, movement, and chain deliveries.
-- Damage, healing, pushback, status, and AP effect definitions.
 - Adapters for `PartyManager`, `EnemyHealth`, movement, and existing prefabs.
 - Enemy skill scoring and squad coordination.
 
@@ -79,3 +84,37 @@ confirmation rules never slow or block enemy casts.
   eventual pushback behavior belongs in an Effect Definition.
 - Slow Orb: Point/Area Targeting + Projectile or Area Delivery.
 - Self buff: Immediate Targeting + Self Delivery.
+
+## Effects setup
+
+1. Create or duplicate an effect under **Assets > Create > Project Eri > Skill
+   System V2 > Effects**.
+2. Add any number of effect assets to a `SpellDefinition`. Deliveries decide
+   which objects receive them; effects only ask those objects for capabilities
+   such as `ISpellDamageReceiver` or `ISpellResourceReceiver`.
+3. For standalone V2 prototypes, add `SpellVitality`, `SpellResourcePool`,
+   `StatusController`, or `Rigidbody2DImpulseReceiver` to targets. The later
+   integration branch will adapt the existing `EnemyHealth` and `PartyManager`
+   systems instead of duplicating their state.
+4. Starter Physical Damage, Healing, Pushback, and Gain AP effect assets are in
+   `Presets/Effects`.
+
+Statuses can compose effects when applied, at a periodic interval, and when
+removed. This supports data-authored poison, regeneration, delayed bursts, and
+similar behaviors without adding code to `SpellRunner`.
+
+`SpawnEffectDefinition` initializes every `ISpellSpawnReceiver` on its prefab.
+For example, an AP-collecting orb can use a trigger collider plus
+`ResourceCollectorZone2D`; loose pickups use `SpellResourcePickup`. The later
+legacy adapter only needs to expose existing AP particles through the pickup
+contract.
+
+`GameplaySignalEffectDefinition` is the escape hatch for game-wide or unusual
+interactions. A system subscribes to a `GameplaySignalDefinition` asset and
+receives the complete spell, caster, target, hit, label, and numeric payload.
+This avoids adding one-off dependencies to the core spell executor.
+
+`TriggerSpellEffectDefinition` creates a child `CastContext` and queues the
+secondary spell on its chosen runner. The original root cast budget and depth
+limits remain active, preventing recursive spell combinations from running
+forever.

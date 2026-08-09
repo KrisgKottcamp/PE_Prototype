@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
@@ -36,6 +37,11 @@ namespace ProjectEri.SkillSystemV2
         public string DisplayName => string.IsNullOrWhiteSpace(displayName)
             ? name
             : displayName;
+
+        public virtual void CollectValidationIssues(
+            List<SpellValidationIssue> issues)
+        {
+        }
 
         public abstract bool Apply(in SpellEffectContext context);
     }

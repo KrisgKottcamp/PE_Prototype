@@ -158,6 +158,10 @@ namespace ProjectEri.SkillSystemV2
                             SpellValidationSeverity.Warning,
                             $"Effect slot {i + 1} is empty."));
                     }
+                    else
+                    {
+                        effects[i].CollectValidationIssues(issues);
+                    }
                 }
             }
 

@@ -13,8 +13,25 @@ namespace ProjectEri.SkillSystemV2
             public SpellTimeMode TimeMode;
         }
 
+        private readonly struct QueuedCast
+        {
+            public SpellDefinition Spell { get; }
+            public CastContext Context { get; }
+
+            public QueuedCast(
+                SpellDefinition spell,
+                in CastContext context)
+            {
+                Spell = spell;
+                Context = context;
+            }
+        }
+
         [SerializeField]
         private bool logRejectedCasts;
+
+        [SerializeField, Min(1)]
+        private int maximumQueuedTriggeredCasts = 16;
 
         private readonly Dictionary<string, CooldownEntry> cooldowns =
             new Dictionary<string, CooldownEntry>();
@@ -24,6 +41,9 @@ namespace ProjectEri.SkillSystemV2
 
         private readonly List<SpellValidationIssue> validationBuffer =
             new List<SpellValidationIssue>();
+
+        private readonly Queue<QueuedCast> triggeredCastQueue =
+            new Queue<QueuedCast>();
 
         private SpellDefinition activeSpell;
         private CastContext activeContext;
@@ -41,6 +61,7 @@ namespace ProjectEri.SkillSystemV2
         public CastContext ActiveContext => activeContext;
         public SpellCastPhase CurrentPhase => currentPhase;
         public float PhaseTimeRemaining => Mathf.Max(0f, phaseTimeRemaining);
+        public int QueuedTriggeredCastCount => triggeredCastQueue.Count;
 
         private void Update()
         {
@@ -49,6 +70,7 @@ namespace ProjectEri.SkillSystemV2
 
         private void OnDisable()
         {
+            triggeredCastQueue.Clear();
             Interrupt("SpellRunner was disabled.");
         }
 
@@ -166,6 +188,58 @@ namespace ProjectEri.SkillSystemV2
                 interruptedPhase,
                 reason));
 
+            TryStartNextTriggeredCast();
+
+            return true;
+        }
+
+        public bool QueueTriggeredCast(
+            SpellDefinition spell,
+            in CastContext requestedContext,
+            out SpellCastFailure failure)
+        {
+            if (!IsCasting)
+                return TryCast(spell, requestedContext, out failure);
+
+            if (spell == null)
+                return Reject(SpellCastFailure.MissingSpell, out failure);
+
+            if (triggeredCastQueue.Count >=
+                Mathf.Max(1, maximumQueuedTriggeredCasts))
+            {
+                return Reject(
+                    SpellCastFailure.TriggeredQueueFull,
+                    out failure);
+            }
+
+            if (!ValidateDefinition(spell))
+                return Reject(SpellCastFailure.InvalidDefinition, out failure);
+
+            CastContext context = requestedContext.Caster == null
+                ? requestedContext.WithCaster(gameObject)
+                : requestedContext;
+
+            if (!spell.ValidateContext(context, out string contextReason))
+            {
+                return Reject(
+                    SpellCastFailure.InvalidContext,
+                    out failure,
+                    contextReason);
+            }
+
+            CastChainBudget budget = context.ChainBudget ??
+                                     spell.CreateChainBudget();
+            context = context.WithBudget(budget);
+
+            if (!budget.CanActivate(context.ChainDepth))
+            {
+                return Reject(
+                    SpellCastFailure.ChainBudgetExceeded,
+                    out failure);
+            }
+
+            triggeredCastQueue.Enqueue(new QueuedCast(spell, context));
+            failure = SpellCastFailure.None;
             return true;
         }
 
@@ -465,6 +539,18 @@ namespace ProjectEri.SkillSystemV2
                 completedSpell,
                 completedContext,
                 SpellCastPhase.Recovery));
+
+            TryStartNextTriggeredCast();
+        }
+
+        private void TryStartNextTriggeredCast()
+        {
+            while (!IsCasting && triggeredCastQueue.Count > 0)
+            {
+                QueuedCast queued = triggeredCastQueue.Dequeue();
+                if (TryCast(queued.Spell, queued.Context, out _))
+                    return;
+            }
         }
 
         private void ClearActiveCast()
