@@ -1,6 +1,8 @@
 using UnityEngine;
+using ProjectEri.SkillSystemV2;
+using ProjectEri.EnemyAI.V2;
 
-public class EnemyHealth : MonoBehaviour
+public class EnemyHealth : MonoBehaviour, ISpellDamageReceiver
 {
     [SerializeField] private int maxHP = 30;
     public int CurrentHP { get; private set; }
@@ -15,6 +17,7 @@ public class EnemyHealth : MonoBehaviour
         hitMorph = GetComponentInChildren<HitMorph>(true);
 
         SetupDamageFlash();
+        SetupSkillSystemV2();
     }
 
     private void SetupDamageFlash()
@@ -67,6 +70,47 @@ public class EnemyHealth : MonoBehaviour
             CurrentHP = 0;
             OnDied?.Invoke(this);
             Destroy(gameObject);
+        }
+    }
+
+    public bool TryReceiveDamage(
+        in SpellDamageRequest request,
+        out SpellDamageResult result)
+    {
+        int before = CurrentHP;
+        int requested = Mathf.CeilToInt(request.Amount);
+        TakeDamage(requested);
+        int applied = Mathf.Max(0, before - Mathf.Max(0, CurrentHP));
+        result = new SpellDamageResult(
+            request.Amount,
+            applied,
+            before > 0 && CurrentHP <= 0);
+        return applied > 0;
+    }
+
+    private void SetupSkillSystemV2()
+    {
+        CombatTeamMember team = GetComponent<CombatTeamMember>();
+        if (team == null)
+            team = gameObject.AddComponent<CombatTeamMember>();
+        team.SetTeam(CombatTeam.Enemy);
+
+        if (GetComponent<CombatTarget>() == null)
+            gameObject.AddComponent<CombatTarget>();
+
+        // Add this during enemy Awake so EnemyLocomotionV2 can cache it during
+        // its normal Configure pass. Adding it only when a slow lands is too
+        // late for locomotion instances that already cached their references.
+        if (GetComponent<EnemySlowReceiverV2>() == null)
+            gameObject.AddComponent<EnemySlowReceiverV2>();
+
+        if (GetComponent<Rigidbody2D>() != null)
+        {
+            if (GetComponent<KnockbackReceiver2D>() == null)
+                gameObject.AddComponent<KnockbackReceiver2D>();
+
+            if (GetComponent<KnockbackSpellImpulseReceiverV2>() == null)
+                gameObject.AddComponent<KnockbackSpellImpulseReceiverV2>();
         }
     }
 

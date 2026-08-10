@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,6 +17,67 @@ namespace ProjectEri.SkillSystemV2
         Identity,
         AimDirection,
         HitNormal
+    }
+
+    [Serializable]
+    public sealed class SpawnEffectSettings : SpellEffectSettings
+    {
+        [SerializeField]
+        private GameObject prefab;
+
+        [SerializeField]
+        private SpellSpawnPosition spawnPosition = SpellSpawnPosition.HitPoint;
+
+        [SerializeField]
+        private Vector2 worldOffset;
+
+        [SerializeField]
+        private SpellSpawnRotation rotation = SpellSpawnRotation.Identity;
+
+        [SerializeField]
+        private float rotationOffsetDegrees;
+
+        [SerializeField]
+        private bool parentToTarget;
+
+        [SerializeField, Min(0f)]
+        private float lifetime;
+
+        [SerializeField]
+        private SpellTimeMode lifetimeTimeMode = SpellTimeMode.Scaled;
+
+        public GameObject Prefab => prefab;
+        public SpellSpawnPosition SpawnPosition => spawnPosition;
+        public Vector2 WorldOffset => worldOffset;
+        public SpellSpawnRotation Rotation => rotation;
+        public float RotationOffsetDegrees => rotationOffsetDegrees;
+        public bool ParentToTarget => parentToTarget;
+        public float Lifetime => Mathf.Max(0f, lifetime);
+        public SpellTimeMode LifetimeTimeMode => lifetimeTimeMode;
+
+        public SpawnEffectSettings()
+        {
+        }
+
+        public SpawnEffectSettings(
+            GameObject objectPrefab,
+            SpellSpawnPosition position,
+            Vector2 offset,
+            SpellSpawnRotation spawnRotation,
+            float rotationOffset,
+            bool shouldParentToTarget,
+            float objectLifetime,
+            SpellTimeMode timeMode)
+        {
+            prefab = objectPrefab;
+            spawnPosition = position;
+            worldOffset = offset;
+            rotation = spawnRotation;
+            rotationOffsetDegrees = rotationOffset;
+            parentToTarget = shouldParentToTarget;
+            lifetime = Mathf.Max(0f, objectLifetime);
+            lifetimeTimeMode = timeMode;
+        }
     }
 
     [CreateAssetMenu(
@@ -47,19 +109,52 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private SpellTimeMode lifetimeTimeMode = SpellTimeMode.Scaled;
 
+        public override Type SettingsType => typeof(SpawnEffectSettings);
+
+        public override SpellEffectSettings CreateDefaultSettings()
+        {
+            return new SpawnEffectSettings(
+                prefab,
+                spawnPosition,
+                worldOffset,
+                rotation,
+                rotationOffsetDegrees,
+                parentToTarget,
+                lifetime,
+                lifetimeTimeMode);
+        }
+
         public override bool Apply(in SpellEffectContext context)
         {
-            if (prefab == null)
+            return Apply(context, CreateDefaultSettings());
+        }
+
+        public override bool Apply(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            SpawnEffectSettings resolved =
+                settings as SpawnEffectSettings ??
+                (SpawnEffectSettings)CreateDefaultSettings();
+            if (resolved.Prefab == null)
                 return false;
 
-            Vector2 position = ResolvePosition(context) + worldOffset;
-            Quaternion resolvedRotation = ResolveRotation(context);
-            GameObject instance = Object.Instantiate(
-                prefab,
-                new Vector3(position.x, position.y, prefab.transform.position.z),
+            Vector2 position = ResolvePosition(
+                context,
+                resolved.SpawnPosition) + resolved.WorldOffset;
+            Quaternion resolvedRotation = ResolveRotation(
+                context,
+                resolved.Rotation,
+                resolved.RotationOffsetDegrees);
+            GameObject instance = UnityEngine.Object.Instantiate(
+                resolved.Prefab,
+                new Vector3(
+                    position.x,
+                    position.y,
+                    resolved.Prefab.transform.position.z),
                 resolvedRotation);
 
-            if (parentToTarget && context.Target != null)
+            if (resolved.ParentToTarget && context.Target != null)
                 instance.transform.SetParent(context.Target.transform, true);
 
             var spawnContext = new SpellSpawnContext(context, instance);
@@ -72,13 +167,15 @@ namespace ProjectEri.SkillSystemV2
                     receiver.InitializeSpawn(spawnContext);
             }
 
-            if (lifetime > 0f)
+            if (resolved.Lifetime > 0f)
             {
                 TimedSpellObject timer = instance.GetComponent<TimedSpellObject>();
                 if (timer == null)
                     timer = instance.AddComponent<TimedSpellObject>();
 
-                timer.Initialize(lifetime, lifetimeTimeMode);
+                timer.Initialize(
+                    resolved.Lifetime,
+                    resolved.LifetimeTimeMode);
             }
 
             return true;
@@ -87,7 +184,17 @@ namespace ProjectEri.SkillSystemV2
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {
-            if (prefab == null)
+            CollectValidationIssues(issues, CreateDefaultSettings());
+        }
+
+        public override void CollectValidationIssues(
+            List<SpellValidationIssue> issues,
+            SpellEffectSettings settings)
+        {
+            SpawnEffectSettings resolved =
+                settings as SpawnEffectSettings ??
+                (SpawnEffectSettings)CreateDefaultSettings();
+            if (resolved.Prefab == null)
             {
                 issues?.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
@@ -95,9 +202,11 @@ namespace ProjectEri.SkillSystemV2
             }
         }
 
-        private Vector2 ResolvePosition(in SpellEffectContext context)
+        private Vector2 ResolvePosition(
+            in SpellEffectContext context,
+            SpellSpawnPosition resolvedSpawnPosition)
         {
-            switch (spawnPosition)
+            switch (resolvedSpawnPosition)
             {
                 case SpellSpawnPosition.Target:
                     return context.Target != null
@@ -114,10 +223,13 @@ namespace ProjectEri.SkillSystemV2
             }
         }
 
-        private Quaternion ResolveRotation(in SpellEffectContext context)
+        private Quaternion ResolveRotation(
+            in SpellEffectContext context,
+            SpellSpawnRotation resolvedRotation,
+            float resolvedRotationOffset)
         {
             Vector2 direction;
-            switch (rotation)
+            switch (resolvedRotation)
             {
                 case SpellSpawnRotation.AimDirection:
                     direction = context.Cast.AimDirection;
@@ -126,7 +238,7 @@ namespace ProjectEri.SkillSystemV2
                     direction = context.HitNormal;
                     break;
                 default:
-                    return Quaternion.Euler(0f, 0f, rotationOffsetDegrees);
+                    return Quaternion.Euler(0f, 0f, resolvedRotationOffset);
             }
 
             float angle = direction.sqrMagnitude > 0.000001f
@@ -135,7 +247,7 @@ namespace ProjectEri.SkillSystemV2
             return Quaternion.Euler(
                 0f,
                 0f,
-                angle + rotationOffsetDegrees);
+                angle + resolvedRotationOffset);
         }
 
         private void OnValidate()

@@ -11,6 +11,17 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private LineRenderer outline;
 
+        [Header("Automatic Fallback")]
+        [Tooltip("Creates a usable runtime LineRenderer when no authored outline is assigned.")]
+        [SerializeField]
+        private bool createOutlineWhenMissing = true;
+
+        [SerializeField, Min(0.005f)]
+        private float fallbackLineWidth = 0.035f;
+
+        [SerializeField]
+        private int fallbackSortingOrder = 200;
+
         [SerializeField]
         private Transform targetMarker;
 
@@ -26,6 +37,8 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private Color invalidColor = new Color(1f, 0.25f, 0.25f, 0.9f);
 
+        private Material ownedFallbackMaterial;
+
         private void Awake()
         {
             if (targetingController == null)
@@ -33,6 +46,8 @@ namespace ProjectEri.SkillSystemV2
                 targetingController =
                     GetComponentInParent<PlayerSpellTargetingController>();
             }
+
+            EnsureOutline();
         }
 
         private void LateUpdate()
@@ -156,6 +171,70 @@ namespace ProjectEri.SkillSystemV2
         {
             circleSegments = Mathf.Max(6, circleSegments);
             coneArcSegments = Mathf.Max(2, coneArcSegments);
+            fallbackLineWidth = Mathf.Max(0.005f, fallbackLineWidth);
+        }
+
+        private void EnsureOutline()
+        {
+            if (outline != null || !createOutlineWhenMissing)
+                return;
+
+            Renderer sourceRenderer = null;
+            Renderer[] existingRenderers = GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < existingRenderers.Length; i++)
+            {
+                if (!(existingRenderers[i] is LineRenderer))
+                {
+                    sourceRenderer = existingRenderers[i];
+                    break;
+                }
+            }
+
+            GameObject child = new GameObject("V2 Targeting Outline");
+            child.transform.SetParent(transform, false);
+            child.layer = sourceRenderer != null
+                ? sourceRenderer.gameObject.layer
+                : gameObject.layer;
+            outline = child.AddComponent<LineRenderer>();
+            outline.enabled = false;
+            outline.useWorldSpace = true;
+            outline.widthMultiplier = Mathf.Max(0.005f, fallbackLineWidth);
+            outline.numCapVertices = 2;
+            outline.numCornerVertices = 2;
+            outline.alignment = LineAlignment.View;
+            outline.sortingOrder = fallbackSortingOrder;
+
+            if (sourceRenderer != null)
+            {
+                outline.sortingLayerID = sourceRenderer.sortingLayerID;
+                outline.sortingOrder = Mathf.Max(
+                    fallbackSortingOrder,
+                    sourceRenderer.sortingOrder + 50);
+            }
+
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Unlit");
+
+            if (shader != null)
+            {
+                ownedFallbackMaterial = new Material(shader)
+                {
+                    name = "Runtime V2 Targeting Material"
+                };
+                outline.sharedMaterial = ownedFallbackMaterial;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (ownedFallbackMaterial == null)
+                return;
+
+            if (Application.isPlaying)
+                Destroy(ownedFallbackMaterial);
+            else
+                DestroyImmediate(ownedFallbackMaterial);
         }
     }
 }

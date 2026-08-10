@@ -47,6 +47,82 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void SharedDamageEffect_UsesIndependentPerSpellSettings()
+        {
+            SpellVitality vitality = target.AddComponent<SpellVitality>();
+            CombatTeamMember targetTeam = target.AddComponent<CombatTeamMember>();
+            targetTeam.SetTeam(CombatTeam.Enemy);
+            DamageEffectDefinition sharedDamage = Create<DamageEffectDefinition>();
+            SpellDefinition lightSpell = Create<SpellDefinition>();
+            SpellDefinition heavySpell = Create<SpellDefinition>();
+            lightSpell.ReplaceEffectSlots(new SpellEffectSlot(
+                sharedDamage,
+                new DamageEffectSettings(10f)));
+            heavySpell.ReplaceEffectSlots(new SpellEffectSlot(
+                sharedDamage,
+                new DamageEffectSettings(30f)));
+
+            var cast = new CastContext(
+                caster,
+                CombatTeam.Player,
+                caster.transform.position,
+                Vector2.right,
+                true,
+                target.transform.position,
+                true,
+                target);
+            var lightContext = new SpellExecutionContext(lightSpell, cast);
+            var heavyContext = new SpellExecutionContext(heavySpell, cast);
+
+            Assert.That(lightContext.ApplyEffects(
+                target,
+                target.transform.position,
+                Vector2.left), Is.EqualTo(1));
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
+
+            Assert.That(heavyContext.ApplyEffects(
+                target,
+                target.transform.position,
+                Vector2.left), Is.EqualTo(1));
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(60f).Within(0.001f));
+        }
+
+        [Test]
+        public void EffectSlot_PopulatesMatchingDefaultsWhenEffectIsAssigned()
+        {
+            ImpulseEffectDefinition impulse = Create<ImpulseEffectDefinition>();
+            var slot = new SpellEffectSlot(impulse);
+
+            Assert.That(slot.Effect, Is.SameAs(impulse));
+            Assert.That(slot.Settings, Is.TypeOf<ImpulseEffectSettings>());
+            var settings = (ImpulseEffectSettings)slot.Settings;
+            Assert.That(settings.Magnitude, Is.EqualTo(5f).Within(0.001f));
+        }
+
+        [Test]
+        public void LegacyEffectList_MigratesCurrentAssetValuesOnlyOnce()
+        {
+            DamageEffectDefinition damage = Create<DamageEffectDefinition>();
+            SetField(damage, "amount", 27f);
+            SpellDefinition spell = Create<SpellDefinition>();
+            SetField(
+                spell,
+                "effects",
+                new List<EffectDefinition> { damage });
+            SetField(spell, "effectSlotsMigrated", false);
+
+            Assert.That(spell.EnsureEffectSlots(), Is.True);
+            Assert.That(spell.EffectSlots.Count, Is.EqualTo(1));
+            Assert.That(
+                ((DamageEffectSettings)spell.EffectSlots[0].Settings).Amount,
+                Is.EqualTo(27f).Within(0.001f));
+
+            spell.ReplaceEffectSlots();
+            Assert.That(spell.EnsureEffectSlots(), Is.False);
+            Assert.That(spell.EffectSlots, Is.Empty);
+        }
+
+        [Test]
         public void ResourcePool_ReceivesAPThenPaysSpellCost()
         {
             SpellResourcePool pool = target.AddComponent<SpellResourcePool>();

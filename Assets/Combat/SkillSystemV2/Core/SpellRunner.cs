@@ -453,7 +453,8 @@ namespace ProjectEri.SkillSystemV2
                     activeContext);
 
                 activeDelivery = activeSpell.Delivery.CreateExecution(
-                    executionContext);
+                    executionContext,
+                    activeSpell.DeliverySettings);
 
                 if (activeDelivery == null)
                 {

@@ -1,8 +1,34 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class MeleeArcDeliverySettings : SpellDeliverySettings
+    {
+        [SerializeField, Min(0.01f)] private float range = 1.75f;
+        [SerializeField, Range(0.1f, 360f)] private float arcAngle = 90f;
+        [SerializeField] private LayerMask hitMask = ~0;
+        [SerializeField, Min(1)] private int maximumColliders = 24;
+
+        public float Range => Mathf.Max(0.01f, range);
+        public float ArcAngle => Mathf.Clamp(arcAngle, 0.1f, 360f);
+        public LayerMask HitMask => hitMask;
+        public int MaximumColliders => Mathf.Max(1, maximumColliders);
+
+        public MeleeArcDeliverySettings() { }
+        public MeleeArcDeliverySettings(PlayerTargetingDefinition targeting,
+            float deliveryRange, float angle, LayerMask mask, int capacity)
+            : base(targeting)
+        {
+            range = deliveryRange;
+            arcAngle = angle;
+            hitMask = mask;
+            maximumColliders = capacity;
+        }
+    }
+
     [CreateAssetMenu(
         fileName = "Delivery_MeleeArc",
         menuName = "Project Eri/Skill System V2/Delivery/Melee Arc")]
@@ -26,15 +52,30 @@ namespace ProjectEri.SkillSystemV2
         public override CastTargetingRequirement TargetingRequirement =>
             CastTargetingRequirement.Direction;
 
+        public override Type SettingsType =>
+            typeof(MeleeArcDeliverySettings);
+
+        public override SpellDeliverySettings CreateDefaultSettings()
+        {
+            return new MeleeArcDeliverySettings(
+                PlayerTargeting, range, arcAngle, hitMask, maximumColliders);
+        }
+
         public override ISpellDeliveryExecution CreateExecution(
             in SpellExecutionContext context)
         {
-            return new Execution(
-                context,
-                Range,
-                ArcAngle,
-                hitMask,
-                Mathf.Max(1, maximumColliders));
+            return CreateExecution(context, CreateDefaultSettings());
+        }
+
+        public override ISpellDeliveryExecution CreateExecution(
+            in SpellExecutionContext context,
+            SpellDeliverySettings settings)
+        {
+            MeleeArcDeliverySettings resolved =
+                settings as MeleeArcDeliverySettings ??
+                (MeleeArcDeliverySettings)CreateDefaultSettings();
+            return new Execution(context, resolved.Range, resolved.ArcAngle,
+                resolved.HitMask, resolved.MaximumColliders);
         }
 
         private void OnValidate()
@@ -48,6 +89,7 @@ namespace ProjectEri.SkillSystemV2
         {
             private readonly SpellExecutionContext context;
             private readonly float range;
+            private readonly float arcAngle;
             private readonly float minimumDot;
             private readonly LayerMask hitMask;
             private readonly Collider2D[] hits;
@@ -64,6 +106,7 @@ namespace ProjectEri.SkillSystemV2
             {
                 this.context = context;
                 this.range = range;
+                this.arcAngle = arcAngle;
                 minimumDot = arcAngle >= 359.9f
                     ? -1f
                     : Mathf.Cos(arcAngle * 0.5f * Mathf.Deg2Rad);
@@ -73,11 +116,16 @@ namespace ProjectEri.SkillSystemV2
 
             public void Begin()
             {
+                ApplyCastWideEffects();
+
                 Vector2 origin = context.Cast.Origin;
                 Vector2 aim = context.Cast.AimDirection;
                 var filter = new ContactFilter2D();
                 filter.SetLayerMask(hitMask);
-                filter.useTriggers = Physics2D.queriesHitTriggers;
+                // Enemy hurtboxes and projectiles commonly use triggers.
+                // An authored melee delivery should not silently stop working
+                // when the project's global query setting ignores triggers.
+                filter.useTriggers = true;
                 int count = Physics2D.OverlapCircle(
                     origin,
                     range,
@@ -121,6 +169,31 @@ namespace ProjectEri.SkillSystemV2
                 }
 
                 IsComplete = true;
+            }
+
+            private void ApplyCastWideEffects()
+            {
+                var effects = context.Spell.EffectSlots;
+                for (int i = 0; i < effects.Count; i++)
+                {
+                    SpellEffectSlot slot = effects[i];
+                    EffectDefinition effect = slot?.Effect;
+                    if (!(effect is IMeleeArcCastEffectDefinition arcEffect))
+                        continue;
+
+                    try
+                    {
+                        arcEffect.ApplyToMeleeArc(
+                            context,
+                            range,
+                            arcAngle,
+                            slot.Settings);
+                    }
+                    catch (System.Exception exception)
+                    {
+                        Debug.LogException(exception, effect);
+                    }
+                }
             }
 
             public void Tick(float deltaTime) { }

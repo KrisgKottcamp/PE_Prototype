@@ -1,8 +1,41 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class ApplyStatusEffectSettings : SpellEffectSettings
+    {
+        [SerializeField]
+        private StatusDefinition status;
+
+        [Tooltip("Zero uses the Status Definition's default duration.")]
+        [SerializeField, Min(0f)]
+        private float durationOverride;
+
+        [SerializeField, Min(1)]
+        private int stacks = 1;
+
+        public StatusDefinition Status => status;
+        public float DurationOverride => Mathf.Max(0f, durationOverride);
+        public int Stacks => Mathf.Max(1, stacks);
+
+        public ApplyStatusEffectSettings()
+        {
+        }
+
+        public ApplyStatusEffectSettings(
+            StatusDefinition statusDefinition,
+            float duration = 0f,
+            int stackCount = 1)
+        {
+            status = statusDefinition;
+            durationOverride = Mathf.Max(0f, duration);
+            stacks = Mathf.Max(1, stackCount);
+        }
+    }
+
     [CreateAssetMenu(
         fileName = "Effect_ApplyStatus",
         menuName = "Project Eri/Skill System V2/Effects/Apply Status")]
@@ -18,9 +51,30 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, Min(1)]
         private int stacks = 1;
 
+        public override Type SettingsType =>
+            typeof(ApplyStatusEffectSettings);
+
+        public override SpellEffectSettings CreateDefaultSettings()
+        {
+            return new ApplyStatusEffectSettings(
+                status,
+                durationOverride,
+                stacks);
+        }
+
         public override bool Apply(in SpellEffectContext context)
         {
-            if (status == null)
+            return Apply(context, CreateDefaultSettings());
+        }
+
+        public override bool Apply(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            ApplyStatusEffectSettings resolved =
+                settings as ApplyStatusEffectSettings ??
+                (ApplyStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
                 return false;
 
             ISpellStatusReceiver receiver =
@@ -31,16 +85,26 @@ namespace ProjectEri.SkillSystemV2
 
             var request = new SpellStatusApplyRequest(
                 context,
-                status,
-                durationOverride,
-                Mathf.Max(1, stacks));
+                resolved.Status,
+                resolved.DurationOverride,
+                resolved.Stacks);
             return receiver.TryApplyStatus(request, out _);
         }
 
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {
-            if (status == null)
+            CollectValidationIssues(issues, CreateDefaultSettings());
+        }
+
+        public override void CollectValidationIssues(
+            List<SpellValidationIssue> issues,
+            SpellEffectSettings settings)
+        {
+            ApplyStatusEffectSettings resolved =
+                settings as ApplyStatusEffectSettings ??
+                (ApplyStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
             {
                 issues?.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
@@ -48,7 +112,7 @@ namespace ProjectEri.SkillSystemV2
             }
             else
             {
-                status.CollectValidationIssues(issues);
+                resolved.Status.CollectValidationIssues(issues);
             }
         }
 

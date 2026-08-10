@@ -43,11 +43,27 @@ namespace ProjectEri.SkillSystemV2
             requireTarget: false);
 
         [Header("Composition")]
-        [SerializeField]
+        [SerializeField, HideInInspector]
         private DeliveryDefinition delivery;
 
         [SerializeField]
+        private SpellDeliverySlot deliverySlot = new SpellDeliverySlot();
+
+        [SerializeField, HideInInspector]
+        private bool deliverySlotMigrated;
+
+        [SerializeField, HideInInspector]
         private List<EffectDefinition> effects = new List<EffectDefinition>();
+
+        [SerializeField]
+        private List<SpellEffectSlot> effectSlots =
+            new List<SpellEffectSlot>();
+
+        [SerializeField, HideInInspector]
+        private bool effectSlotsMigrated;
+
+        [NonSerialized]
+        private List<EffectDefinition> effectView;
 
         [Header("Chain Safety")]
         [SerializeField, Min(0)]
@@ -68,9 +84,43 @@ namespace ProjectEri.SkillSystemV2
         public float Cooldown => Mathf.Max(0f, cooldown);
         public SpellResourceCost ResourceCost => resourceCost;
         public TargetFilter TargetFilter => targetFilter;
-        public DeliveryDefinition Delivery => delivery;
-        public IReadOnlyList<EffectDefinition> Effects =>
-            effects ?? (IReadOnlyList<EffectDefinition>)Array.Empty<EffectDefinition>();
+        public SpellDeliverySlot DeliverySlot
+        {
+            get
+            {
+                EnsureDeliverySlot();
+                return deliverySlot;
+            }
+        }
+        public DeliveryDefinition Delivery => DeliverySlot.Delivery;
+        public SpellDeliverySettings DeliverySettings => DeliverySlot.Settings;
+        public PlayerTargetingDefinition PlayerTargeting =>
+            DeliverySlot.PlayerTargeting;
+        public IReadOnlyList<SpellEffectSlot> EffectSlots
+        {
+            get
+            {
+                EnsureEffectSlots();
+                return effectSlots;
+            }
+        }
+
+        /// <summary>
+        /// Compatibility view for older integrations. New code should use
+        /// EffectSlots so it can access per-spell settings.
+        /// </summary>
+        public IReadOnlyList<EffectDefinition> Effects
+        {
+            get
+            {
+                EnsureEffectSlots();
+                effectView ??= new List<EffectDefinition>();
+                effectView.Clear();
+                for (int i = 0; i < effectSlots.Count; i++)
+                    effectView.Add(effectSlots[i]?.Effect);
+                return effectView;
+            }
+        }
         public int MaximumChainDepth => Mathf.Max(0, maximumChainDepth);
         public int MaximumRootActivations =>
             Mathf.Max(1, maximumRootActivations);
@@ -102,13 +152,17 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
-            if (delivery == null)
+            EnsureDeliverySlot();
+            if (Delivery == null)
             {
                 rejectionReason = "Spell has no delivery definition.";
                 return false;
             }
 
-            return delivery.ValidateContext(context, out rejectionReason);
+            return Delivery.ValidateContext(
+                context,
+                DeliverySettings,
+                out rejectionReason);
         }
 
         public void CollectValidationIssues(
@@ -131,7 +185,8 @@ namespace ProjectEri.SkillSystemV2
                     "Stable ID is required for reliable cooldowns and migration."));
             }
 
-            if (delivery == null)
+            EnsureDeliverySlot();
+            if (Delivery == null)
             {
                 issues.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
@@ -139,10 +194,14 @@ namespace ProjectEri.SkillSystemV2
             }
             else
             {
-                delivery.CollectValidationIssues(issues);
+                Delivery.CollectValidationIssues(
+                    issues,
+                    DeliverySettings);
             }
 
-            if (effects == null || effects.Count == 0)
+            EnsureEffectSlots();
+
+            if (effectSlots.Count == 0)
             {
                 issues.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Warning,
@@ -150,9 +209,10 @@ namespace ProjectEri.SkillSystemV2
             }
             else
             {
-                for (int i = 0; i < effects.Count; i++)
+                for (int i = 0; i < effectSlots.Count; i++)
                 {
-                    if (effects[i] == null)
+                    SpellEffectSlot slot = effectSlots[i];
+                    if (slot == null || slot.Effect == null)
                     {
                         issues.Add(new SpellValidationIssue(
                             SpellValidationSeverity.Warning,
@@ -160,7 +220,9 @@ namespace ProjectEri.SkillSystemV2
                     }
                     else
                     {
-                        effects[i].CollectValidationIssues(issues);
+                        slot.Effect.CollectValidationIssues(
+                            issues,
+                            slot.Settings);
                     }
                 }
             }
@@ -181,6 +243,81 @@ namespace ProjectEri.SkillSystemV2
 
             if (effects == null)
                 effects = new List<EffectDefinition>();
+
+            EnsureEffectSlots();
+            EnsureDeliverySlot();
+        }
+
+        public void ReplaceDelivery(SpellDeliverySlot slot)
+        {
+            deliverySlot = slot ?? new SpellDeliverySlot();
+            delivery = null;
+            deliverySlotMigrated = true;
+            EnsureDeliverySlot();
+        }
+
+        public bool EnsureDeliverySlot()
+        {
+            bool changed = false;
+            if (deliverySlot == null)
+            {
+                deliverySlot = new SpellDeliverySlot();
+                changed = true;
+            }
+
+            if (!deliverySlotMigrated)
+            {
+                if (deliverySlot.Delivery == null && delivery != null)
+                    deliverySlot = new SpellDeliverySlot(delivery);
+
+                deliverySlotMigrated = true;
+                changed = true;
+            }
+
+            changed |= deliverySlot.EnsureCompatibleSettings();
+            return changed;
+        }
+
+        public void ReplaceEffectSlots(params SpellEffectSlot[] slots)
+        {
+            effectSlots = slots != null
+                ? new List<SpellEffectSlot>(slots)
+                : new List<SpellEffectSlot>();
+            effects?.Clear();
+            effectSlotsMigrated = true;
+            EnsureEffectSlots();
+        }
+
+        public bool EnsureEffectSlots()
+        {
+            bool changed = false;
+            effectSlots ??= new List<SpellEffectSlot>();
+            effects ??= new List<EffectDefinition>();
+
+            if (!effectSlotsMigrated)
+            {
+                if (effectSlots.Count == 0 && effects.Count > 0)
+                {
+                    for (int i = 0; i < effects.Count; i++)
+                        effectSlots.Add(new SpellEffectSlot(effects[i]));
+                }
+
+                effectSlotsMigrated = true;
+                changed = true;
+            }
+
+            for (int i = 0; i < effectSlots.Count; i++)
+            {
+                if (effectSlots[i] == null)
+                {
+                    effectSlots[i] = new SpellEffectSlot();
+                    changed = true;
+                }
+
+                changed |= effectSlots[i].EnsureCompatibleSettings();
+            }
+
+            return changed;
         }
     }
 }

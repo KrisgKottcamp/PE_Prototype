@@ -30,6 +30,13 @@ public class KnockbackReceiver2D : MonoBehaviour
     private Rigidbody2D rb;
     private Coroutine routine;
 
+    /// <summary>
+    /// Movement controllers use this to yield while this component owns the
+    /// enemy's displacement. Without that handshake, their next MovePosition
+    /// or velocity write can erase the knockback immediately.
+    /// </summary>
+    public bool IsKnockbackActive => routine != null;
+
     private readonly RaycastHit2D[] castResults = new RaycastHit2D[8];
     private ContactFilter2D castFilter;
 

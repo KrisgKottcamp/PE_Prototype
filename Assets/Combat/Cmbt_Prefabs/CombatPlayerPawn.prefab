@@ -426,6 +426,14 @@ GameObject:
   - component: {fileID: 4013914058372065684}
   - component: {fileID: 7284214485497777676}
   - component: {fileID: 7128904556123456789}
+  - component: {fileID: -6407922324090138969}
+  - component: {fileID: 7847452104778822009}
+  - component: {fileID: -5623635361309911300}
+  - component: {fileID: 3223150945256185747}
+  - component: {fileID: 1246747116452436686}
+  - component: {fileID: -4518223838270736929}
+  - component: {fileID: -7084957559197855893}
+  - component: {fileID: -7998581613788108239}
   m_Layer: 0
   m_Name: CombatPlayerPawn
   m_TagString: PlayerCombatPawn
@@ -1240,3 +1248,140 @@ MonoBehaviour:
   localVerticalOffset: -0.18
   debugLastPlay: None
   debugActiveBurstVisuals: 0
+--- !u!114 &-6407922324090138969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000013, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellRunner
+  logRejectedCasts: 0
+  maximumQueuedTriggeredCasts: 16
+--- !u!114 &7847452104778822009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000011, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellLoadout
+  basicAttack: {fileID: 0}
+  equippedSkills:
+  - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
+  - {fileID: 11400000, guid: f325580d15342894ba2bb623c4b6cb69, type: 2}
+  - {fileID: 11400000, guid: dc95c345b1176e841ae044a23a41beb5, type: 2}
+  - {fileID: 11400000, guid: 83edc2a1d710e364fa4f124e9ba80d18, type: 2}
+--- !u!114 &-5623635361309911300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2529897a0d0547f980f369be6d12ed7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.TargetingTimeScaleController
+--- !u!114 &3223150945256185747
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f37d8e50f79455c8b085314105c8438, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.PlayerSpellTargetingController
+  spellRunner: {fileID: 0}
+  castOrigin: {fileID: 0}
+  timeControllerSource: {fileID: 0}
+  autoConfirmImmediateTargeting: 1
+  keepAimingAfterRejectedCast: 1
+--- !u!114 &1246747116452436686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f08c788143a74c8e9b0a012306e1abb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.TargetingPreviewRenderer2D
+  targetingController: {fileID: 0}
+  outline: {fileID: 0}
+  createOutlineWhenMissing: 1
+  fallbackLineWidth: 0.035
+  fallbackSortingOrder: 200
+  targetMarker: {fileID: 0}
+  circleSegments: 48
+  coneArcSegments: 16
+  validColor: {r: 0.25, g: 1, b: 0.55, a: 0.9}
+  invalidColor: {r: 1, g: 0.25, b: 0.25, a: 0.9}
+--- !u!114 &-4518223838270736929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a41b01d6228487886451819046ec2b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PartyManagerSpellAdapter
+  applyActiveCharacterSkillCostMultiplier: 1
+--- !u!114 &-7084957559197855893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45ff26b732044e17a2a969d11d3a287e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpellCastFeedback2D
+  castColor: {r: 0.25, g: 0.9, b: 1, a: 0.95}
+  duration: 0.22
+  originRadius: 0.55
+  targetRadius: 0.35
+--- !u!114 &-7998581613788108239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6170445591022180168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 067784a9c0e747cbaee156b897461271, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpellV2Bridge
+  aimTracker: {fileID: 0}
+  spellRunner: {fileID: 0}
+  spellLoadout: {fileID: 0}
+  targetingController: {fileID: 0}
+  partyAdapter: {fileID: 0}
+  selectableLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  overlapBufferSize: 16
+  confirmKey: 32
+  confirmWithLeftClick: 1
+  cancelKey: 27
+  cancelWithRightClick: 1

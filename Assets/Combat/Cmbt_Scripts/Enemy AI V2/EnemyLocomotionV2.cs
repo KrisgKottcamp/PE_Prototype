@@ -12,6 +12,7 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private EnemyAgentV2 owner;
         [SerializeField] private EnemyAIV2Profile profile;
         [SerializeField] private EnemySlowReceiverV2 slowReceiver;
+        [SerializeField] private KnockbackReceiver2D knockbackReceiver;
 
         [Header("Runtime Debug")]
         [SerializeField] private bool hasDestination;
@@ -114,6 +115,9 @@ namespace ProjectEri.EnemyAI.V2
             if (slowReceiver == null)
                 slowReceiver = GetComponent<EnemySlowReceiverV2>();
 
+            if (knockbackReceiver == null)
+                knockbackReceiver = GetComponent<KnockbackReceiver2D>();
+
             if (navigationGrid == null)
                 navigationGrid = FindObjectOfType<ArenaNavigationGrid>(true);
         }
@@ -123,6 +127,19 @@ namespace ProjectEri.EnemyAI.V2
             RefreshSlowDebug();
             debugCurrentVelocity = currentVelocity;
             debugCurrentSpeed = currentVelocity.magnitude;
+
+            if (knockbackReceiver == null)
+                knockbackReceiver = GetComponent<KnockbackReceiver2D>();
+
+            if (knockbackReceiver != null &&
+                knockbackReceiver.IsKnockbackActive)
+            {
+                currentVelocity = Vector2.zero;
+                debugCurrentVelocity = Vector2.zero;
+                debugCurrentSpeed = 0f;
+                debugMotionMode = "Knockback";
+                return;
+            }
 
             if (profile == null)
             {

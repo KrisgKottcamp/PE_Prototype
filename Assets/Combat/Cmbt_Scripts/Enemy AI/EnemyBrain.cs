@@ -183,6 +183,7 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
     [SerializeField] private EnemyShooterDebug shooter;
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private EnemyStunnable stunnable;
+    [SerializeField] private KnockbackReceiver2D knockbackReceiver;
 
     [Header("Player Tracking")]
     [SerializeField] private bool autoFindPlayerByTag = true;
@@ -863,6 +864,9 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
         if (stunnable == null)
             stunnable = GetComponent<EnemyStunnable>();
 
+        if (knockbackReceiver == null)
+            knockbackReceiver = GetComponent<KnockbackReceiver2D>();
+
         if (navigationGrid == null)
         {
             navigationGrid =
@@ -1006,6 +1010,15 @@ public class EnemyBrain : MonoBehaviour, IEnemySquadAgent
 
     private void FixedUpdate()
     {
+        if (knockbackReceiver == null)
+            knockbackReceiver = GetComponent<KnockbackReceiver2D>();
+
+        if (knockbackReceiver != null &&
+            knockbackReceiver.IsKnockbackActive)
+        {
+            return;
+        }
+
         if (pauseMovementWhileStunned &&
             stunnable != null &&
             stunnable.IsStunned)

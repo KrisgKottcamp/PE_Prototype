@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,6 +11,25 @@ namespace ProjectEri.SkillSystemV2
         void Tick(float deltaTime);
         void End();
         void Cancel();
+    }
+
+    [Serializable]
+    public abstract class SpellDeliverySettings
+    {
+        [SerializeField]
+        private PlayerTargetingDefinition playerTargeting;
+
+        public PlayerTargetingDefinition PlayerTargeting => playerTargeting;
+
+        protected SpellDeliverySettings()
+        {
+        }
+
+        protected SpellDeliverySettings(
+            PlayerTargetingDefinition targetingDefinition)
+        {
+            playerTargeting = targetingDefinition;
+        }
     }
 
     public abstract class DeliveryDefinition : ScriptableObject
@@ -28,6 +48,19 @@ namespace ProjectEri.SkillSystemV2
 
         public PlayerTargetingDefinition PlayerTargeting => playerTargeting;
 
+        public virtual Type SettingsType => null;
+
+        public virtual SpellDeliverySettings CreateDefaultSettings()
+        {
+            return null;
+        }
+
+        public virtual PlayerTargetingDefinition ResolvePlayerTargeting(
+            SpellDeliverySettings settings)
+        {
+            return settings?.PlayerTargeting ?? playerTargeting;
+        }
+
         public abstract CastTargetingRequirement TargetingRequirement
         {
             get;
@@ -35,6 +68,14 @@ namespace ProjectEri.SkillSystemV2
 
         public virtual bool ValidateContext(
             in CastContext context,
+            out string rejectionReason)
+        {
+            return ValidateContext(context, null, out rejectionReason);
+        }
+
+        public virtual bool ValidateContext(
+            in CastContext context,
+            SpellDeliverySettings settings,
             out string rejectionReason)
         {
             CastTargetingRequirement required = TargetingRequirement;
@@ -67,16 +108,32 @@ namespace ProjectEri.SkillSystemV2
         public virtual void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {
-            if (issues == null || playerTargeting == null)
+            CollectValidationIssues(issues, null);
+        }
+
+        public virtual void CollectValidationIssues(
+            List<SpellValidationIssue> issues,
+            SpellDeliverySettings settings)
+        {
+            PlayerTargetingDefinition targeting =
+                ResolvePlayerTargeting(settings);
+            if (issues == null || targeting == null)
                 return;
 
-            if (!playerTargeting.Supports(TargetingRequirement))
+            if (!targeting.Supports(TargetingRequirement))
             {
                 issues.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
-                    $"Player targeting '{playerTargeting.DisplayName}' does not provide " +
+                    $"Player targeting '{targeting.DisplayName}' does not provide " +
                     $"the context required by delivery '{DisplayName}'."));
             }
+        }
+
+        public virtual ISpellDeliveryExecution CreateExecution(
+            in SpellExecutionContext context,
+            SpellDeliverySettings settings)
+        {
+            return CreateExecution(context);
         }
 
         public abstract ISpellDeliveryExecution CreateExecution(

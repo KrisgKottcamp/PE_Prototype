@@ -1,7 +1,16 @@
+using System;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class InstantTargetDeliverySettings : SpellDeliverySettings
+    {
+        public InstantTargetDeliverySettings() { }
+        public InstantTargetDeliverySettings(PlayerTargetingDefinition targeting)
+            : base(targeting) { }
+    }
+
     [CreateAssetMenu(
         fileName = "Delivery_InstantTarget",
         menuName = "Project Eri/Skill System V2/Delivery/Instant Target")]
@@ -9,6 +18,14 @@ namespace ProjectEri.SkillSystemV2
     {
         public override CastTargetingRequirement TargetingRequirement =>
             CastTargetingRequirement.SelectedTarget;
+
+        public override Type SettingsType =>
+            typeof(InstantTargetDeliverySettings);
+
+        public override SpellDeliverySettings CreateDefaultSettings()
+        {
+            return new InstantTargetDeliverySettings(PlayerTargeting);
+        }
 
         public override ISpellDeliveryExecution CreateExecution(
             in SpellExecutionContext context)

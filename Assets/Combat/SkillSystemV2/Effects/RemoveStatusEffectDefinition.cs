@@ -1,8 +1,35 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class RemoveStatusEffectSettings : SpellEffectSettings
+    {
+        [SerializeField]
+        private StatusDefinition status;
+
+        [Tooltip("Zero removes the entire status. A positive value removes that many stacks.")]
+        [SerializeField, Min(0)]
+        private int stacksToRemove;
+
+        public StatusDefinition Status => status;
+        public int StacksToRemove => Mathf.Max(0, stacksToRemove);
+
+        public RemoveStatusEffectSettings()
+        {
+        }
+
+        public RemoveStatusEffectSettings(
+            StatusDefinition statusDefinition,
+            int stackCount = 0)
+        {
+            status = statusDefinition;
+            stacksToRemove = Mathf.Max(0, stackCount);
+        }
+    }
+
     [CreateAssetMenu(
         fileName = "Effect_RemoveStatus",
         menuName = "Project Eri/Skill System V2/Effects/Remove Status")]
@@ -15,9 +42,27 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, Min(0)]
         private int stacksToRemove;
 
+        public override Type SettingsType =>
+            typeof(RemoveStatusEffectSettings);
+
+        public override SpellEffectSettings CreateDefaultSettings()
+        {
+            return new RemoveStatusEffectSettings(status, stacksToRemove);
+        }
+
         public override bool Apply(in SpellEffectContext context)
         {
-            if (status == null)
+            return Apply(context, CreateDefaultSettings());
+        }
+
+        public override bool Apply(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            RemoveStatusEffectSettings resolved =
+                settings as RemoveStatusEffectSettings ??
+                (RemoveStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
                 return false;
 
             ISpellStatusReceiver receiver =
@@ -25,25 +70,35 @@ namespace ProjectEri.SkillSystemV2
                     context.Target);
             return receiver != null &&
                    receiver.TryRemoveStatus(
-                       status,
-                       Mathf.Max(0, stacksToRemove),
+                       resolved.Status,
+                       resolved.StacksToRemove,
                        out _);
         }
 
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {
-            if (status == null)
+            CollectValidationIssues(issues, CreateDefaultSettings());
+        }
+
+        public override void CollectValidationIssues(
+            List<SpellValidationIssue> issues,
+            SpellEffectSettings settings)
+        {
+            RemoveStatusEffectSettings resolved =
+                settings as RemoveStatusEffectSettings ??
+                (RemoveStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
             {
                 issues?.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
                     $"Remove Status effect '{DisplayName}' needs a status definition."));
             }
-            else if (string.IsNullOrWhiteSpace(status.StableId))
+            else if (string.IsNullOrWhiteSpace(resolved.Status.StableId))
             {
                 issues?.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
-                    $"Status '{status.DisplayName}' needs a stable ID."));
+                    $"Status '{resolved.Status.DisplayName}' needs a stable ID."));
             }
         }
 

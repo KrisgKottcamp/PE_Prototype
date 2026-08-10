@@ -1,7 +1,16 @@
+using System;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class SelfDeliverySettings : SpellDeliverySettings
+    {
+        public SelfDeliverySettings() { }
+        public SelfDeliverySettings(PlayerTargetingDefinition targeting)
+            : base(targeting) { }
+    }
+
     [CreateAssetMenu(
         fileName = "Delivery_Self",
         menuName = "Project Eri/Skill System V2/Delivery/Self")]
@@ -9,6 +18,13 @@ namespace ProjectEri.SkillSystemV2
     {
         public override CastTargetingRequirement TargetingRequirement =>
             CastTargetingRequirement.None;
+
+        public override Type SettingsType => typeof(SelfDeliverySettings);
+
+        public override SpellDeliverySettings CreateDefaultSettings()
+        {
+            return new SelfDeliverySettings(PlayerTargeting);
+        }
 
         public override ISpellDeliveryExecution CreateExecution(
             in SpellExecutionContext context)

@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using TMPro;
+using ProjectEri.SkillSystemV2;
 
 /// <summary>
 /// Put this on your CombatHUD scene object, not on the pawn prefab.
@@ -69,12 +70,17 @@ public class CombatSkillMenuController : MonoBehaviour
     [Header("Optional")]
     [SerializeField] private bool closePanelAfterCast = true;
 
+    [Header("Skill System V2")]
+    [Tooltip("When the spawned pawn has a PlayerSpellV2Bridge with equipped skills, show that loadout. An empty V2 loadout falls back to the legacy PartyManager skill list.")]
+    [SerializeField] private bool preferV2LoadoutWhenAvailable = true;
+
     public bool IsOpen => isOpen;
 
     private bool isOpen;
     private bool selectingPartyTarget;
     private bool selectingPlacement;
     private bool selectingDirectionalAim;
+    private bool selectingV2Spell;
 
     private int selectedIndex;
 
@@ -82,6 +88,8 @@ public class CombatSkillMenuController : MonoBehaviour
     private float prevFixedDelta = 0.02f;
 
     private CombatSkillSystem skillSystem;
+    private PlayerSpellV2Bridge v2Bridge;
+    private PlayerSpellV2Bridge subscribedV2Bridge;
     private CombatLockout pawnLockout;
     private MonoBehaviour[] pawnControlScripts;
 
@@ -149,6 +157,11 @@ public class CombatSkillMenuController : MonoBehaviour
             return;
         }
 
+        // The bridge owns aim refresh plus confirm/cancel input while a V2
+        // delivery is targeting. Its events return control to this menu.
+        if (selectingV2Spell)
+            return;
+
         if (Time.unscaledTime >= nextOpenPanelRefreshTime)
         {
             nextOpenPanelRefreshTime =
@@ -203,6 +216,7 @@ public class CombatSkillMenuController : MonoBehaviour
         selectingPartyTarget = false;
         selectingPlacement = false;
         selectingDirectionalAim = false;
+        selectingV2Spell = false;
         selectedIndex = 0;
         nextOpenPanelRefreshTime = 0f;
 
@@ -273,6 +287,12 @@ public class CombatSkillMenuController : MonoBehaviour
             selectingDirectionalAim = false;
         }
 
+        if (selectingV2Spell)
+        {
+            v2Bridge?.CancelTargeting();
+            selectingV2Spell = false;
+        }
+
         CloseSkillPanel();
     }
 
@@ -285,6 +305,7 @@ public class CombatSkillMenuController : MonoBehaviour
         selectingPartyTarget = false;
         selectingPlacement = false;
         selectingDirectionalAim = false;
+        selectingV2Spell = false;
 
         if (skillPanelRoot != null)
             skillPanelRoot.SetActive(false);
@@ -299,15 +320,20 @@ public class CombatSkillMenuController : MonoBehaviour
     private void CachePawnRefs()
     {
         skillSystem = FindObjectOfType<CombatSkillSystem>(true);
+        PlayerSpellV2Bridge foundBridge =
+            FindObjectOfType<PlayerSpellV2Bridge>(true);
+        BindV2Bridge(foundBridge);
 
-        if (skillSystem == null)
+        if (skillSystem == null && v2Bridge == null)
         {
             pawnControlScripts = null;
             pawnLockout = null;
             return;
         }
 
-        GameObject pawn = skillSystem.gameObject;
+        GameObject pawn = v2Bridge != null
+            ? v2Bridge.gameObject
+            : skillSystem.gameObject;
 
         pawnLockout = pawn.GetComponent<CombatLockout>();
 
@@ -378,6 +404,9 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private int GetSkillCount()
     {
+        if (UsesV2Loadout())
+            return v2Bridge.SkillCount;
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null ||
@@ -392,6 +421,12 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void ConfirmSelection()
     {
+        if (UsesV2Loadout())
+        {
+            ConfirmV2Selection();
+            return;
+        }
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null ||
@@ -463,6 +498,41 @@ public class CombatSkillMenuController : MonoBehaviour
         }
         else
         {
+            RefreshSkillText();
+        }
+    }
+
+    private void ConfirmV2Selection()
+    {
+        int count = v2Bridge != null ? v2Bridge.SkillCount : 0;
+        if (count <= 0)
+            return;
+
+        selectedIndex = Mathf.Clamp(selectedIndex, 0, count - 1);
+        SpellDefinition spell = v2Bridge.GetSkill(selectedIndex);
+        if (spell == null)
+            return;
+
+        if (blockUnavailableSkillConfirm &&
+            !v2Bridge.CanUse(spell, out _))
+        {
+            RefreshSkillText();
+            return;
+        }
+
+        selectingV2Spell = true;
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(false);
+
+        if (!v2Bridge.BeginSpell(spell, out string rejectionReason))
+        {
+            selectingV2Spell = false;
+            if (skillPanelRoot != null)
+                skillPanelRoot.SetActive(true);
+
+            Debug.LogWarning(
+                $"CombatSkillMenuController: V2 spell '{spell.DisplayName}' could not begin: {rejectionReason}.",
+                this);
             RefreshSkillText();
         }
     }
@@ -785,6 +855,12 @@ public class CombatSkillMenuController : MonoBehaviour
 
         listText.richText = true;
 
+        if (UsesV2Loadout())
+        {
+            RefreshV2SkillText();
+            return;
+        }
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null || pm.Active == null)
@@ -880,6 +956,135 @@ public class CombatSkillMenuController : MonoBehaviour
         listText.text = sb.ToString();
     }
 
+    private void RefreshV2SkillText()
+    {
+        int count = v2Bridge != null ? v2Bridge.SkillCount : 0;
+        if (count <= 0)
+        {
+            listText.text = "No V2 spells equipped.";
+            return;
+        }
+
+        selectedIndex = Mathf.Clamp(selectedIndex, 0, count - 1);
+        StringBuilder sb = new StringBuilder(256);
+
+        for (int i = 0; i < count; i++)
+        {
+            SpellDefinition spell = v2Bridge.GetSkill(i);
+            if (spell == null)
+                continue;
+
+            bool canUse = v2Bridge.CanUse(spell, out SpellCastFailure failure);
+            bool isSelected = i == selectedIndex;
+            string color = ColorUtility.ToHtmlStringRGB(
+                GetSkillRowColor(isSelected, canUse));
+
+            sb.Append("<color=#");
+            sb.Append(color);
+            sb.Append(">");
+            if (isSelected && boldSelectedSkill)
+                sb.Append("<b>");
+
+            sb.Append(isSelected ? "> " : "  ");
+            sb.Append(spell.DisplayName);
+            sb.Append("  (");
+            sb.Append(v2Bridge.GetCostDisplay(spell));
+            sb.Append(")");
+
+            if (!canUse && showNoApTag)
+            {
+                sb.Append(failure == SpellCastFailure.InsufficientResources
+                    ? "  [NO AP]"
+                    : $"  [{failure.ToString().ToUpperInvariant()}]");
+            }
+
+            if (spell.Delivery != null &&
+                spell.Delivery.TargetingRequirement != CastTargetingRequirement.None)
+            {
+                sb.Append("  [AIM]");
+            }
+
+            if (isSelected && boldSelectedSkill)
+                sb.Append("</b>");
+            sb.Append("</color>");
+            sb.AppendLine();
+        }
+
+        listText.text = sb.ToString();
+    }
+
+    private bool UsesV2Loadout()
+    {
+        return preferV2LoadoutWhenAvailable &&
+               v2Bridge != null &&
+               v2Bridge.SkillCount > 0;
+    }
+
+    private void BindV2Bridge(PlayerSpellV2Bridge bridge)
+    {
+        if (subscribedV2Bridge == bridge)
+        {
+            v2Bridge = bridge;
+            return;
+        }
+
+        if (subscribedV2Bridge != null)
+        {
+            subscribedV2Bridge.SpellConfirmed -= HandleV2SpellConfirmed;
+            subscribedV2Bridge.SpellCancelled -= HandleV2SpellCancelled;
+            subscribedV2Bridge.SpellRejected -= HandleV2SpellRejected;
+        }
+
+        subscribedV2Bridge = bridge;
+        v2Bridge = bridge;
+
+        if (subscribedV2Bridge != null)
+        {
+            subscribedV2Bridge.SpellConfirmed += HandleV2SpellConfirmed;
+            subscribedV2Bridge.SpellCancelled += HandleV2SpellCancelled;
+            subscribedV2Bridge.SpellRejected += HandleV2SpellRejected;
+        }
+    }
+
+    private void HandleV2SpellConfirmed(SpellDefinition spell)
+    {
+        if (!selectingV2Spell)
+            return;
+
+        selectingV2Spell = false;
+        if (closePanelAfterCast)
+        {
+            CloseSkillPanel();
+        }
+        else
+        {
+            if (skillPanelRoot != null)
+                skillPanelRoot.SetActive(true);
+            RefreshSkillText();
+        }
+    }
+
+    private void HandleV2SpellCancelled(SpellDefinition spell)
+    {
+        if (!selectingV2Spell)
+            return;
+
+        selectingV2Spell = false;
+        if (skillPanelRoot != null)
+            skillPanelRoot.SetActive(true);
+        RefreshSkillText();
+    }
+
+    private void HandleV2SpellRejected(
+        SpellDefinition spell,
+        SpellCastFailure failure)
+    {
+        // A rejected confirmation can remain in aim mode, so do not close it.
+        // Refreshing is enough to expose cooldown/AP/busy state to the player.
+        if (!selectingV2Spell)
+            RefreshSkillText();
+    }
+
     private Color GetSkillRowColor(
         bool isSelected,
         bool canUse)
@@ -895,6 +1100,9 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void OnDisable()
     {
+        if (selectingV2Spell)
+            v2Bridge?.CancelTargeting();
+
         if (isOpen)
         {
             Time.timeScale = prevTimeScale;
@@ -902,5 +1110,7 @@ public class CombatSkillMenuController : MonoBehaviour
             attackMomentum?.SetMomentumPaused(false);
             DisablePawnControl(false);
         }
+
+        BindV2Bridge(null);
     }
 }

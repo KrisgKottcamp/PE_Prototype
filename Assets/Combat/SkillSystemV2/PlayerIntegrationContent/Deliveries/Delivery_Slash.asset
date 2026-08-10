@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 091c97e778a8495a92e9da57ed236485, type: 3}
+  m_Name: Delivery_Slash
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.MeleeArcDeliveryDefinition
+  displayName: 
+  playerTargeting: {fileID: 11400000, guid: a7b8a4466bdf48a2a1015638aec81ae4, type: 2}
+  range: 1.75
+  arcAngle: 90
+  hitMask:
+    serializedVersion: 2
+    m_Bits: 1024
+  maximumColliders: 24

@@ -1,8 +1,30 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    [Serializable]
+    public sealed class AreaDeliverySettings : SpellDeliverySettings
+    {
+        [SerializeField, Min(0.01f)] private float radius = 1.5f;
+        [SerializeField] private LayerMask hitMask = ~0;
+        [SerializeField, Min(1)] private int maximumColliders = 32;
+
+        public float Radius => Mathf.Max(0.01f, radius);
+        public LayerMask HitMask => hitMask;
+        public int MaximumColliders => Mathf.Max(1, maximumColliders);
+
+        public AreaDeliverySettings() { }
+        public AreaDeliverySettings(PlayerTargetingDefinition targeting,
+            float areaRadius, LayerMask mask, int capacity) : base(targeting)
+        {
+            radius = areaRadius;
+            hitMask = mask;
+            maximumColliders = capacity;
+        }
+    }
+
     [CreateAssetMenu(
         fileName = "Delivery_Area",
         menuName = "Project Eri/Skill System V2/Delivery/Area at Point")]
@@ -22,14 +44,28 @@ namespace ProjectEri.SkillSystemV2
         public override CastTargetingRequirement TargetingRequirement =>
             CastTargetingRequirement.TargetPoint;
 
+        public override Type SettingsType => typeof(AreaDeliverySettings);
+
+        public override SpellDeliverySettings CreateDefaultSettings()
+        {
+            return new AreaDeliverySettings(
+                PlayerTargeting, radius, hitMask, maximumColliders);
+        }
+
         public override ISpellDeliveryExecution CreateExecution(
             in SpellExecutionContext context)
         {
-            return new Execution(
-                context,
-                Radius,
-                hitMask,
-                Mathf.Max(1, maximumColliders));
+            return CreateExecution(context, CreateDefaultSettings());
+        }
+
+        public override ISpellDeliveryExecution CreateExecution(
+            in SpellExecutionContext context,
+            SpellDeliverySettings settings)
+        {
+            AreaDeliverySettings resolved = settings as AreaDeliverySettings ??
+                (AreaDeliverySettings)CreateDefaultSettings();
+            return new Execution(context, resolved.Radius, resolved.HitMask,
+                resolved.MaximumColliders);
         }
 
         private void OnValidate()

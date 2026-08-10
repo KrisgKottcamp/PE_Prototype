@@ -74,6 +74,7 @@ public class PlayerProjectile : MonoBehaviour
 
     private Rigidbody2D rb;
     private Vector2 dir;
+    private SpeedModifier speedModifier;
 
     private int ownerCharacterIndex = -1;
     private bool awardApOnHit = true;
@@ -95,6 +96,7 @@ public class PlayerProjectile : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        speedModifier = GetComponent<SpeedModifier>();
         rb.gravityScale = 0f;
         rb.collisionDetectionMode =
             CollisionDetectionMode2D.Continuous;
@@ -217,8 +219,18 @@ public class PlayerProjectile : MonoBehaviour
 
         rb.MovePosition(
             rb.position +
-            dir * speed * Time.fixedDeltaTime
+            dir * speed * GetSpeedMultiplier() * Time.fixedDeltaTime
         );
+    }
+
+    private float GetSpeedMultiplier()
+    {
+        if (speedModifier == null)
+            speedModifier = GetComponent<SpeedModifier>();
+
+        return speedModifier != null
+            ? Mathf.Max(0f, speedModifier.Multiplier)
+            : 1f;
     }
 
     private bool TryResolveCloseRangeEnemy()

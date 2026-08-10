@@ -22,6 +22,35 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
+            return ApplyEffectsInternal(
+                target,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                includeAreaPresenceEffects: true);
+        }
+
+        internal int ApplyNonPresenceEffects(
+            GameObject target,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale = 1f)
+        {
+            return ApplyEffectsInternal(
+                target,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                includeAreaPresenceEffects: false);
+        }
+
+        private int ApplyEffectsInternal(
+            GameObject target,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale,
+            bool includeAreaPresenceEffects)
+        {
             if (Spell == null || target == null)
                 return 0;
 
@@ -29,13 +58,18 @@ namespace ProjectEri.SkillSystemV2
                 return 0;
 
             int appliedCount = 0;
-            var effects = Spell.Effects;
+            var effects = Spell.EffectSlots;
 
             for (int i = 0; i < effects.Count; i++)
             {
-                EffectDefinition effect = effects[i];
-                if (effect == null)
+                SpellEffectSlot slot = effects[i];
+                EffectDefinition effect = slot?.Effect;
+                if (effect == null ||
+                    (!includeAreaPresenceEffects &&
+                     effect is IAreaPresenceEffectDefinition))
+                {
                     continue;
+                }
 
                 var effectContext = new SpellEffectContext(
                     Spell,
@@ -47,7 +81,7 @@ namespace ProjectEri.SkillSystemV2
 
                 try
                 {
-                    if (effect.Apply(effectContext))
+                    if (effect.Apply(effectContext, slot.Settings))
                         appliedCount++;
                 }
                 catch (Exception exception)

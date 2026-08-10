@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,8 +18,8 @@ namespace ProjectEri.SkillSystemV2.Editor
         private SerializedProperty cooldown;
         private SerializedProperty resourceCost;
         private SerializedProperty targetFilter;
-        private SerializedProperty delivery;
-        private SerializedProperty effects;
+        private SerializedProperty deliverySlot;
+        private SerializedProperty effectSlots;
         private SerializedProperty maximumChainDepth;
         private SerializedProperty maximumRootActivations;
 
@@ -27,6 +28,18 @@ namespace ProjectEri.SkillSystemV2.Editor
 
         private void OnEnable()
         {
+            for (int i = 0; i < targets.Length; i++)
+            {
+                var spell = targets[i] as SpellDefinition;
+                if (spell != null)
+                {
+                    bool changed = spell.EnsureDeliverySlot();
+                    changed |= spell.EnsureEffectSlots();
+                    if (changed)
+                        EditorUtility.SetDirty(spell);
+                }
+            }
+
             displayName = serializedObject.FindProperty("displayName");
             stableId = serializedObject.FindProperty("stableId");
             description = serializedObject.FindProperty("description");
@@ -36,8 +49,8 @@ namespace ProjectEri.SkillSystemV2.Editor
             cooldown = serializedObject.FindProperty("cooldown");
             resourceCost = serializedObject.FindProperty("resourceCost");
             targetFilter = serializedObject.FindProperty("targetFilter");
-            delivery = serializedObject.FindProperty("delivery");
-            effects = serializedObject.FindProperty("effects");
+            deliverySlot = serializedObject.FindProperty("deliverySlot");
+            effectSlots = serializedObject.FindProperty("effectSlots");
             maximumChainDepth = serializedObject.FindProperty(
                 "maximumChainDepth");
             maximumRootActivations = serializedObject.FindProperty(
@@ -108,9 +121,296 @@ namespace ProjectEri.SkillSystemV2.Editor
                 "Composition",
                 EditorStyles.boldLabel);
 
-            EditorGUILayout.PropertyField(delivery);
-            EditorGUILayout.PropertyField(effects, includeChildren: true);
+            if (targets.Length > 1)
+            {
+                EditorGUILayout.PropertyField(
+                    deliverySlot,
+                    includeChildren: true);
+                EditorGUILayout.PropertyField(effectSlots, includeChildren: true);
+            }
+            else
+            {
+                DrawDeliverySlot();
+                DrawEffectSlots();
+            }
             EditorGUILayout.Space();
+        }
+
+        private void DrawDeliverySlot()
+        {
+            if (deliverySlot == null)
+                return;
+
+            SerializedProperty delivery =
+                deliverySlot.FindPropertyRelative("delivery");
+            SerializedProperty settings =
+                deliverySlot.FindPropertyRelative("settings");
+            var definition =
+                delivery.objectReferenceValue as DeliveryDefinition;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField(
+                    "Delivery",
+                    EditorStyles.boldLabel);
+
+                EditorGUI.BeginChangeCheck();
+                EditorGUILayout.PropertyField(
+                    delivery,
+                    new GUIContent("Delivery Module"));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    definition =
+                        delivery.objectReferenceValue as DeliveryDefinition;
+                    settings.managedReferenceValue = definition != null
+                        ? definition.CreateDefaultSettings()
+                        : null;
+                }
+
+                if (definition == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Assign a delivery module to populate its settings.",
+                        MessageType.Info);
+                    return;
+                }
+
+                EnsureCompatibleSettings(definition, settings);
+                if (definition.SettingsType == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "This delivery currently uses its shared asset settings.",
+                        MessageType.None);
+                    return;
+                }
+
+                EditorGUILayout.Space(2f);
+                EditorGUILayout.LabelField(
+                    "Per-Spell Delivery Settings",
+                    EditorStyles.boldLabel);
+                DrawManagedReferenceChildren(settings);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button(
+                            "Reset to Defaults",
+                            GUILayout.Width(140f)))
+                    {
+                        settings.managedReferenceValue =
+                            definition.CreateDefaultSettings();
+                    }
+                }
+            }
+
+            EditorGUILayout.Space(4f);
+        }
+
+        private void DrawEffectSlots()
+        {
+            if (effectSlots == null)
+                return;
+
+            for (int i = 0; i < effectSlots.arraySize; i++)
+                DrawEffectSlot(i);
+
+            if (GUILayout.Button("+ Add Effect", GUILayout.Height(24f)))
+                ShowAddEffectMenu();
+        }
+
+        private void DrawEffectSlot(int index)
+        {
+            SerializedProperty slot = effectSlots.GetArrayElementAtIndex(index);
+            SerializedProperty effect = slot.FindPropertyRelative("effect");
+            SerializedProperty settings = slot.FindPropertyRelative("settings");
+            var definition = effect.objectReferenceValue as EffectDefinition;
+            string title = definition != null
+                ? definition.DisplayName
+                : $"Effect {index + 1}";
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    slot.isExpanded = EditorGUILayout.Foldout(
+                        slot.isExpanded,
+                        title,
+                        toggleOnLabelClick: true);
+
+                    GUI.enabled = index > 0;
+                    if (GUILayout.Button("▲", GUILayout.Width(24f)))
+                    {
+                        effectSlots.MoveArrayElement(index, index - 1);
+                        GUI.enabled = true;
+                        return;
+                    }
+
+                    GUI.enabled = index < effectSlots.arraySize - 1;
+                    if (GUILayout.Button("▼", GUILayout.Width(24f)))
+                    {
+                        effectSlots.MoveArrayElement(index, index + 1);
+                        GUI.enabled = true;
+                        return;
+                    }
+
+                    GUI.enabled = true;
+                    if (GUILayout.Button("×", GUILayout.Width(24f)))
+                    {
+                        effectSlots.DeleteArrayElementAtIndex(index);
+                        return;
+                    }
+                }
+
+                if (!slot.isExpanded)
+                    return;
+
+                EditorGUI.BeginChangeCheck();
+                EditorGUILayout.PropertyField(effect, new GUIContent("Effect"));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    definition = effect.objectReferenceValue as EffectDefinition;
+                    settings.managedReferenceValue = definition != null
+                        ? definition.CreateDefaultSettings()
+                        : null;
+                }
+
+                if (definition == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Assign an effect module to populate its settings.",
+                        MessageType.Info);
+                    return;
+                }
+
+                EnsureCompatibleSettings(definition, settings);
+                if (definition.SettingsType == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "This effect currently uses its shared asset settings.",
+                        MessageType.None);
+                    return;
+                }
+
+                EditorGUILayout.Space(2f);
+                EditorGUILayout.LabelField("Per-Spell Settings", EditorStyles.boldLabel);
+                DrawManagedReferenceChildren(settings);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Reset to Defaults", GUILayout.Width(140f)))
+                        settings.managedReferenceValue =
+                            definition.CreateDefaultSettings();
+                }
+            }
+        }
+
+        private static void EnsureCompatibleSettings(
+            EffectDefinition definition,
+            SerializedProperty settings)
+        {
+            System.Type expected = definition.SettingsType;
+            object current = settings.managedReferenceValue;
+            if (expected == null)
+            {
+                if (current != null)
+                    settings.managedReferenceValue = null;
+                return;
+            }
+
+            if (current == null || current.GetType() != expected)
+                settings.managedReferenceValue = definition.CreateDefaultSettings();
+        }
+
+        private static void EnsureCompatibleSettings(
+            DeliveryDefinition definition,
+            SerializedProperty settings)
+        {
+            System.Type expected = definition.SettingsType;
+            object current = settings.managedReferenceValue;
+            if (expected == null)
+            {
+                if (current != null)
+                    settings.managedReferenceValue = null;
+                return;
+            }
+
+            if (current == null || current.GetType() != expected)
+            {
+                settings.managedReferenceValue =
+                    definition.CreateDefaultSettings();
+            }
+        }
+
+        private static void DrawManagedReferenceChildren(
+            SerializedProperty property)
+        {
+            SerializedProperty iterator = property.Copy();
+            SerializedProperty end = iterator.GetEndProperty();
+            bool enterChildren = true;
+
+            while (iterator.NextVisible(enterChildren) &&
+                   !SerializedProperty.EqualContents(iterator, end))
+            {
+                EditorGUILayout.PropertyField(iterator, includeChildren: true);
+                enterChildren = false;
+            }
+        }
+
+        private void ShowAddEffectMenu()
+        {
+            var menu = new GenericMenu();
+            menu.AddItem(
+                new GUIContent("Empty Slot"),
+                false,
+                () => AddEffectSlot(null));
+            menu.AddSeparator(string.Empty);
+
+            string[] guids = AssetDatabase.FindAssets("t:EffectDefinition");
+            var definitions = new List<EffectDefinition>();
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                EffectDefinition definition =
+                    AssetDatabase.LoadAssetAtPath<EffectDefinition>(path);
+                if (definition != null)
+                    definitions.Add(definition);
+            }
+
+            definitions.Sort((a, b) => string.Compare(
+                a.DisplayName,
+                b.DisplayName,
+                System.StringComparison.OrdinalIgnoreCase));
+
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                EffectDefinition definition = definitions[i];
+                string path = AssetDatabase.GetAssetPath(definition);
+                string folder = Path.GetFileName(
+                    Path.GetDirectoryName(path));
+                string label = string.IsNullOrWhiteSpace(folder)
+                    ? definition.DisplayName
+                    : $"{definition.DisplayName} ({folder})";
+                menu.AddItem(
+                    new GUIContent(label),
+                    false,
+                    () => AddEffectSlot(definition));
+            }
+
+            menu.ShowAsContext();
+        }
+
+        private void AddEffectSlot(EffectDefinition definition)
+        {
+            serializedObject.Update();
+            int index = effectSlots.arraySize;
+            effectSlots.arraySize++;
+            SerializedProperty slot = effectSlots.GetArrayElementAtIndex(index);
+            slot.FindPropertyRelative("effect").objectReferenceValue = definition;
+            slot.FindPropertyRelative("settings").managedReferenceValue =
+                definition != null ? definition.CreateDefaultSettings() : null;
+            slot.isExpanded = true;
+            serializedObject.ApplyModifiedProperties();
         }
 
         private void DrawChainSafety()

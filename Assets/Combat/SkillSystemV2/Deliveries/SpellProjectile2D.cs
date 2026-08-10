@@ -6,6 +6,7 @@ namespace ProjectEri.SkillSystemV2
     [DisallowMultipleComponent]
     public sealed class SpellProjectile2D : MonoBehaviour
     {
+        private static Sprite fallbackSprite;
         private SpellExecutionContext context;
         private Vector2 direction;
         private float speed;
@@ -21,6 +22,8 @@ namespace ProjectEri.SkillSystemV2
         private float distanceTravelled;
         private int targetHitCount;
         private bool launched;
+        private SpellMotionRateModifier motionRateModifier;
+        private CircleCollider2D slowZoneSensor;
 
         public bool IsComplete { get; private set; }
 
@@ -55,10 +58,13 @@ namespace ProjectEri.SkillSystemV2
             hitTargets.Clear();
             IsComplete = false;
             launched = true;
+            motionRateModifier = GetComponent<SpellMotionRateModifier>();
 
             float angle = Mathf.Atan2(direction.y, direction.x) *
                           Mathf.Rad2Deg;
             transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            EnsureVisibleFallback();
+            EnsureSlowZoneSensor();
         }
 
         public void Cancel()
@@ -83,7 +89,14 @@ namespace ProjectEri.SkillSystemV2
                 return;
 
             float remainingRange = maximumDistance - distanceTravelled;
-            float stepDistance = Mathf.Min(speed * deltaTime, remainingRange);
+            if (motionRateModifier == null)
+                motionRateModifier = GetComponent<SpellMotionRateModifier>();
+            float speedMultiplier = motionRateModifier != null
+                ? motionRateModifier.Multiplier
+                : 1f;
+            float stepDistance = Mathf.Min(
+                speed * speedMultiplier * deltaTime,
+                remainingRange);
 
             if (stepDistance <= 0f)
             {
@@ -190,6 +203,99 @@ namespace ProjectEri.SkillSystemV2
             IsComplete = true;
             launched = false;
             Destroy(gameObject);
+        }
+
+        private void EnsureVisibleFallback()
+        {
+            if (GetComponentInChildren<Renderer>(true) != null)
+                return;
+
+            Renderer casterRenderer = context.Cast.Caster != null
+                ? context.Cast.Caster.GetComponentInChildren<Renderer>(true)
+                : null;
+            if (context.Cast.Caster != null && gameObject.layer == 0)
+            {
+                gameObject.layer = casterRenderer != null
+                    ? casterRenderer.gameObject.layer
+                    : context.Cast.Caster.layer;
+            }
+
+            SpriteRenderer renderer = gameObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = GetFallbackSprite();
+            renderer.color = new Color(0.25f, 0.9f, 1f, 1f);
+            renderer.sortingOrder = 150;
+            if (casterRenderer != null)
+            {
+                renderer.sortingLayerID = casterRenderer.sortingLayerID;
+                renderer.sortingOrder = casterRenderer.sortingOrder + 50;
+            }
+            transform.localScale = Vector3.one * 0.22f;
+        }
+
+        private void EnsureSlowZoneSensor()
+        {
+            int projectileLayer = LayerMask.NameToLayer("PlayerProjectile");
+            if (slowZoneSensor == null)
+            {
+                var sensorObject = new GameObject("Skill V2 Slow Sensor");
+                sensorObject.transform.SetParent(transform, false);
+                if (projectileLayer >= 0)
+                    sensorObject.layer = projectileLayer;
+                Rigidbody2D sensorBody = sensorObject.AddComponent<Rigidbody2D>();
+                sensorBody.bodyType = RigidbodyType2D.Kinematic;
+                sensorBody.gravityScale = 0f;
+                slowZoneSensor = sensorObject.AddComponent<CircleCollider2D>();
+            }
+
+            float maximumScale = Mathf.Max(
+                0.01f,
+                Mathf.Abs(transform.lossyScale.x),
+                Mathf.Abs(transform.lossyScale.y));
+            slowZoneSensor.radius =
+                Mathf.Max(0.05f, collisionRadius) / maximumScale;
+            slowZoneSensor.isTrigger = true;
+            slowZoneSensor.enabled = true;
+        }
+
+        private static Sprite GetFallbackSprite()
+        {
+            if (fallbackSprite != null)
+                return fallbackSprite;
+
+            const int size = 16;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "Runtime V2 Projectile",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            var pixels = new Color32[size * size];
+            Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+            float radius = size * 0.46f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float normalized = Vector2.Distance(new Vector2(x, y), center) / radius;
+                    byte alpha = normalized <= 1f
+                        ? (byte)Mathf.RoundToInt(Mathf.Clamp01((1f - normalized) * 3f) * 255f)
+                        : (byte)0;
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            fallbackSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, size, size),
+                new Vector2(0.5f, 0.5f),
+                size);
+            fallbackSprite.name = "Runtime V2 Projectile Sprite";
+            fallbackSprite.hideFlags = HideFlags.HideAndDontSave;
+            return fallbackSprite;
         }
 
         private void OnDestroy()

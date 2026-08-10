@@ -93,7 +93,7 @@ namespace ProjectEri.SkillSystemV2
             }
 
             PlayerTargetingDefinition definition =
-                spell.Delivery.PlayerTargeting;
+                spell.PlayerTargeting;
 
             if (definition == null)
             {
