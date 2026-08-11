@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_ProximityMine
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.ProximityMineDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
   visualPrefab: {fileID: 0}
   armingDelay: 0.4
   triggerRadius: 1.25

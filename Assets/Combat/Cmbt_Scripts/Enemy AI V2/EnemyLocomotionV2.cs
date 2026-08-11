@@ -86,7 +86,7 @@ namespace ProjectEri.EnemyAI.V2
             if (profile == null || !profile.respectSlowZones || slowReceiver == null)
                 return 1f;
 
-            return Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 1f);
+            return Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 5f);
         }
 
         private void RefreshSlowDebug()
@@ -99,7 +99,7 @@ namespace ProjectEri.EnemyAI.V2
                 return;
             }
 
-            debugSlowMovementMultiplier = Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 1f);
+            debugSlowMovementMultiplier = Mathf.Clamp(slowReceiver.MovementSpeedMultiplier, 0.02f, 5f);
             debugIsSlowed = slowReceiver.IsSlowed;
             debugSlowSource = slowReceiver.DebugStrongestSource;
         }

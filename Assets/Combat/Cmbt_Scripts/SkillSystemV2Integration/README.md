@@ -122,8 +122,9 @@ inline. The group may use the spell's Target Rules or expose independent rules
 when **Use Spell Target Rules** is disabled. In a Reaction's **THEN** section,
 add **Enable or Disable Reactive Effect Group** and select the group by name.
 
-The generated Slow Orb demonstrates the complete flow. Its base Movement Slow
-effect is always active. Its **Projectile Burn** group starts inactive, targets
+The generated Slow Orb demonstrates the complete flow. Its base Movement Speed
+Change effect is always active and is configured below `1` to slow. Its
+**Projectile Burn** group starts inactive, targets
 enemies only, and contains a configured Damage Over Time effect. A Reaction
 requires the shared Projectile delivery and enables Projectile Burn only once,
 applying it immediately to enemies already inside. The group then remains
@@ -282,15 +283,16 @@ Legacy skills remain the fallback whenever the V2 loadout is empty.
    outside the impacted surface. Verify a maximum-range miss does not teleport.
 10. Enable V2 loadouts on two Character Definitions, equip different spells,
     swap characters, and verify the combat menu follows the active character.
-11. Confirm all 66 SkillSystemV2 EditMode tests pass.
+11. Confirm all SkillSystemV2 EditMode tests pass.
 12. Disable the Character Definition V2 toggle and verify the pawn's fallback
     loadout returns.
 
 The generated Slow Orb creates a visible four-second lingering zone and
-applies its movement slow only while targets remain inside. Crossing the
-boundary adds or removes the slow on the next frame, with no timed linger.
+applies its movement-speed change only while targets remain inside. Crossing
+the boundary adds or removes the modifier on the next frame, with no timed linger.
 It recognizes the
 `EnemyHurtbox`, `PlayerHurtbox`, `Projectile`, and `PlayerProjectile` layers.
-The slow changes movement rate only; projectile lifetime, range, damage, and
-effect potency remain unchanged. A later delivery variant can add projectile
-travel before the zone appears without changing the movement-slow effect.
+The effect changes movement rate only; projectile lifetime, range, damage, and
+effect potency remain unchanged. Values below `1` slow and values above `1`
+speed up. A later delivery variant can add projectile travel before the zone
+appears without changing the movement-speed effect.

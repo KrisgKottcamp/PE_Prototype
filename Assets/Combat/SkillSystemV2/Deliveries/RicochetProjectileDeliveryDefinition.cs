@@ -217,6 +217,7 @@ namespace ProjectEri.SkillSystemV2
         private int recentlyBouncedColliderId;
         private int recentlyBouncedTargetId;
         private float collisionRearmDistance;
+        private int casterImmunityUntilBounceCount;
 
         public bool IsComplete { get; private set; }
 
@@ -235,6 +236,10 @@ namespace ProjectEri.SkillSystemV2
             recentlyBouncedColliderId = 0;
             recentlyBouncedTargetId = 0;
             collisionRearmDistance = 0f;
+            // Ignore the caster while the projectile is leaving its launch
+            // point. After one real bounce it may return and hit the caster
+            // whenever the spell's Target Filter permits self-targeting.
+            casterImmunityUntilBounceCount = bounceCount + 1;
             EnsureSensor();
             EnsureVisual();
             context.DispatchEvent(new SpellEventOccurrence(
@@ -397,6 +402,10 @@ namespace ProjectEri.SkillSystemV2
             recentlyBouncedColliderId = 0;
             recentlyBouncedTargetId = 0;
             collisionRearmDistance = 0f;
+            // The new owner may be overlapping the projectile at the moment
+            // of deflection. Give that owner the same one-bounce launch
+            // immunity rather than permanent immunity.
+            casterImmunityUntilBounceCount = bounceCount + 1;
             CastContext redirected = context.Cast
                 .WithCaster(newCaster)
                 .WithAimDirection(direction);
@@ -425,13 +434,21 @@ namespace ProjectEri.SkillSystemV2
             {
                 RaycastHit2D candidate = castBuffer[i];
                 if (candidate.collider == null ||
-                    IsWaitingToRearmCollision(candidate.collider) ||
-                    SpellTargetResolver.IsSameHierarchy(
-                        context.Cast.Caster,
-                        candidate.collider.gameObject))
+                    IsWaitingToRearmCollision(candidate.collider))
                 {
                     continue;
                 }
+
+                bool belongsToCaster =
+                    SpellTargetResolver.IsSameHierarchy(
+                        context.Cast.Caster,
+                        candidate.collider.gameObject);
+                if (belongsToCaster &&
+                    bounceCount < casterImmunityUntilBounceCount)
+                {
+                    continue;
+                }
+
                 if (nearest.collider == null ||
                     candidate.distance < nearest.distance)
                 {

@@ -234,6 +234,103 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void ProximityMine_TriggeredTargetStillReceivesEffectsAfterLeavingRadius()
+        {
+            var target = new GameObject("Moving Target");
+            target.AddComponent<CombatTeamMember>()
+                .SetTeam(CombatTeam.Enemy);
+            target.AddComponent<CombatTarget>();
+            target.AddComponent<CircleCollider2D>().radius = 0.25f;
+            SpellVitality vitality = target.AddComponent<SpellVitality>();
+
+            var delivery = ScriptableObject.CreateInstance<
+                ProximityMineDeliveryDefinition>();
+            var damageOverTime = ScriptableObject.CreateInstance<
+                DamageOverTimeEffectDefinition>();
+            SpellDefinition spell = CreateSpell(
+                delivery,
+                "test-moving-target-mine");
+            var serialized = new SerializedObject(spell);
+            serialized.FindProperty("targetFilter.relationship")
+                .enumValueIndex = (int)TargetRelationship.Any;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                delivery,
+                new ProximityMineDeliverySettings(
+                    null,
+                    0f,
+                    1f,
+                    0.2f,
+                    1.5f,
+                    5f,
+                    ~0,
+                    16)));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(
+                damageOverTime,
+                new DamageOverTimeEffectSettings(
+                    5f,
+                    0.5f,
+                    3f,
+                    immediateTick: true)));
+
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                Vector2.zero);
+            ISpellDeliveryExecution execution = delivery.CreateExecution(
+                new SpellExecutionContext(spell, cast),
+                spell.DeliverySettings);
+
+            execution.Begin();
+            Physics2D.SyncTransforms();
+            SpellProximityMine2D runtime =
+                Object.FindObjectOfType<SpellProximityMine2D>();
+            runtime.Step(0f);
+
+            target.transform.position = Vector2.right * 10f;
+            Physics2D.SyncTransforms();
+            runtime.Step(0.2f);
+
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(95f).Within(0.001f));
+            Assert.That(runtime.IsComplete, Is.True);
+
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(spell);
+            Object.DestroyImmediate(delivery);
+            Object.DestroyImmediate(damageOverTime);
+        }
+
+        [Test]
+        public void AuthoredProximityMine_CanDetectPlayerAndEnemyHurtboxes()
+        {
+            const string path =
+                "Assets/Combat/SkillSystemV2/Content/Spells/Spell_ProxMine.asset";
+            SpellDefinition spell =
+                AssetDatabase.LoadAssetAtPath<SpellDefinition>(path);
+
+            Assert.That(spell, Is.Not.Null);
+            Assert.That(
+                spell.TargetFilter.Relationship,
+                Is.EqualTo(TargetRelationship.Any));
+            Assert.That(
+                spell.DeliverySettings,
+                Is.TypeOf<ProximityMineDeliverySettings>());
+
+            var settings =
+                (ProximityMineDeliverySettings)spell.DeliverySettings;
+            int playerLayer = LayerMask.NameToLayer("PlayerHurtbox");
+            int enemyLayer = LayerMask.NameToLayer("EnemyHurtbox");
+            Assert.That(playerLayer, Is.GreaterThanOrEqualTo(0));
+            Assert.That(enemyLayer, Is.GreaterThanOrEqualTo(0));
+            Assert.That(
+                (settings.HitMask.value & (1 << playerLayer)) != 0,
+                Is.True);
+            Assert.That(
+                (settings.HitMask.value & (1 << enemyLayer)) != 0,
+                Is.True);
+        }
+
+        [Test]
         public void TripWire_AnyFilterLetsCasterCrossAndTakeDamage()
         {
             caster.AddComponent<CombatTarget>();
@@ -376,6 +473,66 @@ namespace ProjectEri.SkillSystemV2.Tests
             Object.DestroyImmediate(wall);
             Object.DestroyImmediate(spell);
             Object.DestroyImmediate(delivery);
+        }
+
+        [Test]
+        public void RicochetProjectile_CanDamageOriginalCasterAfterBounce()
+        {
+            caster.AddComponent<CombatTarget>();
+            caster.AddComponent<CircleCollider2D>().radius = 0.25f;
+            SpellVitality vitality = caster.AddComponent<SpellVitality>();
+            var delivery = ScriptableObject.CreateInstance<
+                RicochetProjectileDeliveryDefinition>();
+            var damage = ScriptableObject.CreateInstance<
+                DamageEffectDefinition>();
+            var settings = new RicochetProjectileDeliverySettings(
+                null,
+                null,
+                10f,
+                10f,
+                0.05f,
+                ~0,
+                3,
+                1f,
+                true,
+                4,
+                false,
+                1f,
+                16);
+            SpellDefinition spell = CreateAnyDamageSpell(
+                delivery,
+                settings,
+                damage,
+                "test-returning-ricochet");
+
+            var wall = new GameObject("Bounce Wall");
+            wall.transform.position = new Vector2(1.5f, 0f);
+            BoxCollider2D wallCollider = wall.AddComponent<BoxCollider2D>();
+            wallCollider.size = new Vector2(0.1f, 2f);
+
+            CastContext cast = CastContext.ForDirection(
+                caster,
+                Vector2.zero,
+                Vector2.right);
+            ISpellDeliveryExecution execution = delivery.CreateExecution(
+                new SpellExecutionContext(spell, cast),
+                settings);
+
+            execution.Begin();
+            Physics2D.SyncTransforms();
+            SpellRicochetProjectile2D runtime =
+                Object.FindObjectOfType<SpellRicochetProjectile2D>();
+
+            runtime.Step(0.2f);
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(100f).Within(0.001f));
+
+            runtime.Step(0.2f);
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
+
+            Object.DestroyImmediate(wall);
+            Object.DestroyImmediate(spell);
+            Object.DestroyImmediate(delivery);
+            Object.DestroyImmediate(damage);
         }
 
         [Test]

@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: AP
@@ -38,16 +48,16 @@ MonoBehaviour:
   deliverySlot:
     delivery: {fileID: 11400000, guid: 035c34a168aff25429f522cdaff0ab46, type: 2}
     settings:
-      rid: 1819652408774492273
+      rid: 1819652408774492304
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
     settings:
-      rid: 1819652408774492274
+      rid: 1819652408774492305
   - effect: {fileID: 11400000, guid: 88f0450f13420ad4dba3e313ac258ce5, type: 2}
     settings:
-      rid: 1819652408774492275
+      rid: 1819652408774492306
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -57,23 +67,23 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492273
+    - rid: 1819652408774492304
       type: {class: MeleeArcDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 0}
+        playerTargeting: {fileID: 11400000, guid: 2a45799fdb78d6f44b7e72a14acc27f9, type: 2}
         range: 1.75
         arcAngle: 90
         hitMask:
           serializedVersion: 2
           m_Bits: 1024
         maximumColliders: 24
-    - rid: 1819652408774492274
+    - rid: 1819652408774492305
       type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 0}
         amount: 30
         ignoreInvulnerability: 0
-    - rid: 1819652408774492275
+    - rid: 1819652408774492306
       type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         direction: 0

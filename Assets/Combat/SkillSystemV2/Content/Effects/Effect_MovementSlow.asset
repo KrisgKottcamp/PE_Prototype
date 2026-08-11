@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fb202daf4d4886b45e5afff73b4bb7, type: 3}
   m_Name: Effect_MovementSlow
   m_EditorClassIdentifier: Assembly-CSharp::LegacyMovementSlowEffectDefinition
-  displayName: 
+  displayName: Movement Speed Change
   movementMultiplier: 0.25
   duration: 0.75

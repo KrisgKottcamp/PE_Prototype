@@ -10,11 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_QuickShot
+  m_Name: Spell_ImpactTeleport
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Quick Shot V2
-  stableId: player.quick-shot.v2
-  description: Player Integration vertical-slice spell. Tune or replace freely.
+  displayName: Impact Teleport
+  stableId: player.impact-teleport.v2
+  description: Fires a projectile and teleports the caster safely beside the enemy
+    or wall it strikes. Demonstrates an Event Effect Recipe.
   icon: {fileID: 0}
   category: Player Skill V2
   timing:
@@ -36,26 +37,40 @@ MonoBehaviour:
   cooldown: 0
   resourceCost:
     resourceId: AP
-    amount: 8
+    amount: 12
   targetFilter:
-    relationship: 4
+    relationship: 0
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
       m_Bits: 0
-    requireSpellTarget: 1
+    requireSpellTarget: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
     settings:
-      rid: 1819652408774492320
+      rid: 1819652408774492302
   deliverySlotMigrated: 1
   effects: []
-  effectSlots:
-  - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
-    settings:
-      rid: 1819652408774492321
-  eventEffectRoutes: []
+  effectSlots: []
+  eventEffectRoutes:
+  - enabled: 1
+    displayName: Teleport When the Projectile Lands
+    stableId: 9a68e4420b4a4c8b993e32374b0c6c58
+    trigger: 6
+    subjectRuleMode: 1
+    customSubjectRules:
+      relationship: 0
+      useLayerMask: 0
+      allowedLayers:
+        serializedVersion: 2
+        m_Bits: 0
+      requireSpellTarget: 0
+    recipient: 1
+    effectSlots:
+    - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
+      settings:
+        rid: 1819652408774492303
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
   reactionSlots: []
@@ -64,14 +79,14 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492320
+    - rid: 1819652408774492302
       type: {class: ProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
         projectilePrefab: {fileID: 0}
         allowPrefabGameplayComponents: 0
-        speed: 14
-        range: 10
+        speed: 16
+        range: 9
         collisionRadius: 0.1
         collisionMask:
           serializedVersion: 2
@@ -80,9 +95,16 @@ MonoBehaviour:
         maximumTargetHits: 1
         stopOnBlockedCollider: 1
         castBufferSize: 16
-    - rid: 1819652408774492321
-      type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652408774492303
+      type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        damageType: {fileID: 0}
-        amount: 20
-        ignoreInvulnerability: 0
+        destinationSource: 1
+        speed: 18
+        maximumDistance: 9
+        instantaneous: 1
+        requireLineOfSight: 1
+        obstructionMask:
+          serializedVersion: 2
+          m_Bits: 128
+        keepOutsideHitSurface: 1
+        extraSurfaceClearance: 0.08

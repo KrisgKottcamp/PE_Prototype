@@ -125,7 +125,7 @@ namespace ProjectEri.EnemyAI.V2
         [Range(0.5f, 2.5f)] public float attackStartGapTempoMultiplier = 1.0f;
 
         [Header("Stage 4.4 - Slow Orb / Slow Zone Respect")]
-        [Tooltip("When enabled, EnemyLocomotionV2 multiplies movement by EnemySlowReceiverV2. This makes V2 enemies actually slow down inside Slow Orb triggers instead of using full-speed V2 movement.")]
+        [Tooltip("When enabled, EnemyLocomotionV2 applies movement-speed changes from spells and zones. Values below 1 slow the enemy; values above 1 speed it up.")]
         public bool respectSlowZones = true;
 
         [Tooltip("When an enemy first enters a slow zone, clamp high current velocity down toward the slowed speed so it cannot simply coast/run out at full speed.")]

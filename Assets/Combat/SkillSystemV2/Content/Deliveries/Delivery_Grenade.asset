@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_Grenade
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.GrenadeDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
   visualPrefab: {fileID: 0}
   speed: 8
   throwArcHeight: 0.35

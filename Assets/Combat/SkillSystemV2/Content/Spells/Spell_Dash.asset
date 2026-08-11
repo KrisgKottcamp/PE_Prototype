@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: AP
@@ -38,13 +48,13 @@ MonoBehaviour:
   deliverySlot:
     delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
     settings:
-      rid: 1819652408774492291
+      rid: 1819652408774492322
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
     settings:
-      rid: 1819652408774492292
+      rid: 1819652408774492323
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -54,11 +64,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492291
+    - rid: 1819652408774492322
       type: {class: PointClickDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}
-    - rid: 1819652408774492292
+    - rid: 1819652408774492323
       type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         destinationSource: 0

@@ -65,6 +65,24 @@ public class SpeedModifier : MonoBehaviour
         Recalculate();
     }
 
+    /// <summary>
+    /// Atomically assigns one signed movement-speed change to a source.
+    /// Values below one slow, values above one boost, and one clears it.
+    /// </summary>
+    public void ApplyMovementSpeedChange(int sourceId, float multiplier)
+    {
+        activeSlows.Remove(sourceId);
+        activeBoosts.Remove(sourceId);
+
+        float safeMultiplier = Mathf.Clamp(multiplier, 0.05f, 5f);
+        if (safeMultiplier < 1f)
+            activeSlows[sourceId] = safeMultiplier;
+        else if (safeMultiplier > 1f)
+            activeBoosts[sourceId] = safeMultiplier;
+
+        Recalculate();
+    }
+
     public void RemoveBoost(int sourceId)
     {
         activeBoosts.Remove(sourceId);

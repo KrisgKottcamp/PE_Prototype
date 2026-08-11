@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_MeleeArc
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.MeleeArcDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: 2a45799fdb78d6f44b7e72a14acc27f9, type: 2}
   range: 1.75
   arcAngle: 90
   hitMask:

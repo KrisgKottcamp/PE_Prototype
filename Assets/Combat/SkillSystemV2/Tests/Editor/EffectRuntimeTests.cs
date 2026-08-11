@@ -169,6 +169,28 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void SpellMotionRateModifier_SupportsSlowsAndSpeedBoosts()
+        {
+            SpellMotionRateModifier modifier =
+                target.AddComponent<SpellMotionRateModifier>();
+
+            modifier.ApplyMovementSpeedChange(
+                target.transform,
+                1.5f,
+                3f);
+            Assert.That(modifier.Multiplier, Is.EqualTo(1.5f).Within(0.001f));
+
+            modifier.ApplyMovementSpeedChange(
+                caster.transform,
+                0.5f,
+                3f);
+            Assert.That(modifier.Multiplier, Is.EqualTo(0.75f).Within(0.001f));
+
+            modifier.ClearMovementSpeedChange(caster.transform);
+            Assert.That(modifier.Multiplier, Is.EqualTo(1.5f).Within(0.001f));
+        }
+
+        [Test]
         public void EffectSlot_PopulatesMatchingDefaultsWhenEffectIsAssigned()
         {
             ImpulseEffectDefinition impulse = Create<ImpulseEffectDefinition>();

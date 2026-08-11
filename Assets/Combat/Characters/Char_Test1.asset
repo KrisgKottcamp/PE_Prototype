@@ -31,12 +31,13 @@ MonoBehaviour:
   skillSystemV2BasicAttack: {fileID: 0}
   equippedSpellsV2:
   - {fileID: 11400000, guid: f325580d15342894ba2bb623c4b6cb69, type: 2}
-  - {fileID: 11400000, guid: 1798d04707e57ed46a72e5a8d1c8960a, type: 2}
+  - {fileID: 11400000, guid: 7d1d420ae525d8042baaedcfcf2e95dc, type: 2}
   - {fileID: 11400000, guid: cb61ef1440d017843b4c7a7ce7266e39, type: 2}
   - {fileID: 11400000, guid: 514156cf65de609458a486fda35d5bb1, type: 2}
   - {fileID: 11400000, guid: 1488ebd8c7440db408ef56b9e3adcb68, type: 2}
   - {fileID: 11400000, guid: 093e3e806ec33ef4a8cb9874739b315f, type: 2}
   - {fileID: 11400000, guid: b0edcd22d1a2deb4b97ff88a1b1eebbd, type: 2}
+  - {fileID: 11400000, guid: 83edc2a1d710e364fa4f124e9ba80d18, type: 2}
   unlocks: []
   combatSprite: {fileID: 3427114271967980436, guid: e138aabb28c253d4bb71b8822e0461ad, type: 3}
   portraitSprite: {fileID: 21300000, guid: 14df120889e70894d930815fa037536a, type: 3}

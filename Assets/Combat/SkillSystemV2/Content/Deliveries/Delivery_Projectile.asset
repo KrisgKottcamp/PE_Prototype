@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_Projectile
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.ProjectileDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
   projectilePrefab: {fileID: 0}
   allowPrefabGameplayComponents: 0
   speed: 8

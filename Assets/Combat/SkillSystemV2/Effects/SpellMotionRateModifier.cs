@@ -4,8 +4,8 @@ using UnityEngine;
 namespace ProjectEri.SkillSystemV2
 {
     /// <summary>
-    /// Lightweight rate modifier for V2 moving spell objects. It intentionally
-    /// changes movement speed without changing lifetime or effect potency.
+    /// Lightweight movement-speed modifier for V2 moving spell objects. It
+    /// changes travel speed without changing lifetime or effect potency.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class SpellMotionRateModifier : MonoBehaviour
@@ -26,10 +26,24 @@ namespace ProjectEri.SkillSystemV2
             get
             {
                 Prune();
-                float value = 1f;
+                float strongestSlow = 1f;
+                float strongestBoost = 1f;
                 foreach (Entry entry in entries.Values)
-                    value = Mathf.Min(value, entry.Multiplier);
-                return Mathf.Clamp(value, 0.02f, 1f);
+                {
+                    if (entry.Multiplier < 1f)
+                        strongestSlow = Mathf.Min(
+                            strongestSlow,
+                            entry.Multiplier);
+                    else if (entry.Multiplier > 1f)
+                        strongestBoost = Mathf.Max(
+                            strongestBoost,
+                            entry.Multiplier);
+                }
+
+                return Mathf.Clamp(
+                    strongestSlow * strongestBoost,
+                    0.02f,
+                    5f);
             }
         }
 
@@ -38,14 +52,39 @@ namespace ProjectEri.SkillSystemV2
             float movementMultiplier,
             float duration)
         {
+            ApplyInternal(
+                source,
+                Mathf.Clamp(movementMultiplier, 0.02f, 1f),
+                duration,
+                persistent: false);
+        }
+
+        public void ApplyMovementSpeedChange(
+            Object source,
+            float movementMultiplier,
+            float duration)
+        {
+            ApplyInternal(
+                source,
+                movementMultiplier,
+                duration,
+                persistent: false);
+        }
+
+        private void ApplyInternal(
+            Object source,
+            float movementMultiplier,
+            float duration,
+            bool persistent)
+        {
             if (source == null)
                 return;
 
             entries[source.GetInstanceID()] = new Entry
             {
-                Multiplier = Mathf.Clamp(movementMultiplier, 0.02f, 1f),
+                Multiplier = Mathf.Clamp(movementMultiplier, 0.02f, 5f),
                 ExpiresAt = Time.time + Mathf.Max(0.02f, duration),
-                Persistent = false
+                Persistent = persistent
             };
         }
 
@@ -53,18 +92,30 @@ namespace ProjectEri.SkillSystemV2
             Object source,
             float movementMultiplier)
         {
-            if (source == null)
-                return;
+            ApplyInternal(
+                source,
+                Mathf.Clamp(movementMultiplier, 0.02f, 1f),
+                0.02f,
+                persistent: true);
+        }
 
-            entries[source.GetInstanceID()] = new Entry
-            {
-                Multiplier = Mathf.Clamp(movementMultiplier, 0.02f, 1f),
-                ExpiresAt = 0f,
-                Persistent = true
-            };
+        public void SetMovementSpeedChange(
+            Object source,
+            float movementMultiplier)
+        {
+            ApplyInternal(
+                source,
+                movementMultiplier,
+                0.02f,
+                persistent: true);
         }
 
         public void ClearSlow(Object source)
+        {
+            ClearMovementSpeedChange(source);
+        }
+
+        public void ClearMovementSpeedChange(Object source)
         {
             if (source != null)
                 entries.Remove(source.GetInstanceID());

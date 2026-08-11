@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_LingeringArea
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.LingeringAreaDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
   radius: 2
   duration: 4
   applicationInterval: 0.25
@@ -23,3 +23,4 @@ MonoBehaviour:
   maximumColliders: 32
   zoneColor: {r: 0.3, g: 0.65, b: 1, a: 0.24}
   sortingOrderOffset: 20
+  startsActive: 1

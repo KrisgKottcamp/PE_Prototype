@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: AP
@@ -38,16 +48,16 @@ MonoBehaviour:
   deliverySlot:
     delivery: {fileID: 11400000, guid: 035c34a168aff25429f522cdaff0ab46, type: 2}
     settings:
-      rid: 1819652408774492283
+      rid: 1819652408774492312
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 88f0450f13420ad4dba3e313ac258ce5, type: 2}
     settings:
-      rid: 1819652408774492284
+      rid: 1819652408774492313
   - effect: {fileID: 11400000, guid: da41eaec31e48924885f80b3d00c479a, type: 2}
     settings:
-      rid: 1819652408774492285
+      rid: 1819652408774492314
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -57,7 +67,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492283
+    - rid: 1819652408774492312
       type: {class: MeleeArcDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         playerTargeting: {fileID: 11400000, guid: ac2e68de8a4c40d988073b09a2b73f89, type: 2}
@@ -67,14 +77,14 @@ MonoBehaviour:
           serializedVersion: 2
           m_Bits: 1536
         maximumColliders: 24
-    - rid: 1819652408774492284
+    - rid: 1819652408774492313
       type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         direction: 0
         magnitude: 12
         duration: 0.3
         mode: 2
-    - rid: 1819652408774492285
+    - rid: 1819652408774492314
       type: {class: ReflectProjectileEffectSettings, ns: , asm: Assembly-CSharp}
       data:
         reflectedDamageBase: 10

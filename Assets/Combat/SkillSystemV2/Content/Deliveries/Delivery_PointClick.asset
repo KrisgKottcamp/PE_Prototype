@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: Delivery_PointClick
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.PointClickDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}

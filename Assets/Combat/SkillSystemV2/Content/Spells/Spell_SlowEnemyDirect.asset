@@ -28,10 +28,10 @@ MonoBehaviour:
       blockPlayerBasicAttacks: 1
       blockPlayerSkillUsage: 1
       showPowerUpParticles: 1
-      particleColor: {r: 1, g: 0.0141509175, b: 0.5449228, a: 0}
-      particlesPerSecond: 5
-      particleSpawnRadius: 1
-      particleInwardSpeed: 0.5
+      particleColor: {r: 1, g: 0.0141509175, b: 0.5449228, a: 0.7607843}
+      particlesPerSecond: 10
+      particleSpawnRadius: 0.5
+      particleInwardSpeed: 2
       particleSize: 0.5
   cooldown: 0
   resourceCost:
@@ -54,7 +54,7 @@ MonoBehaviour:
   effectSlots:
   - effect: {fileID: 11400000, guid: 115ba60585abfe94ab254dce73d5fd97, type: 2}
     settings:
-      rid: 1819652408774492265
+      rid: 1819652408774492301
   - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
     settings:
       rid: 1819652408774492270
@@ -67,11 +67,6 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492265
-      type: {class: MovementSlowEffectSettings, ns: , asm: Assembly-CSharp}
-      data:
-        movementMultiplier: 0.093
-        duration: 5
     - rid: 1819652408774492270
       type: {class: DamageOverTimeEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
@@ -86,3 +81,8 @@ MonoBehaviour:
       type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}
+    - rid: 1819652408774492301
+      type: {class: MovementSlowEffectSettings, ns: , asm: Assembly-CSharp}
+      data:
+        movementMultiplier: 0.25
+        duration: 0.75

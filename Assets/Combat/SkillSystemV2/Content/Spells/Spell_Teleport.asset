@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: 

@@ -28,7 +28,7 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 4
+    relationship: 0
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -66,7 +66,7 @@ MonoBehaviour:
         lifetime: 20
         hitMask:
           serializedVersion: 2
-          m_Bits: 1024
+          m_Bits: 1280
         maximumColliders: 32
         singleUse: 1
         rearmDelay: 1

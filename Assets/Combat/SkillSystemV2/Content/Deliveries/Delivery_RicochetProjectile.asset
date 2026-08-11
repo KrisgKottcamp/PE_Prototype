@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Delivery_RicochetProjectile
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.RicochetProjectileDeliveryDefinition
   displayName: 
-  playerTargeting: {fileID: 0}
+  playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
   visualPrefab: {fileID: 0}
   speed: 10
   range: 14

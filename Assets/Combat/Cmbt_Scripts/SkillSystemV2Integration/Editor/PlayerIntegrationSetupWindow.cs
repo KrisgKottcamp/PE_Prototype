@@ -103,6 +103,7 @@ public sealed class PlayerIntegrationSetupWindow : EditorWindow
         LegacyMovementSlowEffectDefinition slow =
             CreateOrLoad<LegacyMovementSlowEffectDefinition>(
                 $"{EffectsRoot}/Effect_MovementSlow.asset");
+        SetString(slow, "displayName", "Movement Speed Change");
         SetFloat(slow, "movementMultiplier", 0.25f);
         SetFloat(slow, "duration", 0.75f);
 
@@ -665,6 +666,17 @@ public sealed class PlayerIntegrationSetupWindow : EditorWindow
     {
         SerializedObject serialized = new SerializedObject(target);
         serialized.FindProperty(field).floatValue = value;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(target);
+    }
+
+    private static void SetString(
+        UnityEngine.Object target,
+        string field,
+        string value)
+    {
+        SerializedObject serialized = new SerializedObject(target);
+        serialized.FindProperty(field).stringValue = value;
         serialized.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(target);
     }

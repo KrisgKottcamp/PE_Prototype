@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: AP
@@ -38,17 +48,17 @@ MonoBehaviour:
   deliverySlot:
     delivery: {fileID: 11400000, guid: a50297c7662cdb24ea65c1e9d0869b48, type: 2}
     settings:
-      rid: 1819652408774492276
+      rid: 1819652408774492307
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 115ba60585abfe94ab254dce73d5fd97, type: 2}
     settings:
-      rid: 1819652408774492277
+      rid: 1819652408774492308
   eventEffectRoutes: []
   reactiveEffectGroups:
   - displayName: Projectile Burn
-    stableId: 2739465cb81c444faebd3d76c426260a
+    stableId: 4084f4665d2f429887fc22942f0477c5
     startsActive: 0
     useSpellTargetRules: 0
     targetFilter:
@@ -61,16 +71,16 @@ MonoBehaviour:
     effectSlots:
     - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
       settings:
-        rid: 1819652408774492278
+        rid: 1819652408774492309
   effectSlotsMigrated: 1
   reactionSlots:
   - enabled: 1
     filter:
       matchMode: 0
       conditions:
-      - rid: 1819652408774492279
+      - rid: 1819652408774492310
     responses:
-    - rid: 1819652408774492280
+    - rid: 1819652408774492311
     triggerPolicy: 2
     cooldown: 0
   maximumChainDepth: 3
@@ -78,10 +88,10 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492276
+    - rid: 1819652408774492307
       type: {class: LingeringAreaDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 0}
+        playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
         radius: 2
         duration: 4
         applicationInterval: 0.25
@@ -92,12 +102,12 @@ MonoBehaviour:
         zoneColor: {r: 0.3, g: 0.65, b: 1, a: 0.24}
         sortingOrderOffset: 20
         startsActive: 1
-    - rid: 1819652408774492277
+    - rid: 1819652408774492308
       type: {class: MovementSlowEffectSettings, ns: , asm: Assembly-CSharp}
       data:
         movementMultiplier: 0.25
         duration: 0.75
-    - rid: 1819652408774492278
+    - rid: 1819652408774492309
       type: {class: DamageOverTimeEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 11400000, guid: ea9d31b2d59a44d7b0e6e6b5cc2519c3, type: 2}
@@ -107,14 +117,14 @@ MonoBehaviour:
         tickImmediately: 1
         ignoreInvulnerability: 0
         stackingPolicy: 0
-    - rid: 1819652408774492279
+    - rid: 1819652408774492310
       type: {class: InteractionDeliveryCondition, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         inverted: 0
         delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
-    - rid: 1819652408774492280
+    - rid: 1819652408774492311
       type: {class: SetReactiveEffectGroupActiveResponse, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        groupId: 2739465cb81c444faebd3d76c426260a
+        groupId: 4084f4665d2f429887fc22942f0477c5
         active: 1
         applyToCurrentOccupantsImmediately: 1

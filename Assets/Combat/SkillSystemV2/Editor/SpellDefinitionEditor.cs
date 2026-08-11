@@ -2518,7 +2518,7 @@ namespace ProjectEri.SkillSystemV2.Editor
                 case "CasterMovementEffectDefinition":
                     return "Move the caster toward an aimed point or a delivery event point, creating dashes, blinks, and impact teleports.";
                 case "LegacyMovementSlowEffectDefinition":
-                    return "Reduce movement speed while the effect remains present or for its configured duration.";
+                    return "Change movement speed for a duration or while the target remains inside an area. Multipliers below 1 slow; values above 1 speed up.";
                 case "LegacyProjectileReflectEffectDefinition":
                     return "Reverse supported enemy projectiles, make them player-owned, and allow them to damage enemies.";
                 default:

@@ -369,7 +369,7 @@ namespace ProjectEri.SkillSystemV2
                 triggeringTarget,
                 center,
                 affected,
-                requireInsideRadius: true,
+                requireInsideRadius: false,
                 detectedObject: triggeringDetectedObject);
 
             int count = Overlap(settings.EffectRadius);
