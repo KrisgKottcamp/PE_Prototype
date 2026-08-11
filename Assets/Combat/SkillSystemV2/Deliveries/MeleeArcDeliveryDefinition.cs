@@ -7,9 +7,13 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class MeleeArcDeliverySettings : SpellDeliverySettings
     {
+        [Tooltip("How far the melee swing reaches from the caster.")]
         [SerializeField, Min(0.01f)] private float range = 1.75f;
+        [Tooltip("Width of the swing in degrees. 360 creates a full circle.")]
         [SerializeField, Range(0.1f, 360f)] private float arcAngle = 90f;
+        [Tooltip("Unity layers searched for objects inside the swing.")]
         [SerializeField] private LayerMask hitMask = ~0;
+        [Tooltip("Maximum colliders checked by one swing.")]
         [SerializeField, Min(1)] private int maximumColliders = 24;
 
         public float Range => Mathf.Max(0.01f, range);
@@ -34,15 +38,19 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Delivery/Melee Arc")]
     public sealed class MeleeArcDeliveryDefinition : DeliveryDefinition
     {
+        [Tooltip("Default reach copied into a spell when this delivery is equipped.")]
         [SerializeField, Min(0.01f)]
         private float range = 1.75f;
 
+        [Tooltip("Default swing width in degrees.")]
         [SerializeField, Range(0.1f, 360f)]
         private float arcAngle = 90f;
 
+        [Tooltip("Default Unity layers searched by the swing.")]
         [SerializeField]
         private LayerMask hitMask = ~0;
 
+        [Tooltip("Default maximum colliders checked by one swing.")]
         [SerializeField, Min(1)]
         private int maximumColliders = 24;
 
@@ -116,6 +124,17 @@ namespace ProjectEri.SkillSystemV2
 
             public void Begin()
             {
+                context.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.DeliveryStarted,
+                    null,
+                    context.Cast.Origin,
+                    context.Cast.AimDirection));
+                SpellDeliveryInteractionService.EmitArc(
+                    context,
+                    context.Cast.Origin,
+                    context.Cast.AimDirection,
+                    range,
+                    arcAngle);
                 ApplyCastWideEffects();
 
                 Vector2 origin = context.Cast.Origin;
@@ -138,12 +157,10 @@ namespace ProjectEri.SkillSystemV2
                     if (hit == null)
                         continue;
 
-                    GameObject target = SpellTargetResolver.Resolve(
-                        hit.gameObject);
-                    if (target == null ||
-                        SpellTargetResolver.IsSameHierarchy(
-                            context.Cast.Caster,
-                            target))
+                    if (!SpellTargetResolver.TryResolveValidTarget(
+                            context,
+                            hit.gameObject,
+                            out GameObject target))
                     {
                         continue;
                     }
@@ -157,7 +174,8 @@ namespace ProjectEri.SkillSystemV2
                         continue;
                     }
 
-                    if (!appliedTargets.Add(target.GetInstanceID()))
+                    int targetId = SpellTargetResolver.GetTargetId(target);
+                    if (targetId == 0 || !appliedTargets.Add(targetId))
                         continue;
 
                     context.ApplyEffects(
@@ -166,6 +184,11 @@ namespace ProjectEri.SkillSystemV2
                         toTarget.sqrMagnitude > 0.000001f
                             ? toTarget.normalized
                             : aim);
+                    context.DispatchEvent(new SpellEventOccurrence(
+                        SpellEventType.TargetHit,
+                        target,
+                        hitPoint,
+                        toTarget));
                 }
 
                 IsComplete = true;

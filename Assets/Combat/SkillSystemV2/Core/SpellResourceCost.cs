@@ -8,9 +8,11 @@ namespace ProjectEri.SkillSystemV2
     {
         public const string ActionPoints = "AP";
 
+        [Tooltip("The resource this spell spends. Use AP for the normal player Action Point pool.")]
         [SerializeField]
         private string resourceId;
 
+        [Tooltip("How much of the selected resource is spent when the cast is confirmed.")]
         [SerializeField, Min(0f)]
         private float amount;
 

@@ -158,6 +158,48 @@ namespace ProjectEri.SkillSystemV2.Tests
             Object.DestroyImmediate(definition);
         }
 
+        [Test]
+        public void StagedTargeting_ProvidesFirstPointBeforeDeliveryIsComplete()
+        {
+            var targeting = ScriptableObject.CreateInstance<
+                TwoPointTargetingDefinition>();
+            var delivery = ScriptableObject.CreateInstance<
+                TripWireDeliveryDefinition>();
+            var firstRequest = new PlayerTargetingRequest(
+                null,
+                caster,
+                Vector2.zero,
+                new Vector2(1f, 0f),
+                null);
+
+            Assert.That(targeting.TryBuildContext(
+                firstRequest,
+                out CastContext firstContext,
+                out PlayerTargetingPreview firstPreview,
+                out _), Is.True);
+            Assert.That(firstPreview.IsValid, Is.True);
+            Assert.That(delivery.ValidateContext(firstContext, out _), Is.False);
+
+            var secondRequest = new PlayerTargetingRequest(
+                null,
+                caster,
+                Vector2.zero,
+                new Vector2(3f, 0f),
+                null,
+                new SpellTargetingPayload(firstContext.TargetPoint));
+            Assert.That(targeting.TryBuildContext(
+                secondRequest,
+                out CastContext completedContext,
+                out _,
+                out _), Is.True);
+            Assert.That(delivery.ValidateContext(
+                completedContext,
+                out _), Is.True);
+
+            Object.DestroyImmediate(delivery);
+            Object.DestroyImmediate(targeting);
+        }
+
         private PlayerTargetingRequest Request(Vector2 pointer)
         {
             return new PlayerTargetingRequest(

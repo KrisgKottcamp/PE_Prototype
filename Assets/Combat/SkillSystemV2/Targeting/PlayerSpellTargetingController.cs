@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
@@ -32,6 +33,10 @@ namespace ProjectEri.SkillSystemV2
         private bool canConfirm;
         private string validationMessage = string.Empty;
         private int beganOnFrame = -1;
+        private readonly List<Vector2> confirmedPoints =
+            new List<Vector2>();
+        private Vector2 lastPointerWorldPosition;
+        private GameObject lastSelectedTarget;
 
         public event Action<PlayerTargetingEvent> TargetingStarted;
         public event Action<PlayerTargetingEvent> TargetingUpdated;
@@ -109,6 +114,7 @@ namespace ProjectEri.SkillSystemV2
 
             activeSpell = spell;
             activeDefinition = definition;
+            confirmedPoints.Clear();
             beganOnFrame = Time.frameCount;
             ResolveTimeController();
             timeController?.Acquire(this, definition.AimTimeScale);
@@ -150,18 +156,52 @@ namespace ProjectEri.SkillSystemV2
             if (!IsTargeting || activeDefinition == null)
                 return false;
 
+            lastPointerWorldPosition = pointerWorldPosition;
+            lastSelectedTarget = selectedTarget;
+
+            SpellTargetingPayload confirmedPayload =
+                confirmedPoints.Count > 0
+                    ? new SpellTargetingPayload(confirmedPoints.ToArray())
+                    : null;
+
             var request = new PlayerTargetingRequest(
                 activeSpell,
                 gameObject,
                 Origin,
                 pointerWorldPosition,
-                selectedTarget);
+                selectedTarget,
+                confirmedPayload);
 
             canConfirm = activeDefinition.TryBuildContext(
                 request,
                 out currentContext,
                 out currentPreview,
                 out validationMessage);
+
+            bool awaitingMoreTargetingStages =
+                activeDefinition is IStagedPlayerTargetingDefinition staged &&
+                confirmedPoints.Count < staged.RequiredPointCount - 1;
+
+            // A staged delivery cannot satisfy its final delivery contract
+            // until the earlier clicks have been collected. Validate the
+            // individual targeting stage now, then run full spell/delivery
+            // validation only when the final stage is being aimed.
+            if (canConfirm && !awaitingMoreTargetingStages)
+            {
+                canConfirm = activeSpell.TryResolveContext(
+                    currentContext,
+                    out CastContext resolvedContext,
+                    out validationMessage);
+                currentContext = resolvedContext;
+            }
+
+            if (currentContext.HasTargetPoint)
+            {
+                currentPreview = currentPreview.WithResolvedAim(
+                    currentContext.TargetPoint,
+                    canConfirm,
+                    validationMessage);
+            }
 
             if (notify)
             {
@@ -184,6 +224,26 @@ namespace ProjectEri.SkillSystemV2
             {
                 targetingFailure = PlayerTargetingFailure.InvalidAim;
                 return false;
+            }
+
+            if (activeDefinition is
+                    IStagedPlayerTargetingDefinition staged &&
+                confirmedPoints.Count < staged.RequiredPointCount - 1)
+            {
+                if (!currentContext.HasTargetPoint)
+                {
+                    targetingFailure =
+                        PlayerTargetingFailure.InvalidAim;
+                    return false;
+                }
+
+                confirmedPoints.Add(currentContext.TargetPoint);
+                EvaluateAim(
+                    lastPointerWorldPosition,
+                    lastSelectedTarget,
+                    notify: true);
+                targetingFailure = PlayerTargetingFailure.None;
+                return true;
             }
 
             SpellDefinition spell = activeSpell;
@@ -236,6 +296,9 @@ namespace ProjectEri.SkillSystemV2
             canConfirm = false;
             validationMessage = string.Empty;
             beganOnFrame = -1;
+            confirmedPoints.Clear();
+            lastPointerWorldPosition = default;
+            lastSelectedTarget = null;
         }
 
         private void ResolveTimeController()

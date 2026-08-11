@@ -19,6 +19,8 @@ namespace ProjectEri.SkillSystemV2
         private SpellTimeMode timeMode;
         private RaycastHit2D[] castBuffer;
         private readonly HashSet<int> hitTargets = new HashSet<int>();
+        private readonly HashSet<int> contactedDeliveryVolumes =
+            new HashSet<int>();
         private float distanceTravelled;
         private int targetHitCount;
         private bool launched;
@@ -56,6 +58,7 @@ namespace ProjectEri.SkillSystemV2
             distanceTravelled = 0f;
             targetHitCount = 0;
             hitTargets.Clear();
+            contactedDeliveryVolumes.Clear();
             IsComplete = false;
             launched = true;
             motionRateModifier = GetComponent<SpellMotionRateModifier>();
@@ -65,11 +68,21 @@ namespace ProjectEri.SkillSystemV2
             transform.rotation = Quaternion.Euler(0f, 0f, angle);
             EnsureVisibleFallback();
             EnsureSlowZoneSensor();
+            context.DispatchEvent(new SpellEventOccurrence(
+                SpellEventType.DeliveryStarted,
+                null,
+                transform.position,
+                direction,
+                this));
         }
 
         public void Cancel()
         {
-            Complete();
+            Complete(
+                null,
+                transform.position,
+                -direction,
+                reportStopped: false);
         }
 
         private void Update()
@@ -100,21 +113,32 @@ namespace ProjectEri.SkillSystemV2
 
             if (stepDistance <= 0f)
             {
-                Complete();
+                Complete(
+                    null,
+                    transform.position,
+                    -direction,
+                    reportStopped: true);
                 return;
             }
 
             Vector2 origin = transform.position;
             var filter = new ContactFilter2D();
             filter.SetLayerMask(collisionMask);
-            filter.useTriggers = Physics2D.queriesHitTriggers;
-            int count = Physics2D.CircleCast(
-                origin,
-                collisionRadius,
-                direction,
-                filter,
-                castBuffer,
-                stepDistance);
+            filter.useTriggers = true;
+            int count = collisionRadius > 0.0001f
+                ? Physics2D.CircleCast(
+                    origin,
+                    collisionRadius,
+                    direction,
+                    filter,
+                    castBuffer,
+                    stepDistance)
+                : Physics2D.Raycast(
+                    origin,
+                    direction,
+                    filter,
+                    castBuffer,
+                    stepDistance);
             SortHitsByDistance(count);
 
             for (int i = 0; i < count; i++)
@@ -136,21 +160,35 @@ namespace ProjectEri.SkillSystemV2
                 bool validTarget = context.Spell != null &&
                                    context.Spell.TargetFilter.IsValid(
                                        context.Cast,
-                                       resolved);
+                                       resolved,
+                                       hit.collider.gameObject);
 
                 if (!validTarget)
                 {
                     if (stopOnBlockedCollider)
                     {
+                        EmitDeliveryInteractions(origin, hit.point);
                         transform.position = hit.point;
-                        Complete();
+                        context.DispatchEvent(new SpellEventOccurrence(
+                            SpellEventType.BlockingHit,
+                            resolved,
+                            hit.point,
+                            hit.normal,
+                            this));
+                        Complete(
+                            resolved,
+                            hit.point,
+                            hit.normal,
+                            reportStopped: true);
                         return;
                     }
 
                     continue;
                 }
 
-                int targetId = resolved.GetInstanceID();
+                int targetId = SpellTargetResolver.GetTargetId(resolved);
+                if (targetId == 0)
+                    continue;
                 if (!hitTargets.Add(targetId))
                     continue;
 
@@ -158,21 +196,52 @@ namespace ProjectEri.SkillSystemV2
                     resolved,
                     hit.point,
                     hit.normal);
+                context.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.TargetHit,
+                    resolved,
+                    hit.point,
+                    hit.normal,
+                    this));
                 targetHitCount++;
 
                 if (!pierceTargets || targetHitCount >= maximumTargetHits)
                 {
+                    EmitDeliveryInteractions(origin, hit.point);
                     transform.position = hit.point;
-                    Complete();
+                    Complete(
+                        resolved,
+                        hit.point,
+                        hit.normal,
+                        reportStopped: true);
                     return;
                 }
             }
 
-            transform.position = origin + direction * stepDistance;
+            Vector2 destination = origin + direction * stepDistance;
+            EmitDeliveryInteractions(origin, destination);
+            transform.position = destination;
             distanceTravelled += stepDistance;
 
             if (distanceTravelled >= maximumDistance - 0.0001f)
-                Complete();
+            {
+                Complete(
+                    null,
+                    destination,
+                    -direction,
+                    reportStopped: true);
+            }
+        }
+
+        private void EmitDeliveryInteractions(Vector2 start, Vector2 end)
+        {
+            SpellDeliveryInteractionService.EmitSegment(
+                context,
+                start,
+                end,
+                collisionRadius,
+                DeliveryContactPhase.Impact,
+                GetInstanceID(),
+                contactedDeliveryVolumes);
         }
 
         private void SortHitsByDistance(int count)
@@ -195,14 +264,33 @@ namespace ProjectEri.SkillSystemV2
             }
         }
 
-        private void Complete()
+        private void Complete(
+            GameObject subject,
+            Vector2 stopPoint,
+            Vector2 stopNormal,
+            bool reportStopped)
         {
             if (IsComplete)
                 return;
 
+            if (reportStopped)
+            {
+                context.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.DeliveryStopped,
+                    subject,
+                    stopPoint,
+                    stopNormal,
+                    this));
+            }
+
             IsComplete = true;
             launched = false;
-            Destroy(gameObject);
+            // EditMode tests own their fixture objects and clean them up with
+            // DestroyImmediate during TearDown. Calling delayed Destroy here
+            // produces an unexpected Unity error log and fails the test even
+            // when the projectile and recipe behaved correctly.
+            if (Application.isPlaying)
+                Destroy(gameObject);
         }
 
         private void EnsureVisibleFallback()

@@ -41,12 +41,15 @@ namespace ProjectEri.SkillSystemV2
     public sealed class StatusDefinition : ScriptableObject
     {
         [Header("Identity")]
+        [Tooltip("The status name shown to designers and players.")]
         [SerializeField]
         private string displayName = "New Status";
 
+        [Tooltip("Permanent unique ID used to find, stack, and remove this status.")]
         [SerializeField]
         private string stableId;
 
+        [Tooltip("Optional icon used when the status appears in UI.")]
         [SerializeField]
         private Sprite icon;
 
@@ -55,28 +58,35 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, Min(0f)]
         private float defaultDuration = 5f;
 
+        [Tooltip("Largest number of stacks this status may hold at once.")]
         [SerializeField, Min(1)]
         private int maximumStacks = 1;
 
+        [Tooltip("What happens when the same status is applied while it is already active.")]
         [SerializeField]
         private StatusStackingMode stackingMode =
             StatusStackingMode.RefreshDuration;
 
+        [Tooltip("Scaled time follows slow motion and pauses. Unscaled time continues at real-world speed.")]
         [SerializeField]
         private SpellTimeMode timeMode = SpellTimeMode.Scaled;
 
         [Header("Composed Effects")]
+        [Tooltip("Shared effect assets applied once when the status first becomes active.")]
         [SerializeField]
         private List<EffectDefinition> onAppliedEffects =
             new List<EffectDefinition>();
 
+        [Tooltip("Seconds between repeated status effects. Zero disables periodic application.")]
         [SerializeField, Min(0f)]
         private float periodicInterval;
 
+        [Tooltip("Shared effect assets applied every Periodic Interval while the status is active.")]
         [SerializeField]
         private List<EffectDefinition> periodicEffects =
             new List<EffectDefinition>();
 
+        [Tooltip("Shared effect assets applied once when the status ends or is removed.")]
         [SerializeField]
         private List<EffectDefinition> onRemovedEffects =
             new List<EffectDefinition>();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "Game/Characters/Character Definition")]
@@ -37,6 +38,16 @@ public class CharacterDefinition : ScriptableObject
     public List<SkillDefinition> startingSkills = new();
     [Tooltip("After using any skill, multiply all skill AP costs by this value (stacking) until you swap.")]
     public float skillCostIncreaseMultiplier = 1.25f;
+
+    [Header("Skill System V2 Loadout")]
+    [Tooltip("Use the V2 spells assigned below whenever this character is active. Leave disabled while this character still uses the legacy or pawn-default skill loadout.")]
+    public bool useSkillSystemV2Loadout;
+
+    [Tooltip("Optional V2 basic attack for this character. Enemy and player basic-attack integration can consume this slot without changing the equipped spell list.")]
+    public SpellDefinition skillSystemV2BasicAttack;
+
+    [Tooltip("V2 spells equipped by this character, in the order shown in the combat skill menu.")]
+    public List<SpellDefinition> equippedSpellsV2 = new();
 
     [Header("Progression")]
     public List<SkillUnlock> unlocks = new();

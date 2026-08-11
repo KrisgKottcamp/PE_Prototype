@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
+  m_Name: Spell_Dash
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
+  displayName: Dash V2
+  stableId: player.dash.v2
+  description: Player Integration vertical-slice spell. Tune or replace freely.
+  icon: {fileID: 0}
+  category: Player Skill V2
+  timing:
+    buildUpDuration: 0
+    firingDuration: 0
+    channelDuration: 0
+    recoveryDuration: 0
+    timeMode: 0
+  cooldown: 0
+  resourceCost:
+    resourceId: AP
+    amount: 8
+  targetFilter:
+    relationship: 1
+    useLayerMask: 0
+    allowedLayers:
+      serializedVersion: 2
+      m_Bits: 0
+    requireSpellTarget: 0
+  delivery: {fileID: 0}
+  deliverySlot:
+    delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
+    settings:
+      rid: 1819652408774492291
+  deliverySlotMigrated: 1
+  effects: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
+    settings:
+      rid: 1819652408774492292
+  eventEffectRoutes: []
+  reactiveEffectGroups: []
+  effectSlotsMigrated: 1
+  reactionSlots: []
+  maximumChainDepth: 3
+  maximumRootActivations: 32
+  references:
+    version: 2
+    RefIds:
+    - rid: 1819652408774492291
+      type: {class: PointClickDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}
+    - rid: 1819652408774492292
+      type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        destinationSource: 0
+        speed: 14
+        maximumDistance: 4
+        instantaneous: 0
+        requireLineOfSight: 1
+        obstructionMask:
+          serializedVersion: 2
+          m_Bits: 128
+        keepOutsideHitSurface: 1
+        extraSurfaceClearance: 0.05

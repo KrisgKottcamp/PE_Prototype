@@ -12,6 +12,7 @@ namespace ProjectEri.SkillSystemV2
         public Vector2 TargetPoint { get; }
         public bool HasTargetPoint { get; }
         public GameObject SelectedTarget { get; }
+        public SpellTargetingPayload TargetingPayload { get; }
         public CastChainBudget ChainBudget { get; }
         public int ChainDepth { get; }
 
@@ -30,7 +31,8 @@ namespace ProjectEri.SkillSystemV2
             bool hasTargetPoint,
             GameObject selectedTarget,
             CastChainBudget chainBudget = null,
-            int chainDepth = 0)
+            int chainDepth = 0,
+            SpellTargetingPayload targetingPayload = null)
         {
             Caster = caster;
             CasterTeam = casterTeam;
@@ -43,6 +45,7 @@ namespace ProjectEri.SkillSystemV2
             TargetPoint = targetPoint;
             HasTargetPoint = hasTargetPoint;
             SelectedTarget = selectedTarget;
+            TargetingPayload = targetingPayload;
             ChainBudget = chainBudget;
             ChainDepth = Mathf.Max(0, chainDepth);
         }
@@ -115,7 +118,8 @@ namespace ProjectEri.SkillSystemV2
                 HasTargetPoint,
                 SelectedTarget,
                 ChainBudget,
-                ChainDepth);
+                ChainDepth,
+                TargetingPayload);
         }
 
         public CastContext WithBudget(CastChainBudget budget)
@@ -130,7 +134,58 @@ namespace ProjectEri.SkillSystemV2
                 HasTargetPoint,
                 SelectedTarget,
                 budget,
-                ChainDepth);
+                ChainDepth,
+                TargetingPayload);
+        }
+
+        public CastContext WithTargetPoint(Vector2 targetPoint)
+        {
+            Vector2 direction = targetPoint - Origin;
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                direction,
+                direction.sqrMagnitude > 0.000001f,
+                targetPoint,
+                true,
+                SelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                TargetingPayload);
+        }
+
+        public CastContext WithAimDirection(Vector2 aimDirection)
+        {
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                aimDirection,
+                aimDirection.sqrMagnitude > 0.000001f,
+                TargetPoint,
+                HasTargetPoint,
+                SelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                TargetingPayload);
+        }
+
+        public CastContext WithTargetingPayload(
+            SpellTargetingPayload payload)
+        {
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                AimDirection,
+                HasAimDirection,
+                TargetPoint,
+                HasTargetPoint,
+                SelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                payload);
         }
 
         public CastContext CreateChild(
@@ -150,7 +205,8 @@ namespace ProjectEri.SkillSystemV2
                 hasTargetPoint,
                 selectedTarget,
                 ChainBudget,
-                ChainDepth + 1);
+                ChainDepth + 1,
+                TargetingPayload);
         }
     }
 }

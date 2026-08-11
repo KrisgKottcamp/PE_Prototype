@@ -22,27 +22,35 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class SpawnEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The prefab created when this effect runs.")]
         [SerializeField]
         private GameObject prefab;
 
+        [Tooltip("Which known spell location is used as the spawn position.")]
         [SerializeField]
         private SpellSpawnPosition spawnPosition = SpellSpawnPosition.HitPoint;
 
+        [Tooltip("World-space offset added to the chosen spawn position.")]
         [SerializeField]
         private Vector2 worldOffset;
 
+        [Tooltip("How the spawned object's rotation is chosen.")]
         [SerializeField]
         private SpellSpawnRotation rotation = SpellSpawnRotation.Identity;
 
+        [Tooltip("Extra rotation in degrees added after the base rotation is chosen.")]
         [SerializeField]
         private float rotationOffsetDegrees;
 
+        [Tooltip("Make the spawned object follow the effect target. Requires an object recipient.")]
         [SerializeField]
         private bool parentToTarget;
 
+        [Tooltip("Seconds before the spawned object is automatically destroyed. Zero means it is not automatically destroyed.")]
         [SerializeField, Min(0f)]
         private float lifetime;
 
+        [Tooltip("Scaled lifetime follows slow motion and pauses. Unscaled lifetime uses real-world time.")]
         [SerializeField]
         private SpellTimeMode lifetimeTimeMode = SpellTimeMode.Scaled;
 
@@ -85,27 +93,35 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Spawn Object")]
     public sealed class SpawnEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default prefab copied into a spell when this effect is equipped.")]
         [SerializeField]
         private GameObject prefab;
 
+        [Tooltip("Default spell location used for spawning.")]
         [SerializeField]
         private SpellSpawnPosition spawnPosition = SpellSpawnPosition.HitPoint;
 
+        [Tooltip("Default world-space spawn offset.")]
         [SerializeField]
         private Vector2 worldOffset;
 
+        [Tooltip("Default method used to rotate the spawned object.")]
         [SerializeField]
         private SpellSpawnRotation rotation = SpellSpawnRotation.Identity;
 
+        [Tooltip("Default additional rotation in degrees.")]
         [SerializeField]
         private float rotationOffsetDegrees;
 
+        [Tooltip("Default choice for whether the spawned object follows the target.")]
         [SerializeField]
         private bool parentToTarget;
 
+        [Tooltip("Default seconds before automatic destruction. Zero disables automatic destruction.")]
         [SerializeField, Min(0f)]
         private float lifetime;
 
+        [Tooltip("Default time source used for the spawned object's lifetime.")]
         [SerializeField]
         private SpellTimeMode lifetimeTimeMode = SpellTimeMode.Scaled;
 
@@ -122,6 +138,12 @@ namespace ProjectEri.SkillSystemV2
                 parentToTarget,
                 lifetime,
                 lifetimeTimeMode);
+        }
+
+        public override bool CanApplyWithoutRecipient(
+            SpellEffectSettings settings)
+        {
+            return true;
         }
 
         public override bool Apply(in SpellEffectContext context)

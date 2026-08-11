@@ -7,12 +7,15 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class DamageEffectSettings : SpellEffectSettings
     {
+        [Tooltip("Optional damage category used by resistances, reactions, and other game systems.")]
         [SerializeField]
         private DamageTypeDefinition damageType;
 
+        [Tooltip("Base health removed when this effect succeeds.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Deal damage even while the target reports that it is invulnerable.")]
         [SerializeField]
         private bool ignoreInvulnerability;
 
@@ -40,12 +43,15 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Damage")]
     public sealed class DamageEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default Damage Type copied into a spell when this effect is equipped.")]
         [SerializeField]
         private DamageTypeDefinition damageType;
 
+        [Tooltip("Default damage amount copied into a spell's inline settings.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Default choice for whether this damage bypasses invulnerability.")]
         [SerializeField]
         private bool ignoreInvulnerability;
 
@@ -86,6 +92,16 @@ namespace ProjectEri.SkillSystemV2
                 resolved.Amount * context.PotencyScale,
                 resolved.IgnoreInvulnerability);
             return receiver.TryReceiveDamage(request, out _);
+        }
+
+        public override bool DescribesDamageType(
+            SpellEffectSettings settings,
+            DamageTypeDefinition queriedType)
+        {
+            DamageEffectSettings resolved =
+                settings as DamageEffectSettings ??
+                (DamageEffectSettings)CreateDefaultSettings();
+            return resolved.DamageType == queriedType;
         }
 
         public override void CollectValidationIssues(

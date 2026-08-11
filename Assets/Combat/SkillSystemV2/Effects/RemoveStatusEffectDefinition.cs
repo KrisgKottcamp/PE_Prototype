@@ -7,6 +7,7 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class RemoveStatusEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The exact Status Definition removed from the target.")]
         [SerializeField]
         private StatusDefinition status;
 
@@ -35,6 +36,7 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Remove Status")]
     public sealed class RemoveStatusEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default status copied into a spell when this effect is equipped.")]
         [SerializeField]
         private StatusDefinition status;
 

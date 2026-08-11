@@ -7,9 +7,11 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class HealingEffectSettings : SpellEffectSettings
     {
+        [Tooltip("Base health restored when this effect succeeds.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Allow this healing effect to return a defeated character to positive health.")]
         [SerializeField]
         private bool allowRevive;
 
@@ -32,9 +34,11 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Healing")]
     public sealed class HealingEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default healing amount copied into a spell when this effect is equipped.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Default choice for whether this healing can revive defeated targets.")]
         [SerializeField]
         private bool allowRevive;
 

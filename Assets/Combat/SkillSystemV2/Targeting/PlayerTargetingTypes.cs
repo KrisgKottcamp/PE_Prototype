@@ -31,6 +31,7 @@ namespace ProjectEri.SkillSystemV2
         public Vector2 Origin { get; }
         public Vector2 PointerWorldPosition { get; }
         public GameObject SelectedTarget { get; }
+        public SpellTargetingPayload ConfirmedTargeting { get; }
 
         public TargetFilter TargetFilter => Spell != null
             ? Spell.TargetFilter
@@ -41,14 +42,21 @@ namespace ProjectEri.SkillSystemV2
             GameObject caster,
             Vector2 origin,
             Vector2 pointerWorldPosition,
-            GameObject selectedTarget)
+            GameObject selectedTarget,
+            SpellTargetingPayload confirmedTargeting = null)
         {
             Spell = spell;
             Caster = caster;
             Origin = origin;
             PointerWorldPosition = pointerWorldPosition;
             SelectedTarget = selectedTarget;
+            ConfirmedTargeting = confirmedTargeting;
         }
+    }
+
+    public interface IStagedPlayerTargetingDefinition
+    {
+        int RequiredPointCount { get; }
     }
 
     public readonly struct PlayerTargetingPreview
@@ -86,6 +94,27 @@ namespace ProjectEri.SkillSystemV2
             SelectedTarget = selectedTarget;
             IsValid = isValid;
             ValidationMessage = validationMessage ?? string.Empty;
+        }
+
+        public PlayerTargetingPreview WithResolvedAim(
+            Vector2 aimPoint,
+            bool isValid,
+            string validationMessage)
+        {
+            Vector2 offset = aimPoint - Origin;
+            return new PlayerTargetingPreview(
+                Shape,
+                Origin,
+                aimPoint,
+                offset.sqrMagnitude > 0.000001f
+                    ? offset.normalized
+                    : Vector2.zero,
+                Range,
+                Radius,
+                ConeAngle,
+                SelectedTarget,
+                isValid,
+                validationMessage);
         }
     }
 

@@ -25,7 +25,18 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
   - {fileID: 11400000, guid: 2b7c72cf93e9e1c46827553e390d2c64, type: 2}
   - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
+  - {fileID: 11400000, guid: e0069335d4d947048838b7a7e6f97b5d, type: 2}
   skillCostIncreaseMultiplier: 3
+  useSkillSystemV2Loadout: 1
+  skillSystemV2BasicAttack: {fileID: 0}
+  equippedSpellsV2:
+  - {fileID: 11400000, guid: f325580d15342894ba2bb623c4b6cb69, type: 2}
+  - {fileID: 11400000, guid: 1798d04707e57ed46a72e5a8d1c8960a, type: 2}
+  - {fileID: 11400000, guid: cb61ef1440d017843b4c7a7ce7266e39, type: 2}
+  - {fileID: 11400000, guid: 514156cf65de609458a486fda35d5bb1, type: 2}
+  - {fileID: 11400000, guid: 1488ebd8c7440db408ef56b9e3adcb68, type: 2}
+  - {fileID: 11400000, guid: 093e3e806ec33ef4a8cb9874739b315f, type: 2}
+  - {fileID: 11400000, guid: b0edcd22d1a2deb4b97ff88a1b1eebbd, type: 2}
   unlocks: []
   combatSprite: {fileID: 3427114271967980436, guid: e138aabb28c253d4bb71b8822e0461ad, type: 3}
   portraitSprite: {fileID: 21300000, guid: 14df120889e70894d930815fa037536a, type: 3}

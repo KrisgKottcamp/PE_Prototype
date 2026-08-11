@@ -11,9 +11,11 @@ using UnityEngine;
 [Serializable]
 public sealed class MovementSlowEffectSettings : SpellEffectSettings
 {
+    [Tooltip("Movement speed multiplier while slowed. For example, 0.6 means 60% of normal speed.")]
     [SerializeField, Range(0.05f, 1f)]
     private float movementMultiplier = 0.6f;
 
+    [Tooltip("Seconds the slow remains after application. Lingering Area presence removes it immediately when the target leaves.")]
     [SerializeField, Min(0.02f)]
     private float duration = 3f;
 
@@ -39,9 +41,11 @@ public sealed class LegacyMovementSlowEffectDefinition :
     EffectDefinition,
     IAreaPresenceEffectDefinition
 {
+    [Tooltip("Default movement multiplier copied into a spell when this effect is equipped.")]
     [SerializeField, Range(0.05f, 1f)]
     private float movementMultiplier = 0.6f;
 
+    [Tooltip("Default slow duration copied into a spell's inline settings.")]
     [SerializeField, Min(0.02f)]
     private float duration = 3f;
 
@@ -74,7 +78,8 @@ public sealed class LegacyMovementSlowEffectDefinition :
         float resolvedMultiplier = resolved.MovementMultiplier;
 
         SpellProjectile2D v2Projectile =
-            context.Target.GetComponentInParent<SpellProjectile2D>();
+            SpellEffectReceiverResolver.Find<SpellProjectile2D>(
+                context.Target);
         if (v2Projectile != null)
         {
             SpellMotionRateModifier motion =
@@ -90,7 +95,8 @@ public sealed class LegacyMovementSlowEffectDefinition :
         // both modifier channels: each backend reads only its own channel, so
         // this remains safe and keeps working across a live backend switch.
         EnemyLocomotionV2 locomotion =
-            context.Target.GetComponentInParent<EnemyLocomotionV2>();
+            SpellEffectReceiverResolver.Find<EnemyLocomotionV2>(
+                context.Target);
         if (locomotion != null)
         {
             EnemySlowReceiverV2 enemy =
@@ -102,11 +108,13 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         PlayerMoveSpeedModifierReceiverV2 player =
-            context.Target.GetComponentInParent<PlayerMoveSpeedModifierReceiverV2>();
+            SpellEffectReceiverResolver.Find<
+                PlayerMoveSpeedModifierReceiverV2>(context.Target);
         if (player == null)
         {
             CombatPawnMover mover =
-                context.Target.GetComponentInParent<CombatPawnMover>();
+                SpellEffectReceiverResolver.Find<CombatPawnMover>(
+                    context.Target);
             if (mover != null)
                 player = mover.gameObject.AddComponent<PlayerMoveSpeedModifierReceiverV2>();
         }
@@ -118,11 +126,12 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         SpeedModifier legacy =
-            context.Target.GetComponentInParent<SpeedModifier>();
+            SpellEffectReceiverResolver.Find<SpeedModifier>(context.Target);
         if (legacy == null)
         {
             EnemyHealth health =
-                context.Target.GetComponentInParent<EnemyHealth>();
+                SpellEffectReceiverResolver.Find<EnemyHealth>(
+                    context.Target);
             GameObject owner = health != null
                 ? health.gameObject
                 : context.Target;
@@ -149,7 +158,8 @@ public sealed class LegacyMovementSlowEffectDefinition :
         float multiplier = resolved.MovementMultiplier;
 
         SpellProjectile2D v2Projectile =
-            context.Target.GetComponentInParent<SpellProjectile2D>();
+            SpellEffectReceiverResolver.Find<SpellProjectile2D>(
+                context.Target);
         if (v2Projectile != null)
         {
             SpellMotionRateModifier motion =
@@ -161,7 +171,8 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         EnemyLocomotionV2 locomotion =
-            context.Target.GetComponentInParent<EnemyLocomotionV2>();
+            SpellEffectReceiverResolver.Find<EnemyLocomotionV2>(
+                context.Target);
         if (locomotion != null)
         {
             EnemySlowReceiverV2 enemy =
@@ -172,11 +183,13 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         PlayerMoveSpeedModifierReceiverV2 player =
-            context.Target.GetComponentInParent<PlayerMoveSpeedModifierReceiverV2>();
+            SpellEffectReceiverResolver.Find<
+                PlayerMoveSpeedModifierReceiverV2>(context.Target);
         if (player == null)
         {
             CombatPawnMover mover =
-                context.Target.GetComponentInParent<CombatPawnMover>();
+                SpellEffectReceiverResolver.Find<CombatPawnMover>(
+                    context.Target);
             if (mover != null)
                 player = mover.gameObject.AddComponent<PlayerMoveSpeedModifierReceiverV2>();
         }
@@ -188,11 +201,12 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         SpeedModifier legacy =
-            context.Target.GetComponentInParent<SpeedModifier>();
+            SpellEffectReceiverResolver.Find<SpeedModifier>(context.Target);
         if (legacy == null)
         {
             EnemyHealth health =
-                context.Target.GetComponentInParent<EnemyHealth>();
+                SpellEffectReceiverResolver.Find<EnemyHealth>(
+                    context.Target);
             GameObject owner = health != null
                 ? health.gameObject
                 : context.Target;
@@ -211,7 +225,7 @@ public sealed class LegacyMovementSlowEffectDefinition :
             return;
 
         SpellProjectile2D v2Projectile =
-            target.GetComponentInParent<SpellProjectile2D>();
+            SpellEffectReceiverResolver.Find<SpellProjectile2D>(target);
         if (v2Projectile != null)
         {
             SpellMotionRateModifier motion =
@@ -222,7 +236,7 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         EnemyLocomotionV2 locomotion =
-            target.GetComponentInParent<EnemyLocomotionV2>();
+            SpellEffectReceiverResolver.Find<EnemyLocomotionV2>(target);
         if (locomotion != null)
         {
             EnemySlowReceiverV2 enemy =
@@ -232,11 +246,13 @@ public sealed class LegacyMovementSlowEffectDefinition :
         }
 
         PlayerMoveSpeedModifierReceiverV2 player =
-            target.GetComponentInParent<PlayerMoveSpeedModifierReceiverV2>();
+            SpellEffectReceiverResolver.Find<
+                PlayerMoveSpeedModifierReceiverV2>(target);
         if (player != null)
             player.ClearSource(source);
 
-        SpeedModifier legacy = target.GetComponentInParent<SpeedModifier>();
+        SpeedModifier legacy =
+            SpellEffectReceiverResolver.Find<SpeedModifier>(target);
         if (legacy != null)
             legacy.RemoveSlow(source.GetInstanceID());
     }

@@ -7,6 +7,7 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class ApplyStatusEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The reusable Status Definition placed on the target.")]
         [SerializeField]
         private StatusDefinition status;
 
@@ -14,6 +15,7 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, Min(0f)]
         private float durationOverride;
 
+        [Tooltip("How many stacks are applied at once.")]
         [SerializeField, Min(1)]
         private int stacks = 1;
 
@@ -41,6 +43,7 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Apply Status")]
     public sealed class ApplyStatusEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default status copied into a spell when this effect is equipped.")]
         [SerializeField]
         private StatusDefinition status;
 
@@ -48,6 +51,7 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, Min(0f)]
         private float durationOverride;
 
+        [Tooltip("Default number of stacks applied at once.")]
         [SerializeField, Min(1)]
         private int stacks = 1;
 

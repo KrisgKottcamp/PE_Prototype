@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
@@ -14,6 +15,58 @@ namespace ProjectEri.SkillSystemV2
         {
             Spell = spell;
             Cast = cast;
+        }
+
+        public int DispatchEvent(in SpellEventOccurrence occurrence)
+        {
+            if (Spell == null)
+                return 0;
+
+            IReadOnlyList<SpellEventEffectRoute> routes =
+                Spell.EventEffectRoutes;
+            int applied = 0;
+            for (int i = 0; i < routes.Count; i++)
+            {
+                SpellEventEffectRoute route = routes[i];
+                if (route != null && route.Matches(
+                        Spell,
+                        Cast,
+                        occurrence))
+                {
+                    applied += ApplyEventEffectRoute(route, occurrence);
+                }
+            }
+
+            return applied;
+        }
+
+        internal int DispatchEventRoute(
+            string routeId,
+            in SpellEventOccurrence occurrence)
+        {
+            if (Spell == null || string.IsNullOrWhiteSpace(routeId))
+                return 0;
+
+            IReadOnlyList<SpellEventEffectRoute> routes =
+                Spell.EventEffectRoutes;
+            for (int i = 0; i < routes.Count; i++)
+            {
+                SpellEventEffectRoute route = routes[i];
+                if (route == null || !route.Enabled ||
+                    !string.Equals(
+                        route.StableId,
+                        routeId,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return route.Matches(Spell, Cast, occurrence)
+                    ? ApplyEventEffectRoute(route, occurrence)
+                    : 0;
+            }
+
+            return 0;
         }
 
         public int ApplyEffects(
@@ -44,6 +97,25 @@ namespace ProjectEri.SkillSystemV2
                 includeAreaPresenceEffects: false);
         }
 
+        internal int ApplyNonPresenceEffectSlotsUnchecked(
+            IReadOnlyList<SpellEffectSlot> slots,
+            GameObject target,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale = 1f)
+        {
+            if (Spell == null || target == null)
+                return 0;
+
+            return ApplyEffectSlotsInternal(
+                slots,
+                target,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                includeAreaPresenceEffects: false);
+        }
+
         private int ApplyEffectsInternal(
             GameObject target,
             Vector2 hitPoint,
@@ -54,11 +126,41 @@ namespace ProjectEri.SkillSystemV2
             if (Spell == null || target == null)
                 return 0;
 
-            if (!Spell.TargetFilter.IsValid(Cast, target))
+            GameObject detectedObject = target;
+            GameObject resolvedTarget = SpellTargetResolver.Resolve(target);
+            if (resolvedTarget == null ||
+                !Spell.TargetFilter.IsValid(
+                    Cast,
+                    resolvedTarget,
+                    detectedObject))
+            {
+                return 0;
+            }
+
+            return ApplyEffectSlotsInternal(
+                Spell.EffectSlots,
+                resolvedTarget,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                includeAreaPresenceEffects);
+        }
+
+        private int ApplyEffectSlotsInternal(
+            IReadOnlyList<SpellEffectSlot> effects,
+            GameObject target,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale,
+            bool includeAreaPresenceEffects,
+            SpellEventType eventType = SpellEventType.None,
+            GameObject eventSubject = null,
+            Component deliveryRuntime = null)
+        {
+            if (effects == null)
                 return 0;
 
             int appliedCount = 0;
-            var effects = Spell.EffectSlots;
 
             for (int i = 0; i < effects.Count; i++)
             {
@@ -77,7 +179,10 @@ namespace ProjectEri.SkillSystemV2
                     target,
                     hitPoint,
                     hitNormal,
-                    potencyScale);
+                    potencyScale,
+                    eventType,
+                    eventSubject,
+                    deliveryRuntime);
 
                 try
                 {
@@ -91,6 +196,29 @@ namespace ProjectEri.SkillSystemV2
             }
 
             return appliedCount;
+        }
+
+        private int ApplyEventEffectRoute(
+            SpellEventEffectRoute route,
+            in SpellEventOccurrence occurrence)
+        {
+            GameObject recipient = route.ResolveRecipient(Cast, occurrence);
+            if (recipient == null &&
+                route.Recipient != SpellEventRecipient.WorldPoint)
+            {
+                return 0;
+            }
+
+            return ApplyEffectSlotsInternal(
+                route.EffectSlots,
+                recipient,
+                occurrence.Point,
+                occurrence.Normal,
+                1f,
+                includeAreaPresenceEffects: false,
+                eventType: occurrence.Type,
+                eventSubject: occurrence.Subject,
+                deliveryRuntime: occurrence.DeliveryRuntime);
         }
     }
 }

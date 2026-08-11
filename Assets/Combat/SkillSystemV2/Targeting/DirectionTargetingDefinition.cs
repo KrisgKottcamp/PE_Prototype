@@ -7,6 +7,7 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Targeting/Direction")]
     public sealed class DirectionTargetingDefinition : PlayerTargetingDefinition
     {
+        [Tooltip("Minimum cursor distance from the caster before the aim direction is considered valid.")]
         [SerializeField, Min(0f)]
         private float minimumAimDistance = 0.05f;
 

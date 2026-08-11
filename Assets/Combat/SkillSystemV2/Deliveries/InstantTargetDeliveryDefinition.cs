@@ -6,14 +6,17 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class InstantTargetDeliverySettings : SpellDeliverySettings
     {
+        // Direct Target works with any selected-target targeting definition.
+        // Menu Select is the normal player-facing choice for party buffs,
+        // enemy debuffs, heals, and other immediate single-target effects.
         public InstantTargetDeliverySettings() { }
         public InstantTargetDeliverySettings(PlayerTargetingDefinition targeting)
             : base(targeting) { }
     }
 
     [CreateAssetMenu(
-        fileName = "Delivery_InstantTarget",
-        menuName = "Project Eri/Skill System V2/Delivery/Instant Target")]
+        fileName = "Delivery_DirectTarget",
+        menuName = "Project Eri/Skill System V2/Delivery/Direct Target (Immediate)")]
     public sealed class InstantTargetDeliveryDefinition : DeliveryDefinition
     {
         public override CastTargetingRequirement TargetingRequirement =>
@@ -46,10 +49,23 @@ namespace ProjectEri.SkillSystemV2
 
             public void Begin()
             {
-                GameObject target = context.Cast.SelectedTarget;
-                if (target != null)
+                GameObject target = SpellTargetResolver.Resolve(
+                    context.Cast.SelectedTarget);
+                context.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.DeliveryStarted,
+                    null,
+                    context.Cast.Origin,
+                    context.Cast.AimDirection));
+                if (target != null && context.Spell != null &&
+                    context.Spell.TargetFilter.IsValid(
+                        context.Cast,
+                        target,
+                        context.Cast.SelectedTarget))
                 {
                     Vector2 hitPoint = target.transform.position;
+                    SpellDeliveryInteractionService.EmitPoint(
+                        context,
+                        hitPoint);
                     Vector2 normal = hitPoint - context.Cast.Origin;
                     context.ApplyEffects(
                         target,
@@ -57,6 +73,11 @@ namespace ProjectEri.SkillSystemV2
                         normal.sqrMagnitude > 0.000001f
                             ? normal.normalized
                             : Vector2.zero);
+                    context.DispatchEvent(new SpellEventOccurrence(
+                        SpellEventType.TargetHit,
+                        target,
+                        hitPoint,
+                        normal));
                 }
 
                 IsComplete = true;

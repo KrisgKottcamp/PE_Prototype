@@ -16,6 +16,8 @@ using UnityEngine;
 [RequireComponent(typeof(TargetingPreviewRenderer2D))]
 [RequireComponent(typeof(PartyManagerSpellAdapter))]
 [RequireComponent(typeof(PlayerSpellCastFeedback2D))]
+[RequireComponent(typeof(CharacterDefinitionSpellLoadoutBinder))]
+[RequireComponent(typeof(PlayerSpellTargetMenuController))]
 public sealed class PlayerSpellV2Bridge : MonoBehaviour
 {
     [Header("Runtime References")]
@@ -24,6 +26,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     [SerializeField] private SpellLoadout spellLoadout;
     [SerializeField] private PlayerSpellTargetingController targetingController;
     [SerializeField] private PartyManagerSpellAdapter partyAdapter;
+    [SerializeField] private PlayerSpellTargetMenuController targetMenu;
 
     [Header("Target Selection")]
     [SerializeField] private LayerMask selectableLayers = ~0;
@@ -72,20 +75,49 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
         targetingController.TargetingConfirmed -= HandleConfirmed;
         targetingController.TargetingCancelled -= HandleCancelled;
         targetingController.CastRejected -= HandleRejected;
+        targetMenu?.Close();
     }
 
     private void Update()
     {
-        if (!IsTargeting || aimTracker == null)
+        if (!IsTargeting)
             return;
 
-        aimTracker.RefreshAimImmediately();
-        Vector2 pointer = aimTracker.AimWorldPosition;
-        targetingController.UpdateAim(pointer, ResolveSelectedTarget(pointer));
+        MenuSelectTargetingDefinition menuDefinition =
+            targetingController.ActiveSpell != null
+                ? targetingController.ActiveSpell.PlayerTargeting as
+                    MenuSelectTargetingDefinition
+                : null;
+        if (menuDefinition != null)
+        {
+            targetMenu?.OpenOrRefresh(menuDefinition);
+            targetMenu?.HandleNavigation();
+            GameObject selected = targetMenu != null
+                ? targetMenu.SelectedTarget
+                : null;
+            Vector2 point = selected != null
+                ? selected.transform.position
+                : transform.position;
+            targetingController.UpdateAim(point, selected);
+        }
+        else
+        {
+            targetMenu?.Close();
+            if (aimTracker == null)
+                return;
+            aimTracker.RefreshAimImmediately();
+            Vector2 pointer = aimTracker.AimWorldPosition;
+            targetingController.UpdateAim(
+                pointer,
+                ResolveSelectedTarget(pointer));
+        }
 
         bool beganThisFrame = targetingController.BeganOnFrame == Time.frameCount;
         bool confirm = Input.GetKeyDown(confirmKey) ||
-                       (confirmWithLeftClick && Input.GetMouseButtonDown(0));
+                       (menuDefinition == null && confirmWithLeftClick &&
+                        Input.GetMouseButtonDown(0)) ||
+                       (targetMenu != null &&
+                        targetMenu.ConsumeConfirmRequest());
         bool cancel = Input.GetKeyDown(cancelKey) ||
                       (cancelWithRightClick && Input.GetMouseButtonDown(1));
 
@@ -110,6 +142,12 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
         }
 
         if (spellRunner == null || spellRunner.IsCasting)
+        {
+            failure = SpellCastFailure.RunnerBusy;
+            return false;
+        }
+
+        if (SpellBuildUpControl2D.IsSkillUsageBlocked(gameObject))
         {
             failure = SpellCastFailure.RunnerBusy;
             return false;
@@ -193,7 +231,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
         EnsureBuffer();
         var filter = new ContactFilter2D();
         filter.SetLayerMask(selectableLayers);
-        filter.useTriggers = Physics2D.queriesHitTriggers;
+        filter.useTriggers = true;
         int count = Physics2D.OverlapPoint(worldPosition, filter, overlapBuffer);
 
         for (int i = 0; i < count; i++)
@@ -203,11 +241,8 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
                 continue;
 
             GameObject resolved = SpellTargetResolver.Resolve(candidate.gameObject);
-            if (resolved != null &&
-                !SpellTargetResolver.IsSameHierarchy(gameObject, resolved))
-            {
+            if (resolved != null)
                 return resolved;
-            }
         }
 
         return null;
@@ -215,11 +250,13 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     private void HandleConfirmed(PlayerTargetingEvent evt)
     {
+        targetMenu?.Close();
         SpellConfirmed?.Invoke(evt.Spell);
     }
 
     private void HandleCancelled(PlayerTargetingEvent evt)
     {
+        targetMenu?.Close();
         SpellCancelled?.Invoke(evt.Spell);
     }
 
@@ -242,6 +279,8 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
             targetingController = GetComponent<PlayerSpellTargetingController>();
         if (partyAdapter == null)
             partyAdapter = GetComponent<PartyManagerSpellAdapter>();
+        if (targetMenu == null)
+            targetMenu = GetComponent<PlayerSpellTargetMenuController>();
     }
 
     private void EnsureFeedbackComponents()
@@ -253,6 +292,12 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
             gameObject.AddComponent<TargetingPreviewRenderer2D>();
         if (GetComponent<PlayerSpellCastFeedback2D>() == null)
             gameObject.AddComponent<PlayerSpellCastFeedback2D>();
+        if (GetComponent<CharacterDefinitionSpellLoadoutBinder>() == null)
+            gameObject.AddComponent<CharacterDefinitionSpellLoadoutBinder>();
+        if (GetComponent<PlayerSpellTargetMenuController>() == null)
+            gameObject.AddComponent<PlayerSpellTargetMenuController>();
+        if (GetComponent<SpellBuildUpControl2D>() == null)
+            gameObject.AddComponent<SpellBuildUpControl2D>();
     }
 
     private void EnsureBuffer()

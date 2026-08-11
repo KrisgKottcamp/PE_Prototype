@@ -1,0 +1,88 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
+  m_Name: Spell_SlowEnemyDirect
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
+  displayName: SlowDirect
+  stableId: 1662fca0bbb44075a3557274f83251f3
+  description: 
+  icon: {fileID: 0}
+  category: Skill
+  timing:
+    buildUpDuration: 1
+    firingDuration: 0
+    channelDuration: 0
+    recoveryDuration: 0
+    timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 1
+      blockPlayerBasicAttacks: 1
+      blockPlayerSkillUsage: 1
+      showPowerUpParticles: 1
+      particleColor: {r: 1, g: 0.0141509175, b: 0.5449228, a: 0}
+      particlesPerSecond: 5
+      particleSpawnRadius: 1
+      particleInwardSpeed: 0.5
+      particleSize: 0.5
+  cooldown: 0
+  resourceCost:
+    resourceId: 
+    amount: 0
+  targetFilter:
+    relationship: 4
+    useLayerMask: 0
+    allowedLayers:
+      serializedVersion: 2
+      m_Bits: 0
+    requireSpellTarget: 0
+  delivery: {fileID: 0}
+  deliverySlot:
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
+    settings:
+      rid: 1819652408774492293
+  deliverySlotMigrated: 1
+  effects: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: 115ba60585abfe94ab254dce73d5fd97, type: 2}
+    settings:
+      rid: 1819652408774492265
+  - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
+    settings:
+      rid: 1819652408774492270
+  eventEffectRoutes: []
+  reactiveEffectGroups: []
+  effectSlotsMigrated: 1
+  reactionSlots: []
+  maximumChainDepth: 3
+  maximumRootActivations: 32
+  references:
+    version: 2
+    RefIds:
+    - rid: 1819652408774492265
+      type: {class: MovementSlowEffectSettings, ns: , asm: Assembly-CSharp}
+      data:
+        movementMultiplier: 0.093
+        duration: 5
+    - rid: 1819652408774492270
+      type: {class: DamageOverTimeEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        damageType: {fileID: 0}
+        damagePerTick: 5
+        tickInterval: 0.5
+        duration: 3
+        tickImmediately: 1
+        ignoreInvulnerability: 0
+        stackingPolicy: 0
+    - rid: 1819652408774492293
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}

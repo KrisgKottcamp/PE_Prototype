@@ -6,15 +6,25 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class ProjectileDeliverySettings : SpellDeliverySettings
     {
+        [Tooltip("Optional prefab used for the projectile's appearance. Leave empty to use the simple prototype visual.")]
         [SerializeField] private GameObject projectilePrefab;
+        [Tooltip("Advanced compatibility option. Leave disabled so legacy movement, collision, and damage scripts are removed from the visual prefab copy.")]
         [SerializeField] private bool allowPrefabGameplayComponents;
+        [Tooltip("How many world units the projectile travels each second.")]
         [SerializeField, Min(0.01f)] private float speed = 8f;
+        [Tooltip("Maximum world distance traveled before the projectile expires.")]
         [SerializeField, Min(0.01f)] private float range = 10f;
+        [Tooltip("Radius used when checking the projectile's path for collisions. Zero behaves like a thin ray.")]
         [SerializeField, Min(0f)] private float collisionRadius = 0.08f;
+        [Tooltip("Unity layers the projectile checks for targets, walls, and other blocking objects.")]
         [SerializeField] private LayerMask collisionMask = ~0;
+        [Tooltip("Allow the projectile to continue after hitting a valid target.")]
         [SerializeField] private bool pierceTargets;
+        [Tooltip("How many valid targets a piercing projectile may hit before stopping.")]
         [SerializeField, Min(1)] private int maximumTargetHits = 1;
+        [Tooltip("Stop on colliders that are in the Collision Mask but fail the spell's Target Rules. Usually enabled so walls block shots.")]
         [SerializeField] private bool stopOnBlockedCollider = true;
+        [Tooltip("Maximum collision results checked during one movement step. Increase only if fast projectiles cross many colliders at once.")]
         [SerializeField, Min(1)] private int castBufferSize = 16;
 
         public GameObject ProjectilePrefab => projectilePrefab;
@@ -53,6 +63,7 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Delivery/Projectile")]
     public sealed class ProjectileDeliveryDefinition : DeliveryDefinition
     {
+        [Tooltip("Default projectile visual prefab copied into a spell's inline settings.")]
         [SerializeField]
         private GameObject projectilePrefab;
 
@@ -60,21 +71,27 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private bool allowPrefabGameplayComponents;
 
+        [Tooltip("Default projectile travel speed in world units per second.")]
         [SerializeField, Min(0.01f)]
         private float speed = 8f;
 
+        [Tooltip("Default maximum projectile travel distance.")]
         [SerializeField, Min(0.01f)]
         private float range = 10f;
 
+        [Tooltip("Default collision-check radius. Zero creates a thin ray-like projectile path.")]
         [SerializeField, Min(0f)]
         private float collisionRadius = 0.08f;
 
+        [Tooltip("Default Unity layers checked for targets and blockers.")]
         [SerializeField]
         private LayerMask collisionMask = ~0;
 
+        [Tooltip("Default choice for whether projectiles continue through valid targets.")]
         [SerializeField]
         private bool pierceTargets;
 
+        [Tooltip("Default maximum number of valid targets a piercing projectile may hit.")]
         [SerializeField, Min(1)]
         private int maximumTargetHits = 1;
 
@@ -82,6 +99,7 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private bool stopOnBlockedCollider = true;
 
+        [Tooltip("Default maximum collision results checked during one movement step.")]
         [SerializeField, Min(1)]
         private int castBufferSize = 16;
 

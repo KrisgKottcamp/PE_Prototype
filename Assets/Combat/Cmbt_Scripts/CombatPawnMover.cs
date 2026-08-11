@@ -92,6 +92,12 @@ public class CombatPawnMover : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (SpellBuildUpControl2D.IsMovementBlocked(gameObject))
+        {
+            rb.MovePosition(rb.position);
+            return;
+        }
+
         float legacySpeedModifierMultiplier = 1f;
 
         SpeedModifier mod = GetComponent<SpeedModifier>();

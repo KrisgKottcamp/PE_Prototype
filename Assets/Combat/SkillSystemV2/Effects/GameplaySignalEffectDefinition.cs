@@ -7,15 +7,19 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class GameplaySignalEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The signal channel raised for other game systems to hear.")]
         [SerializeField]
         private GameplaySignalDefinition signal;
 
+        [Tooltip("Optional plain-text detail passed to listeners.")]
         [SerializeField]
         private string label;
 
+        [Tooltip("Number passed to listeners, such as strength, score, or count.")]
         [SerializeField]
         private float value = 1f;
 
+        [Tooltip("Multiply Value by the effect's potency scale before raising the signal.")]
         [SerializeField]
         private bool scaleValueWithPotency = true;
 
@@ -46,15 +50,19 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Raise Gameplay Signal")]
     public sealed class GameplaySignalEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default signal channel copied into a spell when this effect is equipped.")]
         [SerializeField]
         private GameplaySignalDefinition signal;
 
+        [Tooltip("Default optional text passed to signal listeners.")]
         [SerializeField]
         private string label;
 
+        [Tooltip("Default number passed to signal listeners.")]
         [SerializeField]
         private float value = 1f;
 
+        [Tooltip("Default choice for whether potency changes the signal value.")]
         [SerializeField]
         private bool scaleValueWithPotency = true;
 
@@ -68,6 +76,12 @@ namespace ProjectEri.SkillSystemV2
                 label,
                 value,
                 scaleValueWithPotency);
+        }
+
+        public override bool CanApplyWithoutRecipient(
+            SpellEffectSettings settings)
+        {
+            return true;
         }
 
         public override bool Apply(in SpellEffectContext context)

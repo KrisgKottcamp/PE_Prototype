@@ -1,4 +1,5 @@
 using UnityEngine;
+using ProjectEri.SkillSystemV2;
 using static CharacterDefinition;
 
 public class BasicAttack : MonoBehaviour
@@ -111,6 +112,9 @@ public class BasicAttack : MonoBehaviour
 
     private void Update()
     {
+        if (SpellBuildUpControl2D.IsBasicAttackBlocked(gameObject))
+            return;
+
         var pm = PartyManager.Instance;
         if (pm == null || pm.Active == null || pm.Active.def == null) return;
         if (pm.Active.def.basicAttackType != BasicAttackType.Melee) return;
@@ -246,8 +250,15 @@ public class BasicAttack : MonoBehaviour
 
         SpawnVfx(center, dir);
 
+        bool deflectedDelivery = SpellDeflectionUtility.DeflectInCircle(
+            gameObject,
+            center,
+            radius,
+            dir,
+            ~0) > 0;
+
         int count = Physics2D.OverlapCircleNonAlloc(center, radius, hitCols, enemyMask);
-        if (count <= 0) return false;
+        if (count <= 0) return deflectedDelivery;
 
         int uniqueCount = 0;
 
@@ -291,7 +302,7 @@ public class BasicAttack : MonoBehaviour
             AttackMomentumManager.Instance?.RegisterMomentum(momentumGainOnSuccessfulSwing);
         }
 
-        return uniqueCount > 0;
+        return uniqueCount > 0 || deflectedDelivery;
     }
 
     private void RefreshComboHitstop(bool isThirdHit)

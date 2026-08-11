@@ -7,15 +7,19 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class ResourceEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The resource changed by this effect, such as Action Points.")]
         [SerializeField]
         private GameplayResourceDefinition resource;
 
+        [Tooltip("Add to, remove from, or directly set the target's resource value.")]
         [SerializeField]
         private SpellResourceOperation operation = SpellResourceOperation.Add;
 
+        [Tooltip("Amount added, removed, or assigned.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Allow the result to exceed the resource's normal maximum.")]
         [SerializeField]
         private bool allowOverflow;
 
@@ -46,15 +50,19 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Resource or AP")]
     public sealed class ResourceEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default resource copied into a spell when this effect is equipped.")]
         [SerializeField]
         private GameplayResourceDefinition resource;
 
+        [Tooltip("Default operation used to change the resource.")]
         [SerializeField]
         private SpellResourceOperation operation = SpellResourceOperation.Add;
 
+        [Tooltip("Default amount added, removed, or assigned.")]
         [SerializeField, Min(0f)]
         private float amount = 10f;
 
+        [Tooltip("Default choice for whether the resource may exceed its normal maximum.")]
         [SerializeField]
         private bool allowOverflow;
 

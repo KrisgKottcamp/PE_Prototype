@@ -19,9 +19,11 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class SpellEffectSlot
     {
+        [Tooltip("The reusable effect this slot applies. Its values below are stored only for this spell.")]
         [SerializeField]
         private EffectDefinition effect;
 
+        [Tooltip("Per-spell values for this effect slot. Editing these does not change the reusable effect asset.")]
         [SerializeReference]
         private SpellEffectSettings settings;
 

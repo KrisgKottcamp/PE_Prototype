@@ -7,6 +7,7 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Targeting/Point or Area")]
     public sealed class PointTargetingDefinition : PlayerTargetingDefinition
     {
+        [Tooltip("When enabled, the actual cursor must be inside Maximum Range. When disabled, an outside cursor can be clamped to the edge.")]
         [SerializeField]
         private bool requirePointerWithinRange;
 

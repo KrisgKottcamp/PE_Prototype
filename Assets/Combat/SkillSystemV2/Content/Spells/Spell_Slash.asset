@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
+  m_Name: Spell_Slash
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
+  displayName: Slash V2
+  stableId: player.slash.v2
+  description: Player Integration vertical-slice spell. Tune or replace freely.
+  icon: {fileID: 0}
+  category: Player Skill V2
+  timing:
+    buildUpDuration: 0
+    firingDuration: 0
+    channelDuration: 0
+    recoveryDuration: 0
+    timeMode: 0
+  cooldown: 0
+  resourceCost:
+    resourceId: AP
+    amount: 10
+  targetFilter:
+    relationship: 4
+    useLayerMask: 0
+    allowedLayers:
+      serializedVersion: 2
+      m_Bits: 0
+    requireSpellTarget: 1
+  delivery: {fileID: 0}
+  deliverySlot:
+    delivery: {fileID: 11400000, guid: 035c34a168aff25429f522cdaff0ab46, type: 2}
+    settings:
+      rid: 1819652408774492273
+  deliverySlotMigrated: 1
+  effects: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
+    settings:
+      rid: 1819652408774492274
+  - effect: {fileID: 11400000, guid: 88f0450f13420ad4dba3e313ac258ce5, type: 2}
+    settings:
+      rid: 1819652408774492275
+  eventEffectRoutes: []
+  reactiveEffectGroups: []
+  effectSlotsMigrated: 1
+  reactionSlots: []
+  maximumChainDepth: 3
+  maximumRootActivations: 32
+  references:
+    version: 2
+    RefIds:
+    - rid: 1819652408774492273
+      type: {class: MeleeArcDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 0}
+        range: 1.75
+        arcAngle: 90
+        hitMask:
+          serializedVersion: 2
+          m_Bits: 1024
+        maximumColliders: 24
+    - rid: 1819652408774492274
+      type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        damageType: {fileID: 0}
+        amount: 30
+        ignoreInvulnerability: 0
+    - rid: 1819652408774492275
+      type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        direction: 0
+        magnitude: 3.5
+        duration: 0.12
+        mode: 2

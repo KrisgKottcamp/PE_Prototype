@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using ProjectEri.SkillSystemV2;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerProjectile : MonoBehaviour
@@ -486,6 +487,18 @@ public class PlayerProjectile : MonoBehaviour
     {
         if (hitResolved || other == null)
             return;
+
+        PlayerSpellV2Bridge ownerBridge =
+            FindFirstObjectByType<PlayerSpellV2Bridge>();
+        if (ownerBridge != null && SpellDeflectionUtility.TryDeflect(
+                other.gameObject,
+                ownerBridge.gameObject,
+                dir))
+        {
+            hitResolved = true;
+            Destroy(gameObject);
+            return;
+        }
 
         if (breaksEnemyProjectiles)
         {

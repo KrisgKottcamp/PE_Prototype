@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
+using ProjectEri.SkillSystemV2;
 using static CharacterDefinition;
 
 /// <summary>
@@ -156,6 +157,9 @@ public class HeavyComboAttack : MonoBehaviour
 
     private void Update()
     {
+        if (SpellBuildUpControl2D.IsBasicAttackBlocked(gameObject))
+            return;
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null || pm.Active == null || pm.Active.def == null)
@@ -315,6 +319,13 @@ public class HeavyComboAttack : MonoBehaviour
                 : hit1VfxPrefab;
 
         SpawnVfx(vfxPrefab, center, dir);
+
+        SpellDeflectionUtility.DeflectInCircle(
+            gameObject,
+            center,
+            hitRadius,
+            dir,
+            ~0);
 
         int count = Physics2D.OverlapCircleNonAlloc(
             center,

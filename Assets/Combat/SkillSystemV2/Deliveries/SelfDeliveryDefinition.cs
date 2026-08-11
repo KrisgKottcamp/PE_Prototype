@@ -46,12 +46,30 @@ namespace ProjectEri.SkillSystemV2
             public void Begin()
             {
                 GameObject caster = context.Cast.Caster;
+                context.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.DeliveryStarted,
+                    null,
+                    context.Cast.Origin,
+                    context.Cast.AimDirection));
                 if (caster != null)
                 {
+                    context.DispatchEvent(new SpellEventOccurrence(
+                        SpellEventType.PointReached,
+                        null,
+                        caster.transform.position,
+                        Vector2.zero));
+                    SpellDeliveryInteractionService.EmitPoint(
+                        context,
+                        caster.transform.position);
                     context.ApplyEffects(
                         caster,
                         caster.transform.position,
                         Vector2.zero);
+                    context.DispatchEvent(new SpellEventOccurrence(
+                        SpellEventType.TargetHit,
+                        caster,
+                        caster.transform.position,
+                        Vector2.zero));
                 }
 
                 IsComplete = true;

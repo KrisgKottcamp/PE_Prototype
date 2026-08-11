@@ -88,7 +88,7 @@ namespace ProjectEri.SkillSystemV2
             EnsureBuffer();
             var filter = new ContactFilter2D();
             filter.SetLayerMask(selectableLayers);
-            filter.useTriggers = Physics2D.queriesHitTriggers;
+            filter.useTriggers = true;
             int count = Physics2D.OverlapPoint(
                 worldPosition,
                 filter,
@@ -103,13 +103,8 @@ namespace ProjectEri.SkillSystemV2
                 GameObject resolved = SpellTargetResolver.Resolve(
                     candidate.gameObject);
 
-                if (resolved != null &&
-                    !SpellTargetResolver.IsSameHierarchy(
-                        gameObject,
-                        resolved))
-                {
+                if (resolved != null)
                     return resolved;
-                }
             }
 
             return null;

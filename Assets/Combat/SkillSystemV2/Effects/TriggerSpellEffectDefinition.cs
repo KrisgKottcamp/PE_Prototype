@@ -20,17 +20,21 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class TriggerSpellEffectSettings : SpellEffectSettings
     {
+        [Tooltip("The Spell Definition queued when this effect runs.")]
         [SerializeField]
         private SpellDefinition secondarySpell;
 
+        [Tooltip("Original Caster uses the current spell's caster. Effect Target makes the recipient cast the secondary spell.")]
         [SerializeField]
         private TriggeredSpellRunnerSource runnerSource =
             TriggeredSpellRunnerSource.OriginalCaster;
 
+        [Tooltip("Which object becomes the secondary spell's selected target, if any.")]
         [SerializeField]
         private TriggeredSpellTargetSource targetSource =
             TriggeredSpellTargetSource.EffectTarget;
 
+        [Tooltip("Use the current effect's hit or event point as the secondary spell's target point. Disable this to preserve the original cast point.")]
         [SerializeField]
         private bool useHitPointAsTargetPoint = true;
 
@@ -61,17 +65,21 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Trigger Secondary Spell")]
     public sealed class TriggerSpellEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default secondary spell copied into inline settings.")]
         [SerializeField]
         private SpellDefinition secondarySpell;
 
+        [Tooltip("Default choice for which object owns and runs the secondary cast.")]
         [SerializeField]
         private TriggeredSpellRunnerSource runnerSource =
             TriggeredSpellRunnerSource.OriginalCaster;
 
+        [Tooltip("Default choice for the secondary spell's selected target.")]
         [SerializeField]
         private TriggeredSpellTargetSource targetSource =
             TriggeredSpellTargetSource.EffectTarget;
 
+        [Tooltip("Default choice for whether the current hit point becomes the secondary spell's target point.")]
         [SerializeField]
         private bool useHitPointAsTargetPoint = true;
 
@@ -85,6 +93,16 @@ namespace ProjectEri.SkillSystemV2
                 runnerSource,
                 targetSource,
                 useHitPointAsTargetPoint);
+        }
+
+        public override bool CanApplyWithoutRecipient(
+            SpellEffectSettings settings)
+        {
+            TriggerSpellEffectSettings resolved =
+                settings as TriggerSpellEffectSettings ??
+                (TriggerSpellEffectSettings)CreateDefaultSettings();
+            return resolved.RunnerSource ==
+                   TriggeredSpellRunnerSource.OriginalCaster;
         }
 
         public override bool Apply(in SpellEffectContext context)

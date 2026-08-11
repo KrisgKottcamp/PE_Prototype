@@ -10,33 +10,42 @@ namespace ProjectEri.SkillSystemV2
     public sealed class SpellDefinition : ScriptableObject
     {
         [Header("Identity")]
+        [Tooltip("The name players and designers see in menus and Inspector summaries.")]
         [SerializeField]
         private string displayName = "New Spell";
 
+        [Tooltip("A permanent unique name used by saves, progression, AI, and other systems. Generate it once, then avoid changing it.")]
         [SerializeField]
         private string stableId;
 
+        [Tooltip("A short plain-English explanation of what the spell does.")]
         [SerializeField, TextArea(2, 5)]
         private string description;
 
+        [Tooltip("The picture shown for this spell in menus and other UI.")]
         [SerializeField]
         private Sprite icon;
 
+        [Tooltip("A simple organizational label such as Attack, Movement, Support, or Enemy Skill. Reactions and AI can also filter by it.")]
         [SerializeField]
         private string category = "Skill";
 
         [Header("Timing")]
+        [Tooltip("Controls how long each part of casting lasts and whether those timers follow normal or unscaled time.")]
         [SerializeField]
         private SpellTiming timing;
 
+        [Tooltip("Seconds after casting before this spell can be used again.")]
         [SerializeField, Min(0f)]
         private float cooldown;
 
         [Header("Resource Cost")]
+        [Tooltip("What resource the caster spends and how much is required. Player spells normally use AP.")]
         [SerializeField]
         private SpellResourceCost resourceCost;
 
         [Header("Target Rules")]
+        [Tooltip("The spell's normal rules for deciding which objects its Default Effects are allowed to affect.")]
         [SerializeField]
         private TargetFilter targetFilter = new TargetFilter(
             TargetRelationship.Enemies,
@@ -46,6 +55,7 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, HideInInspector]
         private DeliveryDefinition delivery;
 
+        [Tooltip("The reusable delivery module and this spell's independent copy of its settings.")]
         [SerializeField]
         private SpellDeliverySlot deliverySlot = new SpellDeliverySlot();
 
@@ -55,20 +65,38 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField, HideInInspector]
         private List<EffectDefinition> effects = new List<EffectDefinition>();
 
+        [Tooltip("Effects applied at the delivery's normal effect moment.")]
         [SerializeField]
         private List<SpellEffectSlot> effectSlots =
             new List<SpellEffectSlot>();
 
+        [Tooltip("Extra effect instructions that run at specific moments reported by this spell's own delivery.")]
+        [SerializeField]
+        private List<SpellEventEffectRoute> eventEffectRoutes =
+            new List<SpellEventEffectRoute>();
+
+        [Tooltip("Named sets of Lingering Area effects that Reactions can enable or disable.")]
+        [SerializeField]
+        private List<SpellReactiveEffectGroup> reactiveEffectGroups =
+            new List<SpellReactiveEffectGroup>();
+
         [SerializeField, HideInInspector]
         private bool effectSlotsMigrated;
+
+        [Tooltip("Responses to other V2 deliveries touching this spell's persistent delivery.")]
+        [SerializeField]
+        private List<SpellReactionSlot> reactionSlots =
+            new List<SpellReactionSlot>();
 
         [NonSerialized]
         private List<EffectDefinition> effectView;
 
         [Header("Chain Safety")]
+        [Tooltip("How many Trigger Secondary Spell steps may be nested below the original cast. This prevents accidental infinite chains.")]
         [SerializeField, Min(0)]
         private int maximumChainDepth = 3;
 
+        [Tooltip("Maximum total spell activations allowed within one cast chain. This prevents loops and runaway combinations.")]
         [SerializeField, Min(1)]
         private int maximumRootActivations = 32;
 
@@ -102,6 +130,30 @@ namespace ProjectEri.SkillSystemV2
             {
                 EnsureEffectSlots();
                 return effectSlots;
+            }
+        }
+        public IReadOnlyList<SpellReactionSlot> ReactionSlots
+        {
+            get
+            {
+                reactionSlots ??= new List<SpellReactionSlot>();
+                return reactionSlots;
+            }
+        }
+        public IReadOnlyList<SpellEventEffectRoute> EventEffectRoutes
+        {
+            get
+            {
+                EnsureEventEffectRoutes();
+                return eventEffectRoutes;
+            }
+        }
+        public IReadOnlyList<SpellReactiveEffectGroup> ReactiveEffectGroups
+        {
+            get
+            {
+                EnsureReactiveEffectGroups();
+                return reactiveEffectGroups;
             }
         }
 
@@ -146,6 +198,18 @@ namespace ProjectEri.SkillSystemV2
             in CastContext context,
             out string rejectionReason)
         {
+            return TryResolveContext(
+                context,
+                out _,
+                out rejectionReason);
+        }
+
+        public bool TryResolveContext(
+            in CastContext context,
+            out CastContext resolvedContext,
+            out string rejectionReason)
+        {
+            resolvedContext = context;
             if (context.Caster == null)
             {
                 rejectionReason = "CastContext has no caster.";
@@ -159,10 +223,60 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
-            return Delivery.ValidateContext(
-                context,
-                DeliverySettings,
-                out rejectionReason);
+            if (!Delivery.ValidateContext(
+                    resolvedContext,
+                    DeliverySettings,
+                    out rejectionReason))
+            {
+                return false;
+            }
+
+            if ((Delivery.TargetingRequirement &
+                 CastTargetingRequirement.SelectedTarget) != 0)
+            {
+                GameObject selected = SpellTargetResolver.Resolve(
+                    resolvedContext.SelectedTarget);
+                if (selected == null ||
+                    !TargetFilter.IsValid(
+                        resolvedContext,
+                        selected,
+                        resolvedContext.SelectedTarget,
+                        out rejectionReason))
+                {
+                    if (string.IsNullOrWhiteSpace(rejectionReason))
+                    {
+                        rejectionReason =
+                            "Selected target is not valid for this spell.";
+                    }
+                    return false;
+                }
+            }
+
+            EnsureEffectSlots();
+            for (int i = 0; i < effectSlots.Count; i++)
+            {
+                SpellEffectSlot slot = effectSlots[i];
+                if (!(slot?.Effect is
+                        ISpellCastContextModifierEffectDefinition modifier))
+                {
+                    continue;
+                }
+
+                if (!modifier.TryModifyCastContext(
+                        resolvedContext,
+                        slot.Settings,
+                        out CastContext modified,
+                        out rejectionReason))
+                {
+                    resolvedContext = modified;
+                    return false;
+                }
+
+                resolvedContext = modified;
+            }
+
+            rejectionReason = string.Empty;
+            return true;
         }
 
         public void CollectValidationIssues(
@@ -201,11 +315,233 @@ namespace ProjectEri.SkillSystemV2
 
             EnsureEffectSlots();
 
+            EnsureEventEffectRoutes();
+            var routeIds = new HashSet<string>(StringComparer.Ordinal);
+            var routesById = new Dictionary<string, SpellEventEffectRoute>(
+                StringComparer.Ordinal);
+            for (int routeIndex = 0;
+                 routeIndex < eventEffectRoutes.Count;
+                 routeIndex++)
+            {
+                SpellEventEffectRoute route = eventEffectRoutes[routeIndex];
+                if (route == null)
+                    continue;
+
+                if (!routeIds.Add(route.StableId))
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Error,
+                        $"Event Effect Recipe '{route.DisplayName}' has a duplicate stable ID."));
+                }
+                else
+                {
+                    routesById.Add(route.StableId, route);
+                }
+
+                IReadOnlyList<SpellEffectSlot> routeEffects =
+                    route.EffectSlots;
+                if (routeEffects.Count == 0)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        $"Event Effect Recipe '{route.DisplayName}' has no effects."));
+                }
+
+                for (int effectIndex = 0;
+                     effectIndex < routeEffects.Count;
+                     effectIndex++)
+                {
+                    SpellEffectSlot slot = routeEffects[effectIndex];
+                    if (slot?.Effect == null)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Event Effect Recipe '{route.DisplayName}' has an empty effect slot."));
+                        continue;
+                    }
+
+                    slot.Effect.CollectValidationIssues(
+                        issues,
+                        slot.Settings);
+
+                    if (slot.Effect is IAreaPresenceEffectDefinition)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Event Effect Recipe '{route.DisplayName}' contains a presence effect. Put effects that must remain while inside an area in Default Effects or a Reactive Effect Group instead."));
+                    }
+
+                    if (slot.Settings is
+                            CasterMovementEffectSettings movementSettings &&
+                        movementSettings.DestinationSource ==
+                            CasterMovementDestinationSource
+                                .DeliveryEventPoint &&
+                        route.Recipient != SpellEventRecipient.Caster)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Event Effect Recipe '{route.DisplayName}' uses Caster Movement from the delivery event point, but its recipient is not The Spell Caster."));
+                    }
+
+                    if (route.Recipient ==
+                            SpellEventRecipient.WorldPoint &&
+                        !slot.Effect.CanApplyWithoutRecipient(slot.Settings))
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Event Effect Recipe '{route.DisplayName}' applies to a World Point, but effect '{slot.Effect.DisplayName}' requires an object recipient."));
+                    }
+                }
+
+                if (route.Recipient ==
+                        SpellEventRecipient.SelectedTarget &&
+                    Delivery != null &&
+                    (Delivery.TargetingRequirement &
+                     CastTargetingRequirement.SelectedTarget) == 0)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        $"Event Effect Recipe '{route.DisplayName}' applies to Selected Target, but this delivery does not require one."));
+                }
+
+                if (Delivery != null &&
+                    !SpellEventSupport.DeliveryReports(
+                        Delivery,
+                        route.Trigger))
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        $"Event Effect Recipe '{route.DisplayName}' listens for an event that delivery '{Delivery.DisplayName}' does not report."));
+                }
+            }
+
+            EnsureReactiveEffectGroups();
+            var groupIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int groupIndex = 0;
+                 groupIndex < reactiveEffectGroups.Count;
+                 groupIndex++)
+            {
+                SpellReactiveEffectGroup group =
+                    reactiveEffectGroups[groupIndex];
+                if (group == null)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        $"Reactive Effect Group {groupIndex + 1} is empty."));
+                    continue;
+                }
+
+                if (!groupIds.Add(group.StableId))
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Error,
+                        $"Reactive Effect Group '{group.DisplayName}' has a duplicate stable ID."));
+                }
+
+                IReadOnlyList<SpellEffectSlot> groupEffects =
+                    group.EffectSlots;
+                if (groupEffects.Count == 0)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        $"Reactive Effect Group '{group.DisplayName}' has no effects."));
+                }
+
+                for (int effectIndex = 0;
+                     effectIndex < groupEffects.Count;
+                     effectIndex++)
+                {
+                    SpellEffectSlot slot = groupEffects[effectIndex];
+                    if (slot?.Effect == null)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Reactive Effect Group '{group.DisplayName}' has an empty effect slot."));
+                        continue;
+                    }
+
+                    slot.Effect.CollectValidationIssues(
+                        issues,
+                        slot.Settings);
+                }
+            }
+
+            reactionSlots ??= new List<SpellReactionSlot>();
+            for (int reactionIndex = 0;
+                 reactionIndex < reactionSlots.Count;
+                 reactionIndex++)
+            {
+                SpellReactionSlot reaction = reactionSlots[reactionIndex];
+                if (reaction == null)
+                    continue;
+
+                IReadOnlyList<DeliveryInteractionResponse> responses =
+                    reaction.Responses;
+                for (int responseIndex = 0;
+                     responseIndex < responses.Count;
+                     responseIndex++)
+                {
+                    DeliveryInteractionResponse response =
+                        responses[responseIndex];
+                    if (response is
+                        SetReactiveEffectGroupActiveResponse groupAction)
+                    {
+                        if (string.IsNullOrWhiteSpace(groupAction.GroupId))
+                        {
+                            issues.Add(new SpellValidationIssue(
+                                SpellValidationSeverity.Warning,
+                                $"Reaction {reactionIndex + 1} has a Reactive Effect Group action with no group selected."));
+                        }
+                        else if (!groupIds.Contains(groupAction.GroupId))
+                        {
+                            issues.Add(new SpellValidationIssue(
+                                SpellValidationSeverity.Error,
+                                $"Reaction {reactionIndex + 1} references a Reactive Effect Group that no longer exists."));
+                        }
+                    }
+
+                    if (!(response is
+                            RunEventEffectRouteResponse routeAction))
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(routeAction.RouteId))
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Reaction {reactionIndex + 1} has a Run Event Effect Recipe action with no recipe selected."));
+                    }
+                    else if (!routesById.TryGetValue(
+                                 routeAction.RouteId,
+                                 out SpellEventEffectRoute selectedRoute))
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Error,
+                            $"Reaction {reactionIndex + 1} references an Event Effect Recipe that no longer exists."));
+                    }
+                    else if (selectedRoute.Trigger !=
+                             SpellEventType.ManualReaction)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Warning,
+                            $"Reaction {reactionIndex + 1} manually runs recipe '{selectedRoute.DisplayName}', but that recipe's WHEN event is not Manual Reaction."));
+                    }
+                }
+            }
+
             if (effectSlots.Count == 0)
             {
+                bool hasAlternateEffects =
+                    reactiveEffectGroups.Count > 0 ||
+                    eventEffectRoutes.Count > 0;
                 issues.Add(new SpellValidationIssue(
-                    SpellValidationSeverity.Warning,
-                    "The spell has no effects. This is valid for movement or presentation-only deliveries."));
+                    hasAlternateEffects
+                        ? SpellValidationSeverity.Info
+                        : SpellValidationSeverity.Warning,
+                    hasAlternateEffects
+                        ? "The spell has no Default Effects. Its Event Effect Recipes or Reactive Effect Groups can still apply effects."
+                        : "The spell has no effects. This is valid for movement or presentation-only deliveries."));
             }
             else
             {
@@ -223,6 +559,17 @@ namespace ProjectEri.SkillSystemV2
                         slot.Effect.CollectValidationIssues(
                             issues,
                             slot.Settings);
+                        if (slot.Settings is
+                                CasterMovementEffectSettings
+                                    movementSettings &&
+                            movementSettings.DestinationSource ==
+                                CasterMovementDestinationSource
+                                    .DeliveryEventPoint)
+                        {
+                            issues.Add(new SpellValidationIssue(
+                                SpellValidationSeverity.Error,
+                                "Caster Movement using Delivery Event Point must be placed inside an Event Effect Recipe, not Default Effects."));
+                        }
                     }
                 }
             }
@@ -246,6 +593,9 @@ namespace ProjectEri.SkillSystemV2
 
             EnsureEffectSlots();
             EnsureDeliverySlot();
+            EnsureEventEffectRoutes();
+            EnsureReactiveEffectGroups();
+            reactionSlots ??= new List<SpellReactionSlot>();
         }
 
         public void ReplaceDelivery(SpellDeliverySlot slot)
@@ -286,6 +636,68 @@ namespace ProjectEri.SkillSystemV2
             effects?.Clear();
             effectSlotsMigrated = true;
             EnsureEffectSlots();
+        }
+
+        public void ReplaceReactionSlots(params SpellReactionSlot[] slots)
+        {
+            reactionSlots = slots != null
+                ? new List<SpellReactionSlot>(slots)
+                : new List<SpellReactionSlot>();
+        }
+
+        public void ReplaceEventEffectRoutes(
+            params SpellEventEffectRoute[] routes)
+        {
+            eventEffectRoutes = routes != null
+                ? new List<SpellEventEffectRoute>(routes)
+                : new List<SpellEventEffectRoute>();
+            EnsureEventEffectRoutes();
+        }
+
+        public bool EnsureEventEffectRoutes()
+        {
+            bool changed = false;
+            eventEffectRoutes ??= new List<SpellEventEffectRoute>();
+            for (int i = 0; i < eventEffectRoutes.Count; i++)
+            {
+                if (eventEffectRoutes[i] == null)
+                {
+                    eventEffectRoutes[i] = new SpellEventEffectRoute();
+                    changed = true;
+                }
+
+                changed |= eventEffectRoutes[i].EnsureValid();
+            }
+
+            return changed;
+        }
+
+        public void ReplaceReactiveEffectGroups(
+            params SpellReactiveEffectGroup[] groups)
+        {
+            reactiveEffectGroups = groups != null
+                ? new List<SpellReactiveEffectGroup>(groups)
+                : new List<SpellReactiveEffectGroup>();
+            EnsureReactiveEffectGroups();
+        }
+
+        public bool EnsureReactiveEffectGroups()
+        {
+            bool changed = false;
+            reactiveEffectGroups ??= new List<SpellReactiveEffectGroup>();
+            for (int i = 0; i < reactiveEffectGroups.Count; i++)
+            {
+                if (reactiveEffectGroups[i] == null)
+                {
+                    reactiveEffectGroups[i] =
+                        new SpellReactiveEffectGroup();
+                    changed = true;
+                }
+
+                changed |= reactiveEffectGroups[i].EnsureValid();
+            }
+
+            return changed;
         }
 
         public bool EnsureEffectSlots()

@@ -85,6 +85,9 @@ public class ProjectileBasicAttack : MonoBehaviour
 
     private void Update()
     {
+        if (SpellBuildUpControl2D.IsBasicAttackBlocked(gameObject))
+            return;
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null ||

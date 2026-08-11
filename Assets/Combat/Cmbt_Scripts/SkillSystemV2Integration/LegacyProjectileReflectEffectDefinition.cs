@@ -11,12 +11,15 @@ using UnityEngine;
 [Serializable]
 public sealed class ReflectProjectileEffectSettings : SpellEffectSettings
 {
+    [Tooltip("Base damage assigned to an enemy projectile after it becomes player-owned.")]
     [SerializeField, Min(1)]
     private int reflectedDamageBase = 10;
 
+    [Tooltip("Unity layer assigned to the reflected projectile so it collides like a player projectile.")]
     [SerializeField]
     private string reflectedLayerName = "PlayerProjectile";
 
+    [Tooltip("Seconds reflection tracking data is kept for one root cast.")]
     [SerializeField, Min(0.1f)]
     private float trackerRetentionSeconds = 1f;
 
@@ -53,8 +56,11 @@ public sealed class LegacyProjectileReflectEffectDefinition :
         public float LastUsedAt;
     }
 
+    [Tooltip("Default reflected projectile damage copied into a spell.")]
     [SerializeField, Min(1)] private int reflectedDamageBase = 10;
+    [Tooltip("Default Unity layer name assigned after reflection.")]
     [SerializeField] private string reflectedLayerName = "PlayerProjectile";
+    [Tooltip("Default lifetime of per-cast reflection tracking data.")]
     [SerializeField, Min(0.1f)] private float trackerRetentionSeconds = 1f;
 
     [Header("Runtime Debug")]
@@ -90,7 +96,7 @@ public sealed class LegacyProjectileReflectEffectDefinition :
             return false;
 
         Projectile projectile =
-            context.Target.GetComponentInParent<Projectile>();
+            SpellEffectReceiverResolver.Find<Projectile>(context.Target);
         if (projectile == null ||
             projectile.Team != Projectile.ProjectileTeam.Enemy)
         {

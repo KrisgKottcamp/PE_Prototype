@@ -122,8 +122,32 @@ public sealed class PartyManagerSpellAdapter : MonoBehaviour,
 
         int before = active.currentHP;
         int requested = Mathf.CeilToInt(request.Amount);
-        int applied = party.DamagePartyMember(party.activeIndex, requested);
+        CombatPawn pawn = GetComponent<CombatPawn>();
+        bool routedThroughPawn = pawn != null &&
+                                 !request.IgnoreInvulnerability;
+        if (routedThroughPawn)
+            pawn.ApplyDamage(requested);
+        else
+            party.DamagePartyMember(party.activeIndex, requested);
+
+        int applied = Mathf.Max(0, before - active.currentHP);
         result = new SpellDamageResult(request.Amount, applied, before > 0 && active.currentHP <= 0);
+
+        if (applied > 0 && !routedThroughPawn)
+        {
+            DamageFlash2D damageFlash = GetComponent<DamageFlash2D>();
+            if (damageFlash == null)
+                damageFlash = gameObject.AddComponent<DamageFlash2D>();
+
+            if (!damageFlash.HasConfiguredTargets)
+            {
+                damageFlash.ConfigureTargets(
+                    DamageFlash2D.FindLikelyCharacterSprites(transform));
+            }
+
+            damageFlash.PlayFlash();
+        }
+
         return applied > 0;
     }
 

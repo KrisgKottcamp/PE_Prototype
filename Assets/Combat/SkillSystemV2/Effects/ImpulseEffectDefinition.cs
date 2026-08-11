@@ -15,16 +15,20 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class ImpulseEffectSettings : SpellEffectSettings
     {
+        [Tooltip("Direction the target is moved, measured from the caster, aim, or hit surface.")]
         [SerializeField]
         private SpellImpulseDirection direction =
             SpellImpulseDirection.AwayFromCaster;
 
+        [Tooltip("Strength or distance of the push or pull, interpreted by the target's impulse receiver.")]
         [SerializeField, Min(0f)]
         private float magnitude = 5f;
 
+        [Tooltip("How long the forced movement lasts when the receiver supports timed movement. Zero requests an immediate impulse.")]
         [SerializeField, Min(0f)]
         private float duration;
 
+        [Tooltip("Impulse adds a burst of motion. Velocity Change directly changes movement speed.")]
         [SerializeField]
         private SpellImpulseMode mode = SpellImpulseMode.Impulse;
 
@@ -55,16 +59,20 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Impulse or Pushback")]
     public sealed class ImpulseEffectDefinition : EffectDefinition
     {
+        [Tooltip("Default movement direction copied into a spell's inline settings.")]
         [SerializeField]
         private SpellImpulseDirection direction =
             SpellImpulseDirection.AwayFromCaster;
 
+        [Tooltip("Default push or pull strength.")]
         [SerializeField, Min(0f)]
         private float magnitude = 5f;
 
+        [Tooltip("Default duration of the forced movement.")]
         [SerializeField, Min(0f)]
         private float duration;
 
+        [Tooltip("Default way the target's movement is changed.")]
         [SerializeField]
         private SpellImpulseMode mode = SpellImpulseMode.Impulse;
 

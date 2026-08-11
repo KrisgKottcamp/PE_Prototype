@@ -8,6 +8,21 @@ namespace ProjectEri.SkillSystemV2
         bool IsTargetable { get; }
     }
 
+    public interface ISpellTargetIdentity
+    {
+        bool Represents(GameObject other);
+    }
+
+    public interface ISpellTargetDisplay
+    {
+        string TargetDisplayName { get; }
+    }
+
+    public interface ISpellDeflectableDelivery
+    {
+        bool TryDeflect(GameObject newCaster, Vector2 newDirection);
+    }
+
     public interface ISpellResourceProvider
     {
         bool CanSpend(in SpellResourceCost cost);

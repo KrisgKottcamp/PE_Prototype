@@ -16,6 +16,7 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public abstract class SpellDeliverySettings
     {
+        [Tooltip("How a player aims and confirms this delivery. Enemy AI ignores this and supplies its own target information.")]
         [SerializeField]
         private PlayerTargetingDefinition playerTargeting;
 
@@ -34,6 +35,7 @@ namespace ProjectEri.SkillSystemV2
 
     public abstract class DeliveryDefinition : ScriptableObject
     {
+        [Tooltip("The reusable delivery module's designer-facing name.")]
         [SerializeField]
         private string displayName;
 
@@ -98,6 +100,16 @@ namespace ProjectEri.SkillSystemV2
                 !context.HasSelectedTarget)
             {
                 rejectionReason = "Delivery requires a selected target.";
+                return false;
+            }
+
+            if ((required &
+                 CastTargetingRequirement.MultipleTargetPoints) != 0 &&
+                (context.TargetingPayload == null ||
+                 context.TargetingPayload.PointCount < 2))
+            {
+                rejectionReason =
+                    "Delivery requires at least two confirmed target points.";
                 return false;
             }
 

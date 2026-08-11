@@ -8,7 +8,8 @@ namespace ProjectEri.SkillSystemV2
         None = 0,
         Direction = 1 << 0,
         TargetPoint = 1 << 1,
-        SelectedTarget = 1 << 2
+        SelectedTarget = 1 << 2,
+        MultipleTargetPoints = 1 << 3
     }
 
     public enum SpellTimeMode

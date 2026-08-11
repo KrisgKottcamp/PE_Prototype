@@ -28,9 +28,11 @@ namespace ProjectEri.SkillSystemV2
         menuName = "Project Eri/Skill System V2/Effects/Gameplay Signal")]
     public sealed class GameplaySignalDefinition : ScriptableObject
     {
+        [Tooltip("The signal channel's designer-facing name.")]
         [SerializeField]
         private string displayName = "Gameplay Signal";
 
+        [Tooltip("Permanent unique ID used by listeners, saves, and tooling.")]
         [SerializeField]
         private string stableId;
 

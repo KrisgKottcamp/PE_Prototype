@@ -70,6 +70,32 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(filter.IsValid(context, enemy), Is.True);
         }
 
+        [Test]
+        public void LayerFilterUsesDetectedHurtboxLayerAfterResolvingRoot()
+        {
+            var hurtbox = new GameObject("Enemy Hurtbox");
+            hurtbox.transform.SetParent(enemy.transform);
+            hurtbox.layer = 8;
+            enemy.AddComponent<CombatTarget>();
+            CastContext context = CastContext.ForDirection(
+                caster,
+                caster.transform.position,
+                Vector2.right);
+            var filter = new TargetFilter(
+                TargetRelationship.Enemies,
+                requireTarget: true,
+                filterByLayer: true,
+                layers: 1 << 8);
+
+            GameObject resolved = SpellTargetResolver.Resolve(hurtbox);
+            Assert.That(resolved, Is.SameAs(enemy));
+            Assert.That(
+                filter.IsValid(context, resolved, hurtbox),
+                Is.True);
+
+            Object.DestroyImmediate(hurtbox);
+        }
+
         private static GameObject CreateTeamObject(
             string objectName,
             CombatTeam team)

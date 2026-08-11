@@ -10,9 +10,11 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public sealed class SpellDeliverySlot
     {
+        [Tooltip("The reusable delivery that decides how this spell travels, reaches targets, or creates an area.")]
         [SerializeField]
         private DeliveryDefinition delivery;
 
+        [Tooltip("Per-spell values for the selected delivery. Editing these does not change the reusable delivery asset.")]
         [SerializeReference]
         private SpellDeliverySettings settings;
 

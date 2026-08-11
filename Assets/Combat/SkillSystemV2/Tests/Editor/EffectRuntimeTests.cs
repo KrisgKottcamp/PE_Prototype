@@ -47,6 +47,22 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void EffectReceiverMayLiveBelowCanonicalTargetRoot()
+        {
+            target.AddComponent<CombatTarget>();
+            var receiverObject = new GameObject("Health Receiver");
+            receiverObject.transform.SetParent(target.transform);
+            SpellVitality vitality =
+                receiverObject.AddComponent<SpellVitality>();
+            DamageEffectDefinition damage = Create<DamageEffectDefinition>();
+
+            Assert.That(damage.Apply(EffectContext()), Is.True);
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
+
+            Object.DestroyImmediate(receiverObject);
+        }
+
+        [Test]
         public void SharedDamageEffect_UsesIndependentPerSpellSettings()
         {
             SpellVitality vitality = target.AddComponent<SpellVitality>();
@@ -85,6 +101,71 @@ namespace ProjectEri.SkillSystemV2.Tests
                 target.transform.position,
                 Vector2.left), Is.EqualTo(1));
             Assert.That(vitality.CurrentHealth, Is.EqualTo(60f).Within(0.001f));
+        }
+
+        [Test]
+        public void DamageOverTime_TicksRepeatedDamageAtConfiguredInterval()
+        {
+            SpellVitality vitality = target.AddComponent<SpellVitality>();
+            DamageOverTimeEffectDefinition effect =
+                Create<DamageOverTimeEffectDefinition>();
+            var settings = new DamageOverTimeEffectSettings(
+                5f,
+                0.5f,
+                2f);
+
+            Assert.That(effect.Apply(EffectContext(), settings), Is.True);
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(95f).Within(0.001f));
+
+            SpellDamageOverTimeRuntime runtime =
+                target.GetComponent<SpellDamageOverTimeRuntime>();
+            runtime.TickRuntime(0.5f);
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
+        }
+
+        [Test]
+        public void DamageOverTime_RefreshPolicyReusesExistingRuntime()
+        {
+            target.AddComponent<SpellVitality>();
+            DamageOverTimeEffectDefinition effect =
+                Create<DamageOverTimeEffectDefinition>();
+            var settings = new DamageOverTimeEffectSettings(
+                5f,
+                0.5f,
+                3f,
+                stacking: DamageOverTimeStackingPolicy.RefreshDuration);
+
+            Assert.That(effect.Apply(EffectContext(), settings), Is.True);
+            SpellDamageOverTimeRuntime runtime =
+                target.GetComponent<SpellDamageOverTimeRuntime>();
+            runtime.TickRuntime(1f);
+            Assert.That(effect.Apply(EffectContext(), settings), Is.True);
+
+            Assert.That(
+                target.GetComponents<SpellDamageOverTimeRuntime>().Length,
+                Is.EqualTo(1));
+            Assert.That(runtime.Remaining, Is.EqualTo(3f).Within(0.001f));
+        }
+
+        [Test]
+        public void DamageOverTime_IndependentPolicyCreatesSeparateStacks()
+        {
+            SpellVitality vitality = target.AddComponent<SpellVitality>();
+            DamageOverTimeEffectDefinition effect =
+                Create<DamageOverTimeEffectDefinition>();
+            var settings = new DamageOverTimeEffectSettings(
+                5f,
+                0.5f,
+                3f,
+                stacking: DamageOverTimeStackingPolicy.StackIndependent);
+
+            Assert.That(effect.Apply(EffectContext(), settings), Is.True);
+            Assert.That(effect.Apply(EffectContext(), settings), Is.True);
+
+            Assert.That(
+                target.GetComponents<SpellDamageOverTimeRuntime>().Length,
+                Is.EqualTo(2));
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
         }
 
         [Test]

@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using ProjectEri.SkillSystemV2;
 using static CharacterDefinition;
 
 /// <summary>
@@ -192,6 +193,9 @@ public class WhipAttack : MonoBehaviour
 
     private void Update()
     {
+        if (SpellBuildUpControl2D.IsBasicAttackBlocked(gameObject))
+            return;
+
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null || pm.Active == null || pm.Active.def == null)
@@ -641,6 +645,14 @@ public class WhipAttack : MonoBehaviour
         float angle =
             Mathf.Atan2(dir.y, dir.x) *
             Mathf.Rad2Deg;
+
+        SpellDeflectionUtility.DeflectInBox(
+            gameObject,
+            center,
+            size,
+            angle,
+            dir,
+            ~0);
 
         int count = Physics2D.OverlapBoxNonAlloc(
             center,

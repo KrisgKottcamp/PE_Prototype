@@ -37,6 +37,21 @@ namespace ProjectEri.SkillSystemV2
             SpellEffectSettings settings);
     }
 
+    /// <summary>
+    /// Optional contract for effects that constrain or normalize the cast
+    /// context before resources are spent. Movement effects use this to clamp
+    /// destinations and reject obstructed paths during player targeting and
+    /// enemy-AI cast validation.
+    /// </summary>
+    public interface ISpellCastContextModifierEffectDefinition
+    {
+        bool TryModifyCastContext(
+            in CastContext requestedContext,
+            SpellEffectSettings settings,
+            out CastContext resolvedContext,
+            out string rejectionReason);
+    }
+
     public readonly struct SpellEffectContext
     {
         public SpellDefinition Spell { get; }
@@ -45,6 +60,10 @@ namespace ProjectEri.SkillSystemV2
         public Vector2 HitPoint { get; }
         public Vector2 HitNormal { get; }
         public float PotencyScale { get; }
+        public SpellEventType EventType { get; }
+        public GameObject EventSubject { get; }
+        public Component DeliveryRuntime { get; }
+        public bool HasDeliveryEvent => EventType != SpellEventType.None;
 
         public SpellEffectContext(
             SpellDefinition spell,
@@ -52,7 +71,10 @@ namespace ProjectEri.SkillSystemV2
             GameObject target,
             Vector2 hitPoint,
             Vector2 hitNormal,
-            float potencyScale)
+            float potencyScale,
+            SpellEventType eventType = SpellEventType.None,
+            GameObject eventSubject = null,
+            Component deliveryRuntime = null)
         {
             Spell = spell;
             Cast = cast;
@@ -60,11 +82,15 @@ namespace ProjectEri.SkillSystemV2
             HitPoint = hitPoint;
             HitNormal = hitNormal;
             PotencyScale = Mathf.Max(0f, potencyScale);
+            EventType = eventType;
+            EventSubject = eventSubject;
+            DeliveryRuntime = deliveryRuntime;
         }
     }
 
     public abstract class EffectDefinition : ScriptableObject
     {
+        [Tooltip("The reusable effect module's designer-facing name.")]
         [SerializeField]
         private string displayName;
 
@@ -83,11 +109,29 @@ namespace ProjectEri.SkillSystemV2
             return null;
         }
 
+        /// <summary>
+        /// True when this effect can run with only an event world point and no
+        /// GameObject recipient. Custom effects should override this when they
+        /// intentionally support world-point recipes.
+        /// </summary>
+        public virtual bool CanApplyWithoutRecipient(
+            SpellEffectSettings settings)
+        {
+            return false;
+        }
+
         public virtual bool Apply(
             in SpellEffectContext context,
             SpellEffectSettings settings)
         {
             return Apply(context);
+        }
+
+        public virtual bool DescribesDamageType(
+            SpellEffectSettings settings,
+            DamageTypeDefinition damageType)
+        {
+            return false;
         }
 
         public virtual void CollectValidationIssues(

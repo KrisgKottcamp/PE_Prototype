@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9d77841a2d341f89caf70d5184c44da, type: 3}
+  m_Name: Targeting_Menu_AllParty
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.MenuSelectTargetingDefinition
+  displayName: 
+  aimTimeScale: 0.15
+  maximumRange: 8
+  clampToMaximumRange: 1
+  previewRadius: 0.5
+  previewConeAngle: 0
+  targetGroup: 0
+  sortAlphabetically: 0

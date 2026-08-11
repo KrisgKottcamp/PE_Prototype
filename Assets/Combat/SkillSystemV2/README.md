@@ -16,21 +16,23 @@ skill system. It does not replace the current combat skill scripts yet.
 - `CastChainBudget` prevents recursive triggers from creating unlimited casts.
 - Editor validation and EditMode tests cover the initial contracts.
 - Player targeting assets build `CastContext` through immediate, direction,
-  point/area, or selected-target aim flows.
+  point/area, selected-target, two-point, or menu-selection aim flows.
 - `PlayerSpellTargetingController` owns preview, confirmation, cancellation,
   and time slowdown without spending resources before confirmation.
-- Initial deliveries cover self, instant target, area-at-point, melee arc, and
-  collision-safe 2D projectiles.
+- Deliveries cover self, instant target, area-at-point, lingering area,
+  point-click-for-caster, melee arc, collision-safe 2D projectiles, trip wires,
+  proximity mines, grenades, and ricocheting projectiles.
 - Universal effect receiver contracts decouple spell assets from player,
   enemy, prop, and summon implementations.
-- Effects now cover damage, healing, impulse/pushback, resources/AP, statuses,
-  spawning, gameplay signals, and safely queued secondary spells.
+- Effects now cover damage, damage over time, healing, impulse/pushback,
+  caster movement, resources/AP, statuses, spawning, gameplay signals, and
+  safely queued secondary spells.
 - Reference `SpellVitality`, `SpellResourcePool`, `StatusController`, and
   `Rigidbody2DImpulseReceiver` components make V2 independently testable.
 
 ## Still deliberately deferred
 
-- Beam, persistent-zone, summon, movement, and chain deliveries.
+- Beam, summon, and dedicated chain delivery archetypes.
 - Adapters for `PartyManager`, `EnemyHealth`, movement, and existing prefabs.
 - Enemy skill scoring and squad coordination.
 
@@ -55,11 +57,10 @@ attacks can use a zero-cost `SpellDefinition` in the loadout's Basic Attack slot
 
 1. Create a targeting asset from **Assets > Create > Project Eri > Skill System
    V2 > Targeting**. The asset controls range, aim slowdown, and preview shape.
-   Ready-to-tune presets for Quick Shot, Slash, Pushback, point/area, selected
-   target, and immediate casts are included under `Presets/Targeting`.
-2. Create a delivery asset from **Assets > Create > Project Eri > Skill System
-   V2 > Delivery**, then assign the targeting asset under **Player Targeting**.
-3. Assign the delivery to a `SpellDefinition`. The spell inspector reports an
+   target, and immediate casts are stored under `Content/Targeting`.
+2. Equip a reusable delivery module on the Spell Definition, then edit Player
+   Targeting and all delivery values in its inline settings.
+3. The spell inspector reports an
    error when the targeting asset cannot provide the delivery's required data.
 4. Add `SpellRunner`, `PlayerSpellTargetingController`,
    `PlayerMouseTargetingInput2D`, and `TargetingTimeScaleController` to the
@@ -83,25 +84,114 @@ confirmation rules never slow or block enemy casts.
 - Pushback: Direction Targeting with a cone preview + Melee Arc Delivery; the
   eventual pushback behavior belongs in an Effect Definition.
 - Slow Orb: Point/Area Targeting + Projectile or Area Delivery.
+- Dash: Point Targeting + Point Click Delivery + Caster Movement Effect.
 - Self buff: Immediate Targeting + Self Delivery.
+- Trip wire: Two Point Targeting + Trip Wire Delivery.
+- Proximity mine: Point Targeting + Proximity Mine Delivery.
+- Regular, sticky, or bouncy grenade: Point Targeting + Grenade Delivery.
+- Deflectable bank shot: Direction Targeting + Ricocheting Projectile Delivery.
+- Character buff/debuff: one of the Menu Select targeters + Instant Target
+  Delivery. Recovery Duration controls how long the caster remains committed.
+
+### Advanced player targeters
+
+Two Point Targeting confirms one endpoint, keeps aim time slowed, then confirms
+the second endpoint. It rejects a connection blocked by its Obstruction Mask
+and writes both points into `SpellTargetingPayload`. Enemy AI creates the same
+two-point payload directly, without using the player confirmation controller.
+
+Menu Select Targeting uses a player-only roster window while still producing a
+normal selected-target `CastContext`. The setup tool creates three reusable
+variants: every party member (including defeated members for revival), living
+party members, and living spawned enemies. The delivery and effects remain
+caster-neutral, so enemies can use those same spells with AI-selected targets.
 
 ## Effects setup
 
-1. Create or duplicate an effect under **Assets > Create > Project Eri > Skill
-   System V2 > Effects**.
-2. Add any number of effect assets to a `SpellDefinition`. Deliveries decide
+1. Store one reusable module for each effect behavior under `Content/Effects`.
+2. Add any number of effect modules to a `SpellDefinition` and edit their
+   values inline. Deliveries decide
    which objects receive them; effects only ask those objects for capabilities
    such as `ISpellDamageReceiver` or `ISpellResourceReceiver`.
 3. For standalone V2 prototypes, add `SpellVitality`, `SpellResourcePool`,
    `StatusController`, or `Rigidbody2DImpulseReceiver` to targets. The later
    integration branch will adapt the existing `EnemyHealth` and `PartyManager`
    systems instead of duplicating their state.
-4. Starter Physical Damage, Healing, Pushback, and Gain AP effect assets are in
-   `Presets/Effects`.
+4. All authored SkillSystemV2 assets live under `Content`; supporting damage
+   types and resource definitions live under `Content/Definitions`.
 
 Statuses can compose effects when applied, at a periodic interval, and when
 removed. This supports data-authored poison, regeneration, delayed bursts, and
 similar behaviors without adding code to `SpellRunner`.
+
+`DamageOverTimeEffectDefinition` applies reusable timed damage with inline
+tick damage, interval, duration, Damage Type, initial-tick, and stacking
+settings. It can be delivered by any delivery archetype.
+
+`CasterMovementEffectDefinition` turns the Point Click delivery into a dash,
+blink, or teleport. Each spell independently configures maximum distance,
+travel speed, instant movement, line-of-sight requirements, and obstruction
+layers. Its cast-context constraint clamps the targeting preview and rejects a
+blocked destination before resources are spent.
+
+Reaction slots let persistent deliveries respond to contacts from every
+delivery through one normalized interaction service. An empty filter accepts
+everything; optional conditions narrow by relationship, team, spell, category,
+delivery, contact phase, effect, or Damage Type. Ordered response modules can
+activate or deactivate a delivery, pulse its effects on occupants, and destroy
+the receiving delivery after the sequence completes.
+
+Reactive Effect Groups are optional named effect sets inside a Spell
+Definition. Each group has its own inline effect settings, initial active state,
+and either inherits the spell's target rules or supplies narrower rules of its
+own. Reactions can enable or disable a group without changing the delivery.
+Once enabled on a Lingering Area, the group affects both current occupants and
+future valid entrants at the normal application interval. This separates an
+area's persistent behavior from new behavior unlocked by an interaction—for
+example, a Slow Orb can always slow everything inside but enable enemy-only
+Damage Over Time after a projectile hits it.
+
+## Event Effect Recipes
+
+Default Effects remain the simple path: the delivery applies them at its normal
+targeting moment. Event Effect Recipes are the optional composition layer for
+spells that need more than that. Every recipe reads as:
+
+**WHEN a delivery moment happens → ONLY IF the involved object matches → APPLY
+these effects TO this recipient.**
+
+Supported moments currently include cast start, delivery start, chosen-point
+arrival, target hit, blocking hit, delivery stop, area creation, area pulse,
+area entry, area exit, expiration, arming, trip-wire crossing, mine proximity,
+timer expiration, bouncing, sticking, deflection, detonation, and a manually
+invoked delivery reaction. A recipe can apply its effects to the involved object, original
+caster, originally selected target, or a world point with no object recipient.
+Each recipe carries its own inline effect settings and optional subject rules.
+
+This creates combinations without adding spell-specific scripts:
+
+- Projectile stops → move the caster to the impact point.
+- Projectile hits → spawn an object at the hit point.
+- Projectile stops → trigger a secondary spell whose delivery creates an area.
+- Object enters an area → apply a status or grant a resource.
+- Area expires → spawn a final burst at its world position.
+- Filtered delivery reaction → run a Manual Reaction recipe on the receiving
+  caster, source caster, or contact point.
+
+`SpellEffectContext` now includes the event type, event subject, event point,
+normal, and runtime delivery component. New effect modules can therefore use
+the same recipes without requiring changes to every delivery. Deliveries only
+report standardized moments; effects decide what those moments mean.
+
+`CasterMovementEffectDefinition` supports both Aimed Point and Delivery Event
+Point destinations. Event-point movement can automatically offset the caster
+by its collider footprint and an extra clearance value, making projectile
+teleports land outside enemies and walls rather than inside them.
+
+Event recipes are caster-neutral. Player targeting still builds a CastContext
+through the confirmation UI; enemy AI supplies the same CastContext directly.
+Everything after that—including impact movement, spawned areas, reactions, and
+secondary spells—runs identically for both.
 
 `SpawnEffectDefinition` initializes every `ISpellSpawnReceiver` on its prefab.
 For example, an AP-collecting orb can use a trigger collider plus

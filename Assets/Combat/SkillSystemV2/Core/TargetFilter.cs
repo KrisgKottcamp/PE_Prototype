@@ -15,15 +15,19 @@ namespace ProjectEri.SkillSystemV2
     [Serializable]
     public struct TargetFilter
     {
+        [Tooltip("Which teams may be affected relative to the caster: enemies, allies, self, anyone, or no one.")]
         [SerializeField]
         private TargetRelationship relationship;
 
+        [Tooltip("Enable this when team relationship alone is not enough and targets must also be on selected Unity layers.")]
         [SerializeField]
         private bool useLayerMask;
 
+        [Tooltip("When Use Layer Mask is enabled, only objects on these Unity layers may be affected.")]
         [SerializeField]
         private LayerMask allowedLayers;
 
+        [Tooltip("Require the object to expose SkillSystemV2's target marker. Disable this for walls, projectiles, and other valid non-character objects.")]
         [SerializeField]
         private bool requireSpellTarget;
 
@@ -48,12 +52,37 @@ namespace ProjectEri.SkillSystemV2
             in CastContext context,
             GameObject candidate)
         {
-            return IsValid(context, candidate, out _);
+            return IsValid(context, candidate, candidate, out _);
         }
 
         public bool IsValid(
             in CastContext context,
             GameObject candidate,
+            GameObject detectedObject)
+        {
+            return IsValid(
+                context,
+                candidate,
+                detectedObject,
+                out _);
+        }
+
+        public bool IsValid(
+            in CastContext context,
+            GameObject candidate,
+            out string rejectionReason)
+        {
+            return IsValid(
+                context,
+                candidate,
+                candidate,
+                out rejectionReason);
+        }
+
+        public bool IsValid(
+            in CastContext context,
+            GameObject candidate,
+            GameObject detectedObject,
             out string rejectionReason)
         {
             rejectionReason = string.Empty;
@@ -64,8 +93,11 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
+            GameObject layerObject = detectedObject != null
+                ? detectedObject
+                : candidate;
             if (useLayerMask &&
-                (allowedLayers.value & (1 << candidate.layer)) == 0)
+                (allowedLayers.value & (1 << layerObject.layer)) == 0)
             {
                 rejectionReason = "Target is on a filtered layer.";
                 return false;
@@ -86,7 +118,9 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
-            bool isSelf = IsSameHierarchy(context.Caster, candidate);
+            bool isSelf = SpellTargetResolver.IsSameHierarchy(
+                context.Caster,
+                candidate);
 
             if (relationship == TargetRelationship.Any)
                 return true;
@@ -134,21 +168,6 @@ namespace ProjectEri.SkillSystemV2
                     rejectionReason = "Unsupported target relationship.";
                     return false;
             }
-        }
-
-        private static bool IsSameHierarchy(
-            GameObject first,
-            GameObject second)
-        {
-            if (first == null || second == null)
-                return false;
-
-            Transform firstTransform = first.transform;
-            Transform secondTransform = second.transform;
-
-            return firstTransform == secondTransform ||
-                   firstTransform.IsChildOf(secondTransform) ||
-                   secondTransform.IsChildOf(firstTransform);
         }
 
         private static T FindInterfaceInParents<T>(GameObject candidate)

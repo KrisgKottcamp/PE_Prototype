@@ -92,13 +92,17 @@ namespace ProjectEri.SkillSystemV2
                 ? requestedContext.WithCaster(gameObject)
                 : requestedContext;
 
-            if (!spell.ValidateContext(context, out string contextReason))
+            if (!spell.TryResolveContext(
+                    context,
+                    out CastContext resolvedContext,
+                    out string contextReason))
             {
                 return Reject(
                     SpellCastFailure.InvalidContext,
                     out failure,
                     contextReason);
             }
+            context = resolvedContext;
 
             if (GetCooldownRemaining(spell) > 0f)
                 return Reject(SpellCastFailure.OnCooldown, out failure);
@@ -151,6 +155,17 @@ namespace ProjectEri.SkillSystemV2
             activeDelivery = null;
 
             StartCooldown(spell);
+
+            var eventContext = new SpellExecutionContext(
+                activeSpell,
+                activeContext);
+            eventContext.DispatchEvent(new SpellEventOccurrence(
+                SpellEventType.CastStarted,
+                null,
+                activeContext.Origin,
+                activeContext.HasAimDirection
+                    ? activeContext.AimDirection
+                    : Vector2.zero));
 
             CastStarted?.Invoke(new SpellCastEvent(
                 activeSpell,
@@ -219,13 +234,17 @@ namespace ProjectEri.SkillSystemV2
                 ? requestedContext.WithCaster(gameObject)
                 : requestedContext;
 
-            if (!spell.ValidateContext(context, out string contextReason))
+            if (!spell.TryResolveContext(
+                    context,
+                    out CastContext resolvedContext,
+                    out string contextReason))
             {
                 return Reject(
                     SpellCastFailure.InvalidContext,
                     out failure,
                     contextReason);
             }
+            context = resolvedContext;
 
             CastChainBudget budget = context.ChainBudget ??
                                      spell.CreateChainBudget();

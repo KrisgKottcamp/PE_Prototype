@@ -91,6 +91,7 @@ public class CombatSkillMenuController : MonoBehaviour
     private PlayerSpellV2Bridge v2Bridge;
     private PlayerSpellV2Bridge subscribedV2Bridge;
     private CombatLockout pawnLockout;
+    private SpellBuildUpControl2D buildUpControl;
     private MonoBehaviour[] pawnControlScripts;
 
     private CombatSkillSystem.PendingCast pendingCast;
@@ -205,6 +206,9 @@ public class CombatSkillMenuController : MonoBehaviour
             return;
 
         CachePawnRefs();
+
+        if (buildUpControl != null && buildUpControl.BlocksSkillUsage)
+            return;
 
         if (pawnLockout != null &&
             pawnLockout.IsLockedOut)
@@ -336,6 +340,7 @@ public class CombatSkillMenuController : MonoBehaviour
             : skillSystem.gameObject;
 
         pawnLockout = pawn.GetComponent<CombatLockout>();
+        buildUpControl = pawn.GetComponent<SpellBuildUpControl2D>();
 
         List<MonoBehaviour> list = new List<MonoBehaviour>();
 
