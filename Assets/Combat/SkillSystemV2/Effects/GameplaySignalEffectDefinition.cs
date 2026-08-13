@@ -84,6 +84,18 @@ namespace ProjectEri.SkillSystemV2
             return true;
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            GameplaySignalEffectSettings resolved =
+                settings as GameplaySignalEffectSettings ??
+                (GameplaySignalEffectSettings)CreateDefaultSettings();
+            return resolved.Signal == null
+                ? "No Gameplay Signal asset is assigned to this effect."
+                : base.DescribeApplicationFailure(context, settings);
+        }
+
         public override bool Apply(in SpellEffectContext context)
         {
             return Apply(context, CreateDefaultSettings());

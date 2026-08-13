@@ -146,6 +146,18 @@ namespace ProjectEri.SkillSystemV2
             return true;
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            SpawnEffectSettings resolved =
+                settings as SpawnEffectSettings ??
+                (SpawnEffectSettings)CreateDefaultSettings();
+            return resolved.Prefab == null
+                ? "No prefab is assigned to the Spawn Object effect."
+                : base.DescribeApplicationFailure(context, settings);
+        }
+
         public override bool Apply(in SpellEffectContext context)
         {
             return Apply(context, CreateDefaultSettings());

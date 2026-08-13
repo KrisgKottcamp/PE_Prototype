@@ -107,6 +107,25 @@ namespace ProjectEri.SkillSystemV2
             return receiver.TryChangeResource(request, out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            ResourceEffectSettings resolved =
+                settings as ResourceEffectSettings ??
+                (ResourceEffectSettings)CreateDefaultSettings();
+            if (resolved.Resource == null)
+                return "No Resource Definition is assigned to this effect.";
+            if (SpellEffectReceiverResolver.Find<ISpellResourceReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellResourceReceiver for AP or " +
+                       "other resource changes.";
+            }
+
+            return "The target's resource receiver rejected the change.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

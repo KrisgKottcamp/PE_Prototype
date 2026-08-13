@@ -287,6 +287,7 @@ namespace ProjectEri.SkillSystemV2
                 Vector2 normal = target.transform.position - transform.position;
                 context.ApplyEffects(
                     target,
+                    hit.gameObject,
                     point,
                     normal.sqrMagnitude > 0.000001f
                         ? normal.normalized

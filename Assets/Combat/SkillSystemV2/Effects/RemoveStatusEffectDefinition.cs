@@ -77,6 +77,26 @@ namespace ProjectEri.SkillSystemV2
                        out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            RemoveStatusEffectSettings resolved =
+                settings as RemoveStatusEffectSettings ??
+                (RemoveStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
+                return "No Status Definition is assigned to this effect.";
+            if (SpellEffectReceiverResolver.Find<ISpellStatusReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellStatusReceiver, so no status " +
+                       "can be removed.";
+            }
+
+            return "The target did not have the requested status or the " +
+                   "status receiver rejected its removal.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

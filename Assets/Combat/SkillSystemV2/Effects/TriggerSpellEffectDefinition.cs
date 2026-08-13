@@ -180,6 +180,31 @@ namespace ProjectEri.SkillSystemV2
                 out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            TriggerSpellEffectSettings resolved =
+                settings as TriggerSpellEffectSettings ??
+                (TriggerSpellEffectSettings)CreateDefaultSettings();
+            if (resolved.SecondarySpell == null)
+                return "No secondary Spell Definition is assigned.";
+
+            GameObject runnerObject = resolved.RunnerSource ==
+                                      TriggeredSpellRunnerSource.EffectTarget
+                ? context.Target
+                : context.Cast.Caster;
+            if (runnerObject == null ||
+                runnerObject.GetComponentInParent<SpellRunner>() == null)
+            {
+                return "The selected Triggered Spell source has no " +
+                       "SpellRunner.";
+            }
+
+            return "The SpellRunner rejected the triggered cast. Check the " +
+                   "chain budget and secondary spell requirements.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

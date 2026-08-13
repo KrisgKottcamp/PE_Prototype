@@ -95,6 +95,25 @@ namespace ProjectEri.SkillSystemV2
             return receiver.TryApplyStatus(request, out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            ApplyStatusEffectSettings resolved =
+                settings as ApplyStatusEffectSettings ??
+                (ApplyStatusEffectSettings)CreateDefaultSettings();
+            if (resolved.Status == null)
+                return "No Status Definition is assigned to this effect.";
+            if (SpellEffectReceiverResolver.Find<ISpellStatusReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellStatusReceiver, so it cannot " +
+                       "receive statuses.";
+            }
+
+            return "The status receiver rejected this status application.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

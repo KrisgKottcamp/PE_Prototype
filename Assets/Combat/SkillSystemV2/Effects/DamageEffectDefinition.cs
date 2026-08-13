@@ -94,6 +94,27 @@ namespace ProjectEri.SkillSystemV2
             return receiver.TryReceiveDamage(request, out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            DamageEffectSettings resolved =
+                settings as DamageEffectSettings ??
+                (DamageEffectSettings)CreateDefaultSettings();
+            if (SpellEffectReceiverResolver.Find<ISpellDamageReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellDamageReceiver. Add the " +
+                       "appropriate player or enemy health adapter.";
+            }
+
+            if (resolved.Amount * context.PotencyScale <= 0f)
+                return "The resolved damage amount is zero.";
+
+            return "The damage receiver rejected the request. Check " +
+                   "invulnerability, team rules, and health state.";
+        }
+
         public override bool DescribesDamageType(
             SpellEffectSettings settings,
             DamageTypeDefinition queriedType)

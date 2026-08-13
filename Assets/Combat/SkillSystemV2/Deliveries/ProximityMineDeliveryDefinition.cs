@@ -454,7 +454,11 @@ namespace ProjectEri.SkillSystemV2
             Vector2 normal = offset.sqrMagnitude > 0.000001f
                 ? offset.normalized
                 : Vector2.zero;
-            context.ApplyEffects(target, point, normal);
+            context.ApplyEffects(
+                target,
+                detectedObject != null ? detectedObject : target,
+                point,
+                normal);
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.TargetHit,
                 target,

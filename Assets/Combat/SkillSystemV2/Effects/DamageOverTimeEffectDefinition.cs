@@ -158,6 +158,22 @@ namespace ProjectEri.SkillSystemV2
             return true;
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            if (context.Target == null)
+                return "Damage Over Time was given no target.";
+            if (SpellEffectReceiverResolver.Find<ISpellDamageReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellDamageReceiver, so it " +
+                       "cannot receive Damage Over Time.";
+            }
+
+            return base.DescribeApplicationFailure(context, settings);
+        }
+
         public override bool DescribesDamageType(
             SpellEffectSettings settings,
             DamageTypeDefinition queriedType)

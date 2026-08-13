@@ -99,7 +99,12 @@ namespace ProjectEri.SkillSystemV2
             if (useLayerMask &&
                 (allowedLayers.value & (1 << layerObject.layer)) == 0)
             {
-                rejectionReason = "Target is on a filtered layer.";
+                string layerName = LayerMask.LayerToName(layerObject.layer);
+                if (string.IsNullOrWhiteSpace(layerName))
+                    layerName = layerObject.layer.ToString();
+                rejectionReason =
+                    $"Detected object '{layerObject.name}' is on layer " +
+                    $"'{layerName}', which is not enabled in Allowed Layers.";
                 return false;
             }
 

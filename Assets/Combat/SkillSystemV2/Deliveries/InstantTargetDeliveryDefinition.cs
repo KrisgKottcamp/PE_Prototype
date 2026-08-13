@@ -69,6 +69,9 @@ namespace ProjectEri.SkillSystemV2
                     Vector2 normal = hitPoint - context.Cast.Origin;
                     context.ApplyEffects(
                         target,
+                        context.Cast.SelectedTarget != null
+                            ? context.Cast.SelectedTarget
+                            : target,
                         hitPoint,
                         normal.sqrMagnitude > 0.000001f
                             ? normal.normalized

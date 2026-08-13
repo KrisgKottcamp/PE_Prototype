@@ -529,6 +529,7 @@ namespace ProjectEri.SkillSystemV2
                 Vector2 normal = point - (Vector2)transform.position;
                 context.ApplyNonPresenceEffects(
                     target,
+                    hit.gameObject,
                     point,
                     normal.sqrMagnitude > 0.000001f
                         ? normal.normalized

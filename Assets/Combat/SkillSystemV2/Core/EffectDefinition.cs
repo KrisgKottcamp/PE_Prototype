@@ -134,6 +134,20 @@ namespace ProjectEri.SkillSystemV2
             return false;
         }
 
+        /// <summary>
+        /// Plain-English explanation used when Apply returns false. Effects
+        /// should override this when they can identify a more useful missing
+        /// receiver, invalid setting, or unsupported target condition.
+        /// </summary>
+        public virtual string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            return context.Target == null
+                ? "The effect requires a target but none was supplied."
+                : "The effect declined this target. Check its required receiver components and settings.";
+        }
+
         public virtual void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

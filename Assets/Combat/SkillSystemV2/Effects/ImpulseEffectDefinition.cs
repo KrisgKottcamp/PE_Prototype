@@ -120,6 +120,30 @@ namespace ProjectEri.SkillSystemV2
             return receiver.TryReceiveImpulse(request);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            if (SpellEffectReceiverResolver.Find<ISpellImpulseReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellImpulseReceiver, so it " +
+                       "cannot be knocked back or pulled.";
+            }
+
+            ImpulseEffectSettings resolved =
+                settings as ImpulseEffectSettings ??
+                (ImpulseEffectSettings)CreateDefaultSettings();
+            if (ResolveDirection(context, resolved.Direction).sqrMagnitude <=
+                0.000001f)
+            {
+                return "The impulse direction resolved to zero. Check the " +
+                       "caster, aim direction, and hit normal.";
+            }
+
+            return "The target's impulse receiver rejected the request.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

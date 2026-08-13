@@ -104,6 +104,146 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void DetailedApplication_UsesDetectedHurtboxLayerAfterResolvingRoot()
+        {
+            target.AddComponent<CombatTarget>();
+            target.AddComponent<CombatTeamMember>().SetTeam(CombatTeam.Enemy);
+            SpellVitality vitality = target.AddComponent<SpellVitality>();
+            var hurtbox = new GameObject("Enemy Hurtbox");
+            hurtbox.transform.SetParent(target.transform);
+            hurtbox.layer = 8;
+
+            DamageEffectDefinition damage = Create<DamageEffectDefinition>();
+            SpellDefinition spell = Create<SpellDefinition>();
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(
+                    TargetRelationship.Enemies,
+                    requireTarget: true,
+                    filterByLayer: true,
+                    layers: 1 << 8));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(damage));
+
+            var cast = new CastContext(
+                caster,
+                CombatTeam.Player,
+                caster.transform.position,
+                Vector2.right,
+                true,
+                target.transform.position,
+                true,
+                target);
+            var context = new SpellExecutionContext(spell, cast);
+
+            SpellEffectApplicationResult rejected =
+                context.ApplyEffectsDetailed(
+                    target,
+                    target,
+                    target.transform.position,
+                    Vector2.left);
+            Assert.That(
+                rejected.Status,
+                Is.EqualTo(SpellEffectApplicationStatus.TargetRejected));
+
+            SpellEffectApplicationResult applied =
+                context.ApplyEffectsDetailed(
+                    target,
+                    hurtbox,
+                    target.transform.position,
+                    Vector2.left);
+            Assert.That(
+                applied.Status,
+                Is.EqualTo(SpellEffectApplicationStatus.Applied));
+            Assert.That(applied.AppliedCount, Is.EqualTo(1));
+            Assert.That(applied.ResolvedTarget, Is.SameAs(target));
+            Assert.That(applied.DetectedObject, Is.SameAs(hurtbox));
+            Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
+
+            Object.DestroyImmediate(hurtbox);
+        }
+
+        [Test]
+        public void DetailedApplication_ExplainsMissingDamageReceiver()
+        {
+            DamageEffectDefinition damage = Create<DamageEffectDefinition>();
+            SpellDefinition spell = Create<SpellDefinition>();
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(TargetRelationship.Any));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(damage));
+            var cast = CastContext.ForDirection(
+                caster,
+                caster.transform.position,
+                Vector2.right);
+            var context = new SpellExecutionContext(spell, cast);
+            SpellEffectSlotDiagnostic received = default;
+            bool receivedDiagnostic = false;
+            void Handle(SpellEffectSlotDiagnostic diagnostic)
+            {
+                received = diagnostic;
+                receivedDiagnostic = true;
+            }
+
+            SpellRuntimeDiagnostics.EffectSlotCompleted += Handle;
+            try
+            {
+                SpellEffectApplicationResult result =
+                    context.ApplyEffectsDetailed(
+                        target,
+                        target.transform.position,
+                        Vector2.left);
+
+                Assert.That(
+                    result.Status,
+                    Is.EqualTo(
+                        SpellEffectApplicationStatus.AllEffectsRejected));
+                Assert.That(result.AppliedCount, Is.Zero);
+                Assert.That(result.RejectedCount, Is.EqualTo(1));
+                Assert.That(receivedDiagnostic, Is.True);
+                Assert.That(
+                    received.Status,
+                    Is.EqualTo(SpellEffectSlotStatus.Rejected));
+                StringAssert.Contains(
+                    "ISpellDamageReceiver",
+                    received.Message);
+            }
+            finally
+            {
+                SpellRuntimeDiagnostics.EffectSlotCompleted -= Handle;
+            }
+        }
+
+        [Test]
+        public void DetailedApplication_ReportsEmptySpellWithoutThrowing()
+        {
+            SpellDefinition spell = Create<SpellDefinition>();
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(TargetRelationship.Any));
+            spell.ReplaceEffectSlots();
+            var cast = CastContext.ForDirection(
+                caster,
+                caster.transform.position,
+                Vector2.right);
+            var context = new SpellExecutionContext(spell, cast);
+
+            SpellEffectApplicationResult result =
+                context.ApplyEffectsDetailed(
+                    target,
+                    target.transform.position,
+                    Vector2.zero);
+
+            Assert.That(
+                result.Status,
+                Is.EqualTo(
+                    SpellEffectApplicationStatus.NoEffectsConfigured));
+            Assert.That(result.Succeeded, Is.False);
+        }
+
+        [Test]
         public void DamageOverTime_TicksRepeatedDamageAtConfiguredInterval()
         {
             SpellVitality vitality = target.AddComponent<SpellVitality>();

@@ -76,6 +76,21 @@ namespace ProjectEri.SkillSystemV2
             return receiver.TryReceiveHealing(request, out _);
         }
 
+        public override string DescribeApplicationFailure(
+            in SpellEffectContext context,
+            SpellEffectSettings settings)
+        {
+            if (SpellEffectReceiverResolver.Find<ISpellHealingReceiver>(
+                    context.Target) == null)
+            {
+                return "The target has no ISpellHealingReceiver. Add a " +
+                       "healing adapter to the character prefab.";
+            }
+
+            return "The healing receiver rejected the request. The target " +
+                   "may be full, defeated without Allow Revive, or invalid.";
+        }
+
         public override void CollectValidationIssues(
             List<SpellValidationIssue> issues)
         {

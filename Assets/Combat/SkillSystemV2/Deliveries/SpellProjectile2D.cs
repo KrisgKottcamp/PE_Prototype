@@ -194,6 +194,7 @@ namespace ProjectEri.SkillSystemV2
 
                 context.ApplyEffects(
                     resolved,
+                    hit.collider.gameObject,
                     hit.point,
                     hit.normal);
                 context.DispatchEvent(new SpellEventOccurrence(

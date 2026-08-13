@@ -324,7 +324,11 @@ namespace ProjectEri.SkillSystemV2
             if (validTarget && subjectId != 0 &&
                 hitTargets.Add(subjectId))
             {
-                context.ApplyEffects(subject, point, surfaceNormal);
+                context.ApplyEffects(
+                    subject,
+                    nearest.collider.gameObject,
+                    point,
+                    surfaceNormal);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     subject,

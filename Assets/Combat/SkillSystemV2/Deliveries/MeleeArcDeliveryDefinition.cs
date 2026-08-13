@@ -180,6 +180,7 @@ namespace ProjectEri.SkillSystemV2
 
                     context.ApplyEffects(
                         target,
+                        hit.gameObject,
                         hitPoint,
                         toTarget.sqrMagnitude > 0.000001f
                             ? toTarget.normalized

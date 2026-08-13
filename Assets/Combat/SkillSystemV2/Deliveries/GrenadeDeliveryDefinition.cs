@@ -537,7 +537,11 @@ namespace ProjectEri.SkillSystemV2
                     continue;
                 Vector2 point = hit.ClosestPoint(center);
                 Vector2 normal = (Vector2)target.transform.position - center;
-                context.ApplyEffects(target, point, normal.normalized);
+                context.ApplyEffects(
+                    target,
+                    hit.gameObject,
+                    point,
+                    normal.normalized);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     target,
