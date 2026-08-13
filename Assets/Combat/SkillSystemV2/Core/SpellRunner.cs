@@ -79,18 +79,30 @@ namespace ProjectEri.SkillSystemV2
             in CastContext requestedContext,
             out SpellCastFailure failure)
         {
-            if (spell == null)
-                return Reject(SpellCastFailure.MissingSpell, out failure);
-
-            if (IsCasting)
-                return Reject(SpellCastFailure.RunnerBusy, out failure);
-
-            if (!ValidateDefinition(spell))
-                return Reject(SpellCastFailure.InvalidDefinition, out failure);
-
             CastContext context = requestedContext.Caster == null
                 ? requestedContext.WithCaster(gameObject)
                 : requestedContext;
+
+            if (spell == null)
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.MissingSpell,
+                    out failure);
+
+            if (IsCasting)
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.RunnerBusy,
+                    out failure);
+
+            if (!ValidateDefinition(spell))
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.InvalidDefinition,
+                    out failure);
 
             if (!spell.TryResolveContext(
                     context,
@@ -98,6 +110,8 @@ namespace ProjectEri.SkillSystemV2
                     out string contextReason))
             {
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.InvalidContext,
                     out failure,
                     contextReason);
@@ -105,7 +119,11 @@ namespace ProjectEri.SkillSystemV2
             context = resolvedContext;
 
             if (GetCooldownRemaining(spell) > 0f)
-                return Reject(SpellCastFailure.OnCooldown, out failure);
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.OnCooldown,
+                    out failure);
 
             CastChainBudget budget = context.ChainBudget ??
                                      spell.CreateChainBudget();
@@ -114,6 +132,8 @@ namespace ProjectEri.SkillSystemV2
             if (!budget.CanActivate(context.ChainDepth))
             {
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.ChainBudgetExceeded,
                     out failure);
             }
@@ -128,6 +148,8 @@ namespace ProjectEri.SkillSystemV2
                 if (resourceProvider == null)
                 {
                     return Reject(
+                        spell,
+                        context,
                         SpellCastFailure.MissingResourceProvider,
                         out failure);
                 }
@@ -136,6 +158,8 @@ namespace ProjectEri.SkillSystemV2
                     !resourceProvider.TrySpend(cost))
                 {
                     return Reject(
+                        spell,
+                        context,
                         SpellCastFailure.InsufficientResources,
                         out failure);
                 }
@@ -146,6 +170,8 @@ namespace ProjectEri.SkillSystemV2
                 resourceProvider?.Refund(cost);
 
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.ChainBudgetExceeded,
                     out failure);
             }
@@ -194,7 +220,14 @@ namespace ProjectEri.SkillSystemV2
             CastContext interruptedContext = activeContext;
             SpellCastPhase interruptedPhase = currentPhase;
 
-            CancelDelivery();
+            SpellRuntimeDiagnostics.ReportDeliveryState(
+                interruptedSpell,
+                interruptedContext,
+                SpellDeliveryLifecycleStage.CastInterrupted,
+                string.IsNullOrWhiteSpace(reason)
+                    ? "The cast was interrupted."
+                    : reason);
+            CancelDelivery(reason);
             ClearActiveCast();
 
             CastInterrupted?.Invoke(new SpellCastEvent(
@@ -216,23 +249,33 @@ namespace ProjectEri.SkillSystemV2
             if (!IsCasting)
                 return TryCast(spell, requestedContext, out failure);
 
+            CastContext context = requestedContext.Caster == null
+                ? requestedContext.WithCaster(gameObject)
+                : requestedContext;
+
             if (spell == null)
-                return Reject(SpellCastFailure.MissingSpell, out failure);
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.MissingSpell,
+                    out failure);
 
             if (triggeredCastQueue.Count >=
                 Mathf.Max(1, maximumQueuedTriggeredCasts))
             {
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.TriggeredQueueFull,
                     out failure);
             }
 
             if (!ValidateDefinition(spell))
-                return Reject(SpellCastFailure.InvalidDefinition, out failure);
-
-            CastContext context = requestedContext.Caster == null
-                ? requestedContext.WithCaster(gameObject)
-                : requestedContext;
+                return Reject(
+                    spell,
+                    context,
+                    SpellCastFailure.InvalidDefinition,
+                    out failure);
 
             if (!spell.TryResolveContext(
                     context,
@@ -240,6 +283,8 @@ namespace ProjectEri.SkillSystemV2
                     out string contextReason))
             {
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.InvalidContext,
                     out failure,
                     contextReason);
@@ -253,6 +298,8 @@ namespace ProjectEri.SkillSystemV2
             if (!budget.CanActivate(context.ChainDepth))
             {
                 return Reject(
+                    spell,
+                    context,
                     SpellCastFailure.ChainBudgetExceeded,
                     out failure);
             }
@@ -348,11 +395,22 @@ namespace ProjectEri.SkillSystemV2
         }
 
         private bool Reject(
+            SpellDefinition rejectedSpell,
+            in CastContext rejectedContext,
             SpellCastFailure rejectedFailure,
             out SpellCastFailure failure,
             string detail = "")
         {
             failure = rejectedFailure;
+
+            string diagnosticMessage = string.IsNullOrWhiteSpace(detail)
+                ? $"The cast was rejected: {rejectedFailure}."
+                : $"The cast was rejected: {rejectedFailure}. {detail}";
+            SpellRuntimeDiagnostics.ReportDeliveryState(
+                rejectedSpell,
+                rejectedContext,
+                SpellDeliveryLifecycleStage.CastRejected,
+                diagnosticMessage);
 
             if (logRejectedCasts)
             {
@@ -465,27 +523,59 @@ namespace ProjectEri.SkillSystemV2
 
         private bool BeginDelivery()
         {
+            var executionContext = new SpellExecutionContext(
+                activeSpell,
+                activeContext);
+
             try
             {
-                var executionContext = new SpellExecutionContext(
-                    activeSpell,
-                    activeContext);
-
                 activeDelivery = activeSpell.Delivery.CreateExecution(
                     executionContext,
                     activeSpell.DeliverySettings);
+            }
+            catch (Exception exception)
+            {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedToCreate,
+                    "The delivery threw an exception while creating its runtime execution.",
+                    exception: exception);
+                Debug.LogException(exception, activeSpell.Delivery);
+                Interrupt("Delivery failed while creating its runtime execution.");
+                return false;
+            }
 
-                if (activeDelivery == null)
-                {
-                    Interrupt("Delivery returned no runtime execution.");
-                    return false;
-                }
+            if (activeDelivery == null)
+            {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedToCreate,
+                    "The Delivery Definition returned no runtime execution.");
+                Interrupt("Delivery returned no runtime execution.");
+                return false;
+            }
 
+            SpellRuntimeDiagnostics.ReportDeliveryState(
+                activeSpell,
+                activeContext,
+                SpellDeliveryLifecycleStage.ExecutionCreated,
+                "The delivery runtime execution was created.");
+
+            try
+            {
                 activeDelivery.Begin();
                 return true;
             }
             catch (Exception exception)
             {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedToBegin,
+                    "The delivery runtime threw an exception during Begin.",
+                    exception: exception);
                 Debug.LogException(exception, activeSpell.Delivery);
                 Interrupt("Delivery failed to begin.");
                 return false;
@@ -503,6 +593,12 @@ namespace ProjectEri.SkillSystemV2
             }
             catch (Exception exception)
             {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedDuringTick,
+                    "The delivery runtime threw an exception while executing.",
+                    exception: exception);
                 Debug.LogException(exception, activeSpell.Delivery);
                 Interrupt("Delivery failed while executing.");
             }
@@ -519,15 +615,27 @@ namespace ProjectEri.SkillSystemV2
             }
             catch (Exception exception)
             {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedToEnd,
+                    "The delivery runtime threw an exception during End.",
+                    exception: exception);
                 Debug.LogException(exception, activeSpell.Delivery);
                 Interrupt("Delivery failed while ending.");
                 return;
             }
 
+            SpellRuntimeDiagnostics.ReportDeliveryState(
+                activeSpell,
+                activeContext,
+                SpellDeliveryLifecycleStage.ExecutionEnded,
+                "The SpellRunner ended the delivery normally.");
+
             activeDelivery = null;
         }
 
-        private void CancelDelivery()
+        private void CancelDelivery(string reason)
         {
             if (activeDelivery == null)
                 return;
@@ -535,9 +643,22 @@ namespace ProjectEri.SkillSystemV2
             try
             {
                 activeDelivery.Cancel();
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.Cancelled,
+                    string.IsNullOrWhiteSpace(reason)
+                        ? "The delivery was cancelled."
+                        : reason);
             }
             catch (Exception exception)
             {
+                SpellRuntimeDiagnostics.ReportDeliveryState(
+                    activeSpell,
+                    activeContext,
+                    SpellDeliveryLifecycleStage.FailedToCancel,
+                    "The delivery runtime threw an exception during Cancel.",
+                    exception: exception);
                 Debug.LogException(exception, activeSpell);
             }
 
@@ -552,6 +673,12 @@ namespace ProjectEri.SkillSystemV2
             EndDelivery();
             if (!IsCasting)
                 return;
+
+            SpellRuntimeDiagnostics.ReportDeliveryState(
+                completedSpell,
+                completedContext,
+                SpellDeliveryLifecycleStage.CastCompleted,
+                "The cast completed every phase normally.");
 
             ClearActiveCast();
 

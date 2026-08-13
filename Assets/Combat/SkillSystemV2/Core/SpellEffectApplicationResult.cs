@@ -113,7 +113,7 @@ namespace ProjectEri.SkillSystemV2
     /// logs and allocates no collections. Tools and debug components can
     /// subscribe without coupling delivery code to presentation.
     /// </summary>
-    public static class SpellRuntimeDiagnostics
+    public static partial class SpellRuntimeDiagnostics
     {
         public static event Action<SpellEffectApplicationResult>
             ApplicationCompleted;
@@ -172,6 +172,8 @@ namespace ProjectEri.SkillSystemV2
         {
             ApplicationCompleted = null;
             EffectSlotCompleted = null;
+            DeliveryLifecycle = null;
+            deliverySequence = 0L;
         }
     }
 }

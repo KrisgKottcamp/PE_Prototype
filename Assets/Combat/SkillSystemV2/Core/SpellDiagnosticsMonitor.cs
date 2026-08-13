@@ -20,12 +20,21 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Log empty and intentionally skipped slots. Useful when diagnosing authoring or migration problems.")]
         [SerializeField] private bool logSkippedEffectSlots;
 
+        [Header("Delivery Lifecycle")]
+        [Tooltip("Log major delivery milestones such as creation, start, arming, detonation, normal completion, cancellation, and failures.")]
+        [SerializeField] private bool logDeliveryLifecycle = true;
+
+        [Tooltip("Also log frequent target activity such as hits, area pulses, entries, exits, and trip-wire crossings.")]
+        [SerializeField] private bool logDeliveryTargetActivity;
+
         private void OnEnable()
         {
             SpellRuntimeDiagnostics.ApplicationCompleted +=
                 HandleApplication;
             SpellRuntimeDiagnostics.EffectSlotCompleted +=
                 HandleEffectSlot;
+            SpellRuntimeDiagnostics.DeliveryLifecycle +=
+                HandleDeliveryLifecycle;
         }
 
         private void OnDisable()
@@ -34,6 +43,8 @@ namespace ProjectEri.SkillSystemV2
                 HandleApplication;
             SpellRuntimeDiagnostics.EffectSlotCompleted -=
                 HandleEffectSlot;
+            SpellRuntimeDiagnostics.DeliveryLifecycle -=
+                HandleDeliveryLifecycle;
         }
 
         private void HandleApplication(
@@ -101,6 +112,40 @@ namespace ProjectEri.SkillSystemV2
                 Debug.LogException(diagnostic.Exception, context);
             else
                 Debug.LogWarning(message, context);
+        }
+
+        private void HandleDeliveryLifecycle(
+            SpellDeliveryDiagnostic diagnostic)
+        {
+            if (!diagnostic.IsFailure && !logDeliveryLifecycle)
+                return;
+            if (diagnostic.IsTargetActivity &&
+                !logDeliveryTargetActivity)
+            {
+                return;
+            }
+
+            string spellName = diagnostic.Spell != null
+                ? diagnostic.Spell.DisplayName
+                : "<missing spell>";
+            string deliveryName = diagnostic.Delivery != null
+                ? diagnostic.Delivery.DisplayName
+                : "<missing delivery>";
+            string subject = diagnostic.Subject != null
+                ? $" Subject: {diagnostic.Subject.name}."
+                : string.Empty;
+            string message =
+                $"[SkillSystemV2 Delivery #{diagnostic.Sequence}] " +
+                $"{spellName} / {deliveryName}: {diagnostic.Stage}. " +
+                diagnostic.Message + subject;
+            Object context = diagnostic.Delivery != null
+                ? diagnostic.Delivery
+                : diagnostic.Spell;
+
+            if (diagnostic.IsFailure)
+                Debug.LogError(message, context);
+            else
+                Debug.Log(message, context);
         }
     }
 }

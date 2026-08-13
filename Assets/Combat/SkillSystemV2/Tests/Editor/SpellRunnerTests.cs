@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -119,6 +120,171 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(
                 runner.CurrentPhase,
                 Is.EqualTo(SpellCastPhase.Idle));
+        }
+
+        [Test]
+        public void InstantSpellReportsOrderedDeliveryLifecycle()
+        {
+            var stages = new List<SpellDeliveryLifecycleStage>();
+            void Handle(SpellDeliveryDiagnostic diagnostic)
+            {
+                if (diagnostic.Spell == spell)
+                    stages.Add(diagnostic.Stage);
+            }
+
+            SpellRuntimeDiagnostics.DeliveryLifecycle += Handle;
+            try
+            {
+                CastContext context = CastContext.ForDirection(
+                    caster,
+                    caster.transform.position,
+                    Vector2.right);
+
+                Assert.That(runner.TryCast(spell, context, out _), Is.True);
+                Assert.That(
+                    stages,
+                    Is.EqualTo(new[]
+                    {
+                        SpellDeliveryLifecycleStage.CastStarted,
+                        SpellDeliveryLifecycleStage.ExecutionCreated,
+                        SpellDeliveryLifecycleStage.ExecutionEnded,
+                        SpellDeliveryLifecycleStage.CastCompleted
+                    }));
+            }
+            finally
+            {
+                SpellRuntimeDiagnostics.DeliveryLifecycle -= Handle;
+            }
+        }
+
+        [Test]
+        public void InterruptedDeliveryReportsInterruptionThenCancellation()
+        {
+            SetTiming(
+                spell,
+                buildUp: 0f,
+                firing: 1f,
+                channel: 1f,
+                recovery: 0f);
+            var stages = new List<SpellDeliveryLifecycleStage>();
+            void Handle(SpellDeliveryDiagnostic diagnostic)
+            {
+                if (diagnostic.Spell == spell)
+                    stages.Add(diagnostic.Stage);
+            }
+
+            SpellRuntimeDiagnostics.DeliveryLifecycle += Handle;
+            try
+            {
+                CastContext context = CastContext.ForDirection(
+                    caster,
+                    caster.transform.position,
+                    Vector2.right);
+
+                Assert.That(runner.TryCast(spell, context, out _), Is.True);
+                Assert.That(runner.IsCasting, Is.True);
+                Assert.That(runner.Interrupt("Test interruption."), Is.True);
+                Assert.That(
+                    stages,
+                    Does.Contain(
+                        SpellDeliveryLifecycleStage.CastInterrupted));
+                Assert.That(
+                    stages,
+                    Does.Contain(SpellDeliveryLifecycleStage.Cancelled));
+                Assert.That(
+                    stages.IndexOf(
+                        SpellDeliveryLifecycleStage.CastInterrupted),
+                    Is.LessThan(stages.IndexOf(
+                        SpellDeliveryLifecycleStage.Cancelled)));
+            }
+            finally
+            {
+                SpellRuntimeDiagnostics.DeliveryLifecycle -= Handle;
+            }
+        }
+
+        [Test]
+        public void ExistingDeliveryEventMapsIntoLifecycleDiagnostic()
+        {
+            SpellDeliveryDiagnostic received = default;
+            bool didReceive = false;
+            void Handle(SpellDeliveryDiagnostic diagnostic)
+            {
+                received = diagnostic;
+                didReceive = true;
+            }
+
+            SpellRuntimeDiagnostics.DeliveryLifecycle += Handle;
+            try
+            {
+                CastContext cast = CastContext.ForDirection(
+                    caster,
+                    caster.transform.position,
+                    Vector2.right);
+                var execution = new SpellExecutionContext(spell, cast);
+                execution.DispatchEvent(new SpellEventOccurrence(
+                    SpellEventType.Armed,
+                    caster,
+                    caster.transform.position,
+                    Vector2.zero));
+
+                Assert.That(didReceive, Is.True);
+                Assert.That(
+                    received.Stage,
+                    Is.EqualTo(SpellDeliveryLifecycleStage.Armed));
+                Assert.That(
+                    received.SourceEvent,
+                    Is.EqualTo(SpellEventType.Armed));
+                Assert.That(received.Subject, Is.SameAs(caster));
+                Assert.That(received.IsFailure, Is.False);
+            }
+            finally
+            {
+                SpellRuntimeDiagnostics.DeliveryLifecycle -= Handle;
+            }
+        }
+
+        [Test]
+        public void RejectedCastReportsReasonInDeliveryTimeline()
+        {
+            CastContext context = CastContext.ForDirection(
+                caster,
+                caster.transform.position,
+                Vector2.right);
+            Assert.That(runner.TryCast(spell, context, out _), Is.True);
+
+            SpellDeliveryDiagnostic received = default;
+            bool didReceive = false;
+            void Handle(SpellDeliveryDiagnostic diagnostic)
+            {
+                if (diagnostic.Stage ==
+                    SpellDeliveryLifecycleStage.CastRejected)
+                {
+                    received = diagnostic;
+                    didReceive = true;
+                }
+            }
+
+            SpellRuntimeDiagnostics.DeliveryLifecycle += Handle;
+            try
+            {
+                Assert.That(
+                    runner.TryCast(
+                        spell,
+                        context,
+                        out SpellCastFailure failure),
+                    Is.False);
+                Assert.That(
+                    failure,
+                    Is.EqualTo(SpellCastFailure.OnCooldown));
+                Assert.That(didReceive, Is.True);
+                Assert.That(received.IsFailure, Is.True);
+                StringAssert.Contains("OnCooldown", received.Message);
+            }
+            finally
+            {
+                SpellRuntimeDiagnostics.DeliveryLifecycle -= Handle;
+            }
         }
 
         private static SpellDefinition CreateSpell(

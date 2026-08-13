@@ -1508,6 +1508,7 @@ MonoBehaviour:
   placement: {fileID: 1774833438}
   attackMomentum: {fileID: 0}
   closePanelAfterCast: 1
+  preferV2LoadoutWhenAvailable: 1
 --- !u!114 &206606213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5049,6 +5050,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1122620619}
   - component: {fileID: 1122620618}
+  - component: {fileID: 1122620620}
   m_Layer: 0
   m_Name: Enter Combat Debug
   m_TagString: Untagged
@@ -5092,6 +5094,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1122620620
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1122620617}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e27d7e65a9a42c4a38c9049b84ed6c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDiagnosticsMonitor
+  logSuccessfulApplications: 0
+  logRejectedEffectSlots: 1
+  logSkippedEffectSlots: 0
+  logDeliveryLifecycle: 1
+  logDeliveryTargetActivity: 0
 --- !u!1 &1133507343
 GameObject:
   m_ObjectHideFlags: 0

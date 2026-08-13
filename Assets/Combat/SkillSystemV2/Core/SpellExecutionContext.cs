@@ -22,6 +22,11 @@ namespace ProjectEri.SkillSystemV2
             if (Spell == null)
                 return 0;
 
+            SpellRuntimeDiagnostics.ReportDeliveryEvent(
+                Spell,
+                Cast,
+                occurrence);
+
             IReadOnlyList<SpellEventEffectRoute> routes =
                 Spell.EventEffectRoutes;
             int applied = 0;
