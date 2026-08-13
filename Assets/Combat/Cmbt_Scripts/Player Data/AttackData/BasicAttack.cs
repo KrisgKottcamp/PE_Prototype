@@ -130,6 +130,10 @@ public class BasicAttack : MonoBehaviour
         float attackDeltaTime = comboHitstopActive
             ? Time.unscaledDeltaTime
             : Time.deltaTime;
+        attackDeltaTime *= SpellStatModifierUtility.Evaluate(
+            gameObject,
+            SpellActorStat.BasicAttackSpeed,
+            1f);
 
         if (swingCdTimer > 0f)
             swingCdTimer -= attackDeltaTime;
@@ -279,7 +283,17 @@ public class BasicAttack : MonoBehaviour
 
             uniqueEnemies[uniqueCount++] = enemy;
 
-            enemy.TakeDamage(damage);
+            float dealt = SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.DamageDealt,
+                1f);
+            float received = SpellStatModifierUtility.Evaluate(
+                enemy.gameObject,
+                SpellActorStat.DamageReceived,
+                1f);
+            enemy.TakeDamage(Mathf.Max(
+                0,
+                Mathf.RoundToInt(damage * dealt * received)));
 
             var stunnable = enemy.GetComponentInParent<EnemyStunnable>();
             if (stunnable != null)

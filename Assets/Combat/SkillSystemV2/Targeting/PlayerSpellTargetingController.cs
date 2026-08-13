@@ -182,6 +182,13 @@ namespace ProjectEri.SkillSystemV2
                 activeDefinition is IStagedPlayerTargetingDefinition staged &&
                 confirmedPoints.Count < staged.RequiredPointCount - 1;
 
+            if (canConfirm && awaitingMoreTargetingStages)
+            {
+                canConfirm = activeSpell.PlacementRules.Validate(
+                    currentContext,
+                    out validationMessage);
+            }
+
             // A staged delivery cannot satisfy its final delivery contract
             // until the earlier clicks have been collected. Validate the
             // individual targeting stage now, then run full spell/delivery

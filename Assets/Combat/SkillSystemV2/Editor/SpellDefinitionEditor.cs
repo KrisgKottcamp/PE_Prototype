@@ -18,6 +18,8 @@ namespace ProjectEri.SkillSystemV2.Editor
         private SerializedProperty cooldown;
         private SerializedProperty resourceCost;
         private SerializedProperty targetFilter;
+        private SerializedProperty placementRules;
+        private SerializedProperty aiAffordance;
         private SerializedProperty deliverySlot;
         private SerializedProperty effectSlots;
         private SerializedProperty eventEffectRoutes;
@@ -54,6 +56,8 @@ namespace ProjectEri.SkillSystemV2.Editor
             cooldown = serializedObject.FindProperty("cooldown");
             resourceCost = serializedObject.FindProperty("resourceCost");
             targetFilter = serializedObject.FindProperty("targetFilter");
+            placementRules = serializedObject.FindProperty("placementRules");
+            aiAffordance = serializedObject.FindProperty("aiAffordance");
             deliverySlot = serializedObject.FindProperty("deliverySlot");
             effectSlots = serializedObject.FindProperty("effectSlots");
             eventEffectRoutes = serializedObject.FindProperty(
@@ -76,8 +80,10 @@ namespace ProjectEri.SkillSystemV2.Editor
             EditorGUILayout.PropertyField(cooldown);
             DrawSection("Resource Cost", resourceCost);
             DrawSection("Target Rules", targetFilter);
+            DrawPlacementRules();
             DrawComposition();
             DrawReactions();
+            DrawAIGuidance();
             DrawChainSafety();
 
             serializedObject.ApplyModifiedProperties();
@@ -127,6 +133,115 @@ namespace ProjectEri.SkillSystemV2.Editor
         {
             EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(property, includeChildren: true);
+            EditorGUILayout.Space();
+        }
+
+        private void DrawPlacementRules()
+        {
+            EditorGUILayout.LabelField(
+                "Placement Rules",
+                EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Optional limits for where this specific spell may place " +
+                "mines, areas, grenades, wires, or movement destinations.",
+                MessageType.None);
+            EditorGUILayout.PropertyField(
+                placementRules.FindPropertyRelative("maximumDistance"));
+            SerializedProperty lineOfSight =
+                placementRules.FindPropertyRelative("requireLineOfSight");
+            EditorGUILayout.PropertyField(lineOfSight);
+            if (lineOfSight.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    placementRules.FindPropertyRelative("lineOfSightMask"));
+                EditorGUILayout.PropertyField(
+                    placementRules.FindPropertyRelative("lineOfSightRadius"));
+            }
+            EditorGUILayout.Space();
+        }
+
+        private void DrawAIGuidance()
+        {
+            aiAffordance.isExpanded = EditorGUILayout.Foldout(
+                aiAffordance.isExpanded,
+                new GUIContent(
+                    "Enemy AI Guidance",
+                    "Optional designer hints for when enemies should use this spell and how opponents may react to it."),
+                toggleOnLabelClick: true);
+            if (!aiAffordance.isExpanded)
+            {
+                EditorGUILayout.Space();
+                return;
+            }
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                SerializedProperty usable =
+                    aiAffordance.FindPropertyRelative("usableByAI");
+                EditorGUILayout.PropertyField(usable);
+                if (!usable.boolValue)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Enemies will not equip or cast this spell. Player use is unchanged.",
+                        MessageType.None);
+                    return;
+                }
+
+                EditorGUILayout.LabelField(
+                    "When should the AI use it?",
+                    EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("intents"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("targetPreference"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "preferredMinimumRange"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "preferredMaximumRange"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "minimumUsefulTargets"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("baseUtility"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("commitmentRisk"));
+
+                SpellAIIntent intents = (SpellAIIntent)
+                    aiAffordance.FindPropertyRelative("intents").intValue;
+                if ((intents & (SpellAIIntent.Execute |
+                                SpellAIIntent.Escape)) != 0)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative("healthThreshold"));
+                }
+
+                EditorGUILayout.Space(3f);
+                EditorGUILayout.LabelField(
+                    "Combo planning",
+                    EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("producesComboTags"),
+                    includeChildren: true);
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("consumesComboTags"),
+                    includeChildren: true);
+
+                EditorGUILayout.Space(3f);
+                EditorGUILayout.LabelField(
+                    "How should opponents read it?",
+                    EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "suggestedReactions"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("dangerRadius"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("reactionUrgency"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("telegraphDuration"));
+            }
             EditorGUILayout.Space();
         }
 
@@ -2368,6 +2483,27 @@ namespace ProjectEri.SkillSystemV2.Editor
                 return;
             }
 
+            if (property.managedReferenceValue is
+                ProjectileDeliverySettings)
+            {
+                DrawProjectileDeliverySettings(property);
+                return;
+            }
+
+            if (property.managedReferenceValue is
+                SpatialForceEffectSettings)
+            {
+                DrawSpatialForceSettings(property);
+                return;
+            }
+
+            if (property.managedReferenceValue is
+                ActorRelocationEffectSettings)
+            {
+                DrawActorRelocationSettings(property);
+                return;
+            }
+
             SerializedProperty iterator = property.Copy();
             SerializedProperty end = iterator.GetEndProperty();
             bool enterChildren = true;
@@ -2377,6 +2513,211 @@ namespace ProjectEri.SkillSystemV2.Editor
             {
                 EditorGUILayout.PropertyField(iterator, includeChildren: true);
                 enterChildren = false;
+            }
+        }
+
+        private static void DrawSpatialForceSettings(
+            SerializedProperty property)
+        {
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("direction"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("center"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("strength"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("maximumSpeed"));
+            SerializedProperty falloff =
+                property.FindPropertyRelative("falloff");
+            EditorGUILayout.PropertyField(falloff);
+            if ((SpatialForceFalloff)falloff.enumValueIndex !=
+                SpatialForceFalloff.None)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("falloffDistance"));
+            }
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("stopDistance"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("duration"));
+            SerializedProperty respect =
+                property.FindPropertyRelative("respectObstacles");
+            EditorGUILayout.PropertyField(respect);
+            if (respect.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("obstacleMask"));
+            }
+        }
+
+        private static void DrawActorRelocationSettings(
+            SerializedProperty property)
+        {
+            SerializedProperty mode = property.FindPropertyRelative("mode");
+            EditorGUILayout.PropertyField(mode);
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("destination"));
+            if ((ActorRelocationMode)mode.enumValueIndex ==
+                ActorRelocationMode.Travel)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("speed"));
+            }
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("maximumDistance"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("destinationOffset"));
+            SerializedProperty lineOfSight =
+                property.FindPropertyRelative("requireLineOfSight");
+            EditorGUILayout.PropertyField(lineOfSight);
+            if (lineOfSight.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("obstacleMask"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("clampToObstacles"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("obstacleSkin"));
+            }
+            if ((ActorRelocationMode)mode.enumValueIndex ==
+                ActorRelocationMode.InstantTeleport)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("preserveVelocity"));
+            }
+        }
+
+        private static void DrawProjectileDeliverySettings(
+            SerializedProperty property)
+        {
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("playerTargeting"));
+
+            EditorGUILayout.Space(3f);
+            EditorGUILayout.LabelField("Shot Pattern", EditorStyles.boldLabel);
+            SerializedProperty emission =
+                property.FindPropertyRelative("emission");
+            SerializedProperty emissionPattern =
+                emission.FindPropertyRelative("pattern");
+            SerializedProperty projectileCount =
+                emission.FindPropertyRelative("projectileCount");
+            EditorGUILayout.PropertyField(emissionPattern);
+            EditorGUILayout.PropertyField(projectileCount);
+            ProjectileEmissionPattern pattern =
+                (ProjectileEmissionPattern)emissionPattern.enumValueIndex;
+            if (pattern == ProjectileEmissionPattern.Fan ||
+                pattern == ProjectileEmissionPattern.RandomCone)
+            {
+                EditorGUILayout.PropertyField(
+                    emission.FindPropertyRelative("spreadAngle"));
+            }
+            if (projectileCount.intValue > 1)
+            {
+                EditorGUILayout.PropertyField(
+                    emission.FindPropertyRelative("shotInterval"));
+                if (emission.FindPropertyRelative("shotInterval")
+                        .floatValue > 0f)
+                {
+                    EditorGUILayout.PropertyField(
+                        emission.FindPropertyRelative(
+                            "reAimSequentialShots"));
+                }
+            }
+
+            EditorGUILayout.Space(3f);
+            EditorGUILayout.LabelField("Hit Shape", EditorStyles.boldLabel);
+            SerializedProperty shape =
+                property.FindPropertyRelative("shotShape");
+            SerializedProperty hitShape =
+                shape.FindPropertyRelative("hitShape");
+            EditorGUILayout.PropertyField(hitShape);
+            ProjectileHitShape shapeValue =
+                (ProjectileHitShape)hitShape.enumValueIndex;
+            if (shapeValue == ProjectileHitShape.InstantBeam)
+            {
+                EditorGUILayout.PropertyField(
+                    shape.FindPropertyRelative("beamWidth"));
+            }
+            else if (shapeValue == ProjectileHitShape.Cone)
+            {
+                EditorGUILayout.PropertyField(
+                    shape.FindPropertyRelative("coneAngle"));
+            }
+
+            EditorGUILayout.Space(3f);
+            EditorGUILayout.LabelField("Range and Collision", EditorStyles.boldLabel);
+            if (shapeValue == ProjectileHitShape.Projectile)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("projectilePrefab"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative(
+                        "allowPrefabGameplayComponents"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("speed"));
+            }
+            EditorGUILayout.PropertyField(property.FindPropertyRelative("range"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("collisionRadius"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("collisionMask"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("pierceTargets"));
+            if (property.FindPropertyRelative("pierceTargets").boolValue ||
+                shapeValue == ProjectileHitShape.Cone)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("maximumTargetHits"));
+            }
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("stopOnBlockedCollider"));
+            if (shapeValue == ProjectileHitShape.Projectile)
+            {
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("castBufferSize"));
+            }
+
+            if (shapeValue == ProjectileHitShape.Projectile)
+            {
+                EditorGUILayout.Space(3f);
+                EditorGUILayout.LabelField("Projectile Travel", EditorStyles.boldLabel);
+                SerializedProperty motion =
+                    property.FindPropertyRelative("motion");
+                SerializedProperty motionPattern =
+                    motion.FindPropertyRelative("pattern");
+                EditorGUILayout.PropertyField(motionPattern);
+                ProjectileMotionPattern motionValue =
+                    (ProjectileMotionPattern)motionPattern.enumValueIndex;
+                if (motionValue == ProjectileMotionPattern.Homing)
+                {
+                    EditorGUILayout.PropertyField(
+                        motion.FindPropertyRelative("homingAcquireRadius"));
+                    EditorGUILayout.PropertyField(
+                        motion.FindPropertyRelative("homingTurnRate"));
+                }
+                else if (motionValue == ProjectileMotionPattern.Boomerang)
+                {
+                    EditorGUILayout.PropertyField(
+                        motion.FindPropertyRelative("returnAtRangeFraction"));
+                    EditorGUILayout.PropertyField(
+                        motion.FindPropertyRelative("returnCatchRadius"));
+                }
+            }
+
+            EditorGUILayout.Space(3f);
+            EditorGUILayout.LabelField("Distance Falloff", EditorStyles.boldLabel);
+            SerializedProperty falloff =
+                property.FindPropertyRelative("falloff");
+            SerializedProperty falloffMode =
+                falloff.FindPropertyRelative("mode");
+            EditorGUILayout.PropertyField(falloffMode);
+            if ((ProjectileDamageFalloff)falloffMode.enumValueIndex !=
+                ProjectileDamageFalloff.None)
+            {
+                EditorGUILayout.PropertyField(
+                    falloff.FindPropertyRelative("minimumPotency"));
+                EditorGUILayout.PropertyField(
+                    falloff.FindPropertyRelative("curveExponent"));
             }
         }
 
@@ -2452,11 +2793,33 @@ namespace ProjectEri.SkillSystemV2.Editor
                 () => addEffect(null));
             menu.AddSeparator(string.Empty);
 
+            // Unity's type index can omit ScriptableObject subclasses declared
+            // in shared source files even though LoadAssetAtPath can load them
+            // correctly. Combine the fast type search with a direct scan of
+            // the canonical Effects content folder so every usable effect is
+            // presented to designers.
+            var candidatePaths = new HashSet<string>();
             string[] guids = AssetDatabase.FindAssets("t:EffectDefinition");
-            var definitions = new List<EffectDefinition>();
             for (int i = 0; i < guids.Length; i++)
+                candidatePaths.Add(AssetDatabase.GUIDToAssetPath(guids[i]));
+
+            const string effectsContentFolder =
+                "Assets/Combat/SkillSystemV2/Content/Effects";
+            if (AssetDatabase.IsValidFolder(effectsContentFolder))
             {
-                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                string[] contentGuids = AssetDatabase.FindAssets(
+                    string.Empty,
+                    new[] { effectsContentFolder });
+                for (int i = 0; i < contentGuids.Length; i++)
+                {
+                    candidatePaths.Add(
+                        AssetDatabase.GUIDToAssetPath(contentGuids[i]));
+                }
+            }
+
+            var definitions = new List<EffectDefinition>();
+            foreach (string path in candidatePaths)
+            {
                 EffectDefinition definition =
                     AssetDatabase.LoadAssetAtPath<EffectDefinition>(path);
                 if (definition != null)

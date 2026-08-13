@@ -102,8 +102,9 @@ namespace ProjectEri.SkillSystemV2
                 return true;
 
             EnsureEntries();
+            float amount = ResolveCost(cost);
             return entries.TryGetValue(cost.ResourceId, out ResourceEntry entry) &&
-                   entry.Current + 0.0001f >= cost.Amount;
+                   entry.Current + 0.0001f >= amount;
         }
 
         public bool TrySpend(in SpellResourceCost cost)
@@ -117,7 +118,10 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
-            SetValue(entry, entry.Current - cost.Amount, clampToMaximum: true);
+            SetValue(
+                entry,
+                entry.Current - ResolveCost(cost),
+                clampToMaximum: true);
             return true;
         }
 
@@ -128,7 +132,24 @@ namespace ProjectEri.SkillSystemV2
 
             EnsureEntries();
             if (entries.TryGetValue(cost.ResourceId, out ResourceEntry entry))
-                SetValue(entry, entry.Current + cost.Amount, clampToMaximum: true);
+                SetValue(
+                    entry,
+                    entry.Current + ResolveCost(cost),
+                    clampToMaximum: true);
+        }
+
+        private float ResolveCost(in SpellResourceCost cost)
+        {
+            float multiplier = string.Equals(
+                cost.ResourceId,
+                SpellResourceCost.ActionPoints,
+                StringComparison.OrdinalIgnoreCase)
+                ? SpellStatModifierUtility.Evaluate(
+                    gameObject,
+                    SpellActorStat.ActionPointCost,
+                    1f)
+                : 1f;
+            return cost.Amount * multiplier;
         }
 
         public bool TryChangeResource(

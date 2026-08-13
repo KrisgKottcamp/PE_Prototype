@@ -69,9 +69,18 @@ namespace ProjectEri.SkillSystemV2
             if (receiver == null)
                 return false;
 
+            float dealtMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Cast.Caster,
+                SpellActorStat.HealingDealt,
+                1f);
+            float receivedMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Target,
+                SpellActorStat.HealingReceived,
+                1f);
             var request = new SpellHealingRequest(
                 context,
-                resolved.Amount * context.PotencyScale,
+                resolved.Amount * context.PotencyScale * dealtMultiplier *
+                receivedMultiplier,
                 resolved.AllowRevive);
             return receiver.TryReceiveHealing(request, out _);
         }

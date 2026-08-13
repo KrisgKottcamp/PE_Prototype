@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 public class EnemyShooterDebug : MonoBehaviour
@@ -691,7 +692,8 @@ public class EnemyShooterDebug : MonoBehaviour
             if (i < shots - 1)
             {
                 yield return new WaitForSeconds(
-                    Mathf.Max(MinInterval, intraBurstInterval)
+                    Mathf.Max(MinInterval, intraBurstInterval) /
+                    GetBasicAttackSpeedMultiplier()
                 );
             }
         }
@@ -1298,8 +1300,24 @@ public class EnemyShooterDebug : MonoBehaviour
 
     private void ScheduleNextFire(float delay, string reason)
     {
+        if (reason == "SingleTick" || reason == "IntraBurst" ||
+            reason == "BurstCooldown" ||
+            reason == "BurstSequenceCooldown")
+        {
+            delay /= GetBasicAttackSpeedMultiplier();
+        }
         nextFireTime = Time.time + Mathf.Max(0f, delay);
         cooldownSetBy = reason;
+    }
+
+    private float GetBasicAttackSpeedMultiplier()
+    {
+        return Mathf.Max(
+            0.02f,
+            SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.BasicAttackSpeed,
+                1f));
     }
 
     private void OnDisable()

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 namespace ProjectEri.EnemyAI.V2
@@ -13,6 +14,7 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private EnemyAIV2Profile profile;
         [SerializeField] private EnemySlowReceiverV2 slowReceiver;
         [SerializeField] private KnockbackReceiver2D knockbackReceiver;
+        [SerializeField] private SpellActorMotionController2D forcedMotion;
 
         [Header("Runtime Debug")]
         [SerializeField] private bool hasDestination;
@@ -78,6 +80,10 @@ namespace ProjectEri.EnemyAI.V2
                 speed *= Mathf.Clamp(profile.enemyMovementTempoMultiplier, 0.45f, 1.25f);
 
             speed *= GetSlowMovementMultiplier();
+            speed *= SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.MovementSpeed,
+                1f);
             return speed;
         }
 
@@ -118,6 +124,9 @@ namespace ProjectEri.EnemyAI.V2
             if (knockbackReceiver == null)
                 knockbackReceiver = GetComponent<KnockbackReceiver2D>();
 
+            if (forcedMotion == null)
+                forcedMotion = GetComponent<SpellActorMotionController2D>();
+
             if (navigationGrid == null)
                 navigationGrid = FindObjectOfType<ArenaNavigationGrid>(true);
         }
@@ -130,6 +139,18 @@ namespace ProjectEri.EnemyAI.V2
 
             if (knockbackReceiver == null)
                 knockbackReceiver = GetComponent<KnockbackReceiver2D>();
+
+            if (forcedMotion == null)
+                forcedMotion = GetComponent<SpellActorMotionController2D>();
+
+            if (forcedMotion != null && forcedMotion.IsControllingMotion)
+            {
+                currentVelocity = Vector2.zero;
+                debugCurrentVelocity = Vector2.zero;
+                debugCurrentSpeed = 0f;
+                debugMotionMode = "Spell Forced Movement";
+                return;
+            }
 
             if (knockbackReceiver != null &&
                 knockbackReceiver.IsKnockbackActive)

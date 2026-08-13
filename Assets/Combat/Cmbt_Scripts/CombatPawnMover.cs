@@ -1,4 +1,5 @@
 using System.Reflection;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
@@ -12,6 +13,9 @@ public class CombatPawnMover : MonoBehaviour
 
     [Tooltip("Optional V2 movement modifier stack. Used by Slow Orb V2 so player slow stacks with Speed Boost instead of overwriting it.")]
     [SerializeField] private PlayerMoveSpeedModifierReceiverV2 movementModifierReceiver;
+
+    [Tooltip("Runtime owner for forced movement and relocation applied by SkillSystemV2.")]
+    [SerializeField] private SpellActorMotionController2D forcedMotion;
 
     [Tooltip("Automatically add PlayerMoveSpeedModifierReceiverV2 if it is missing. Recommended for the combat player.")]
     [SerializeField] private bool autoAddMovementModifierReceiver = true;
@@ -79,6 +83,9 @@ public class CombatPawnMover : MonoBehaviour
         if (movementModifierReceiver == null && autoAddMovementModifierReceiver)
             movementModifierReceiver = gameObject.AddComponent<PlayerMoveSpeedModifierReceiverV2>();
 
+        if (forcedMotion == null)
+            forcedMotion = GetComponent<SpellActorMotionController2D>();
+
         RefreshBehaviourCache();
     }
 
@@ -92,6 +99,12 @@ public class CombatPawnMover : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (forcedMotion == null)
+            forcedMotion = GetComponent<SpellActorMotionController2D>();
+
+        if (forcedMotion != null && forcedMotion.IsControllingMotion)
+            return;
+
         if (SpellBuildUpControl2D.IsMovementBlocked(gameObject))
         {
             rb.MovePosition(rb.position);
@@ -145,7 +158,12 @@ public class CombatPawnMover : MonoBehaviour
             }
         }
 
-        float finalSpeed = moveSpeed * combinedMultiplier * focusMultiplier;
+        float statMultiplier = SpellStatModifierUtility.Evaluate(
+            gameObject,
+            SpellActorStat.MovementSpeed,
+            1f);
+        float finalSpeed = moveSpeed * combinedMultiplier * focusMultiplier *
+                           statMultiplier;
 
         debugBaseSpeed = moveSpeed;
         debugLegacySpeedModifier = legacySpeedModifierMultiplier;

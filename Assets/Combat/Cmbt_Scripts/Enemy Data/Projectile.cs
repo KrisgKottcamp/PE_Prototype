@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 /// <summary>
@@ -292,11 +293,15 @@ public class Projectile : MonoBehaviour
             if (reflectTracker != null)
             {
                 int reflectedDamage = reflectTracker.GetDamageFor(enemy);
-                enemy.TakeDamage(reflectedDamage);
+                enemy.TakeDamage(ResolveDamage(
+                    enemy.gameObject,
+                    reflectedDamage));
             }
             else
             {
-                enemy.TakeDamage(damage);
+                enemy.TakeDamage(ResolveDamage(
+                    enemy.gameObject,
+                    damage));
             }
 
             HitstopManager.Request(reflectedHitstop);
@@ -370,16 +375,17 @@ public class Projectile : MonoBehaviour
     {
         GameObject selfObj = other.gameObject;
         GameObject rootObj = other.transform.root.gameObject;
+        int resolvedDamage = ResolveDamage(rootObj, damage);
 
-        selfObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
-        selfObj.SendMessage("ApplyDamage", damage, SendMessageOptions.DontRequireReceiver);
-        selfObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
+        selfObj.SendMessage("TakeDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
+        selfObj.SendMessage("ApplyDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
+        selfObj.SendMessage("ReceiveDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
 
         if (rootObj != selfObj)
         {
-            rootObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
-            rootObj.SendMessage("ApplyDamage", damage, SendMessageOptions.DontRequireReceiver);
-            rootObj.SendMessage("ReceiveDamage", damage, SendMessageOptions.DontRequireReceiver);
+            rootObj.SendMessage("TakeDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
+            rootObj.SendMessage("ApplyDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
+            rootObj.SendMessage("ReceiveDamage", resolvedDamage, SendMessageOptions.DontRequireReceiver);
         }
     }
 
@@ -393,12 +399,32 @@ public class Projectile : MonoBehaviour
                 ? reflectTracker.GetDamageFor(enemy)
                 : damage;
 
-            enemy.TakeDamage(reflectedDamage);
+            enemy.TakeDamage(ResolveDamage(
+                enemy.gameObject,
+                reflectedDamage));
             HitstopManager.Request(reflectedHitstop);
             return;
         }
 
         ApplyDamage(other);
+    }
+
+    private int ResolveDamage(GameObject targetObject, int baseDamage)
+    {
+        GameObject owner = ownerRoot != null
+            ? ownerRoot.gameObject
+            : null;
+        float dealt = SpellStatModifierUtility.Evaluate(
+            owner,
+            SpellActorStat.DamageDealt,
+            1f);
+        float received = SpellStatModifierUtility.Evaluate(
+            targetObject,
+            SpellActorStat.DamageReceived,
+            1f);
+        return Mathf.Max(
+            0,
+            Mathf.RoundToInt(baseDamage * dealt * received));
     }
 
     private void ResetEnemyCollisionIgnores()

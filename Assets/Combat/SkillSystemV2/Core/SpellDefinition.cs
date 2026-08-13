@@ -51,6 +51,16 @@ namespace ProjectEri.SkillSystemV2
             TargetRelationship.Enemies,
             requireTarget: false);
 
+        [Tooltip("Per-spell limits for where target points may be placed. These override neither the delivery nor the targeting mode; they add stricter range and line-of-sight rules for this spell.")]
+        [SerializeField]
+        private SpellPlacementRules placementRules =
+            new SpellPlacementRules();
+
+        [Tooltip("Designer-authored hints that tell enemy AI when this spell is useful and how opponents may react to it. These do not change player spell behavior.")]
+        [SerializeField]
+        private SpellAIAffordance aiAffordance =
+            new SpellAIAffordance();
+
         [Header("Composition")]
         [SerializeField, HideInInspector]
         private DeliveryDefinition delivery;
@@ -112,6 +122,10 @@ namespace ProjectEri.SkillSystemV2
         public float Cooldown => Mathf.Max(0f, cooldown);
         public SpellResourceCost ResourceCost => resourceCost;
         public TargetFilter TargetFilter => targetFilter;
+        public SpellPlacementRules PlacementRules =>
+            placementRules ??= new SpellPlacementRules();
+        public SpellAIAffordance AIAffordance =>
+            aiAffordance ??= new SpellAIAffordance();
         public SpellDeliverySlot DeliverySlot
         {
             get
@@ -231,6 +245,13 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
+            if (!PlacementRules.Validate(
+                    resolvedContext,
+                    out rejectionReason))
+            {
+                return false;
+            }
+
             if ((Delivery.TargetingRequirement &
                  CastTargetingRequirement.SelectedTarget) != 0)
             {
@@ -297,6 +318,32 @@ namespace ProjectEri.SkillSystemV2
                 issues.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
                     "Stable ID is required for reliable cooldowns and migration."));
+            }
+
+            if (PlacementRules.RequireLineOfSight &&
+                PlacementRules.LineOfSightMask.value == 0)
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Warning,
+                    "Placement requires line of sight, but its blocking layer mask is Nothing. Add the Obstacles layer or disable the toggle."));
+            }
+
+            if (AIAffordance.UsableByAI)
+            {
+                if (AIAffordance.Intents == SpellAIIntent.None)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        "Enemy AI use is enabled, but no AI Intent explains when this spell is useful."));
+                }
+                if (AIAffordance.PreferredMaximumRange > 0f &&
+                    AIAffordance.PreferredMaximumRange <
+                    AIAffordance.PreferredMinimumRange)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Error,
+                        "Enemy AI preferred maximum range is smaller than its preferred minimum range."));
+                }
             }
 
             EnsureDeliverySlot();

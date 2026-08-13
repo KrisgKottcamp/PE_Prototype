@@ -74,6 +74,80 @@ namespace ProjectEri.SkillSystemV2
             Interrupt("SpellRunner was disabled.");
         }
 
+        /// <summary>
+        /// Read-only cast check for UI and enemy planning. It validates the
+        /// spell, context, cooldown, chain budget, and available resource but
+        /// does not spend anything or start the cast.
+        /// </summary>
+        public bool CanCast(
+            SpellDefinition spell,
+            in CastContext requestedContext,
+            out CastContext resolvedContext,
+            out SpellCastFailure failure)
+        {
+            resolvedContext = requestedContext.Caster == null
+                ? requestedContext.WithCaster(gameObject)
+                : requestedContext;
+            if (spell == null)
+            {
+                failure = SpellCastFailure.MissingSpell;
+                return false;
+            }
+            if (IsCasting)
+            {
+                failure = SpellCastFailure.RunnerBusy;
+                return false;
+            }
+            if (!ValidateDefinition(spell))
+            {
+                failure = SpellCastFailure.InvalidDefinition;
+                return false;
+            }
+            CastContext contextToValidate = resolvedContext;
+            if (!spell.TryResolveContext(
+                    contextToValidate,
+                    out CastContext validatedContext,
+                    out _))
+            {
+                failure = SpellCastFailure.InvalidContext;
+                return false;
+            }
+            resolvedContext = validatedContext;
+            if (GetCooldownRemaining(spell) > 0f)
+            {
+                failure = SpellCastFailure.OnCooldown;
+                return false;
+            }
+
+            CastChainBudget budget = resolvedContext.ChainBudget ??
+                                     spell.CreateChainBudget();
+            if (!budget.CanActivate(resolvedContext.ChainDepth))
+            {
+                failure = SpellCastFailure.ChainBudgetExceeded;
+                return false;
+            }
+
+            SpellResourceCost cost = spell.ResourceCost;
+            if (!cost.IsFree)
+            {
+                ISpellResourceProvider provider =
+                    FindResourceProvider(resolvedContext.Caster);
+                if (provider == null)
+                {
+                    failure = SpellCastFailure.MissingResourceProvider;
+                    return false;
+                }
+                if (!provider.CanSpend(cost))
+                {
+                    failure = SpellCastFailure.InsufficientResources;
+                    return false;
+                }
+            }
+
+            failure = SpellCastFailure.None;
+            return true;
+        }
+
         public bool TryCast(
             SpellDefinition spell,
             in CastContext requestedContext,
@@ -342,6 +416,10 @@ namespace ProjectEri.SkillSystemV2
                               SpellTimeMode.Unscaled
                 ? safeUnscaledDelta
                 : safeScaledDelta;
+            castDelta *= SpellStatModifierUtility.Evaluate(
+                activeContext.Caster,
+                SpellActorStat.SpellCastSpeed,
+                1f);
 
             if (currentPhase == SpellCastPhase.Firing ||
                 currentPhase == SpellCastPhase.Channeling)

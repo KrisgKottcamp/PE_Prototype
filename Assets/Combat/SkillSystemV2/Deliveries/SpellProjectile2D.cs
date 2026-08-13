@@ -26,6 +26,10 @@ namespace ProjectEri.SkillSystemV2
         private bool launched;
         private SpellMotionRateModifier motionRateModifier;
         private CircleCollider2D slowZoneSensor;
+        private ProjectileMotionSettings motionSettings;
+        private ProjectileFalloffSettings falloffSettings;
+        private Collider2D[] homingBuffer;
+        private bool returningToCaster;
 
         public bool IsComplete { get; private set; }
 
@@ -42,6 +46,37 @@ namespace ProjectEri.SkillSystemV2
             int bufferSize,
             SpellTimeMode projectileTimeMode)
         {
+            Launch(
+                executionContext,
+                aimDirection,
+                projectileSpeed,
+                range,
+                radius,
+                mask,
+                shouldPierceTargets,
+                maximumHits,
+                shouldStopOnBlockedCollider,
+                bufferSize,
+                projectileTimeMode,
+                new ProjectileMotionSettings(),
+                new ProjectileFalloffSettings());
+        }
+
+        public void Launch(
+            in SpellExecutionContext executionContext,
+            Vector2 aimDirection,
+            float projectileSpeed,
+            float range,
+            float radius,
+            LayerMask mask,
+            bool shouldPierceTargets,
+            int maximumHits,
+            bool shouldStopOnBlockedCollider,
+            int bufferSize,
+            SpellTimeMode projectileTimeMode,
+            ProjectileMotionSettings projectileMotion,
+            ProjectileFalloffSettings projectileFalloff)
+        {
             context = executionContext;
             direction = aimDirection.sqrMagnitude > 0.000001f
                 ? aimDirection.normalized
@@ -54,11 +89,17 @@ namespace ProjectEri.SkillSystemV2
             maximumTargetHits = Mathf.Max(1, maximumHits);
             stopOnBlockedCollider = shouldStopOnBlockedCollider;
             timeMode = projectileTimeMode;
+            motionSettings = projectileMotion ??
+                             new ProjectileMotionSettings();
+            falloffSettings = projectileFalloff ??
+                              new ProjectileFalloffSettings();
             castBuffer = new RaycastHit2D[Mathf.Max(1, bufferSize)];
+            homingBuffer = new Collider2D[Mathf.Max(8, bufferSize)];
             distanceTravelled = 0f;
             targetHitCount = 0;
             hitTargets.Clear();
             contactedDeliveryVolumes.Clear();
+            returningToCaster = false;
             IsComplete = false;
             launched = true;
             motionRateModifier = GetComponent<SpellMotionRateModifier>();
@@ -101,7 +142,14 @@ namespace ProjectEri.SkillSystemV2
             if (!launched || IsComplete || deltaTime <= 0f)
                 return;
 
-            float remainingRange = maximumDistance - distanceTravelled;
+            UpdateMotionDirection(deltaTime);
+            if (IsComplete)
+                return;
+            float travelLimit = motionSettings.Pattern ==
+                                ProjectileMotionPattern.Boomerang
+                ? maximumDistance * 2f
+                : maximumDistance;
+            float remainingRange = travelLimit - distanceTravelled;
             if (motionRateModifier == null)
                 motionRateModifier = GetComponent<SpellMotionRateModifier>();
             float speedMultiplier = motionRateModifier != null
@@ -196,7 +244,11 @@ namespace ProjectEri.SkillSystemV2
                     resolved,
                     hit.collider.gameObject,
                     hit.point,
-                    hit.normal);
+                    hit.normal,
+                    this,
+                    falloffSettings.Evaluate(
+                        (distanceTravelled + hit.distance) /
+                        maximumDistance));
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     resolved,
@@ -223,7 +275,7 @@ namespace ProjectEri.SkillSystemV2
             transform.position = destination;
             distanceTravelled += stepDistance;
 
-            if (distanceTravelled >= maximumDistance - 0.0001f)
+            if (distanceTravelled >= travelLimit - 0.0001f)
             {
                 Complete(
                     null,
@@ -231,6 +283,119 @@ namespace ProjectEri.SkillSystemV2
                     -direction,
                     reportStopped: true);
             }
+        }
+
+        private void UpdateMotionDirection(float deltaTime)
+        {
+            if (motionSettings == null)
+                return;
+
+            switch (motionSettings.Pattern)
+            {
+                case ProjectileMotionPattern.Homing:
+                    UpdateHomingDirection(deltaTime);
+                    break;
+                case ProjectileMotionPattern.Boomerang:
+                    UpdateBoomerangDirection();
+                    break;
+            }
+
+            float angle = Mathf.Atan2(direction.y, direction.x) *
+                          Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        }
+
+        private void UpdateHomingDirection(float deltaTime)
+        {
+            if (homingBuffer == null || context.Spell == null)
+                return;
+
+            var filter = new ContactFilter2D();
+            filter.SetLayerMask(collisionMask);
+            filter.useTriggers = true;
+            int count = Physics2D.OverlapCircle(
+                transform.position,
+                motionSettings.HomingAcquireRadius,
+                filter,
+                homingBuffer);
+
+            GameObject closest = null;
+            float closestSqr = float.PositiveInfinity;
+            for (int i = 0; i < count; i++)
+            {
+                Collider2D candidateCollider = homingBuffer[i];
+                if (candidateCollider == null)
+                    continue;
+                GameObject candidate = SpellTargetResolver.Resolve(
+                    candidateCollider.gameObject);
+                if (candidate == null ||
+                    SpellTargetResolver.IsSameHierarchy(
+                        context.Cast.Caster,
+                        candidate) ||
+                    !context.Spell.TargetFilter.IsValid(
+                        context.Cast,
+                        candidate,
+                        candidateCollider.gameObject))
+                {
+                    continue;
+                }
+
+                float sqr = ((Vector2)candidate.transform.position -
+                             (Vector2)transform.position).sqrMagnitude;
+                if (sqr >= closestSqr)
+                    continue;
+                closestSqr = sqr;
+                closest = candidate;
+            }
+
+            if (closest == null)
+                return;
+
+            Vector2 desired = (Vector2)closest.transform.position -
+                              (Vector2)transform.position;
+            if (desired.sqrMagnitude <= 0.000001f)
+                return;
+
+            float currentAngle = Mathf.Atan2(direction.y, direction.x) *
+                                 Mathf.Rad2Deg;
+            float desiredAngle = Mathf.Atan2(desired.y, desired.x) *
+                                 Mathf.Rad2Deg;
+            float nextAngle = Mathf.MoveTowardsAngle(
+                currentAngle,
+                desiredAngle,
+                motionSettings.HomingTurnRate * deltaTime);
+            float radians = nextAngle * Mathf.Deg2Rad;
+            direction = new Vector2(
+                Mathf.Cos(radians),
+                Mathf.Sin(radians));
+        }
+
+        private void UpdateBoomerangDirection()
+        {
+            if (!returningToCaster &&
+                distanceTravelled >= maximumDistance *
+                motionSettings.ReturnAtRangeFraction)
+            {
+                returningToCaster = true;
+            }
+
+            if (!returningToCaster || context.Cast.Caster == null)
+                return;
+
+            Vector2 toCaster =
+                (Vector2)context.Cast.Caster.transform.position -
+                (Vector2)transform.position;
+            if (toCaster.magnitude <= motionSettings.ReturnCatchRadius)
+            {
+                Complete(
+                    context.Cast.Caster,
+                    transform.position,
+                    -direction,
+                    reportStopped: true);
+                return;
+            }
+
+            direction = toCaster.normalized;
         }
 
         private void EmitDeliveryInteractions(Vector2 start, Vector2 end)

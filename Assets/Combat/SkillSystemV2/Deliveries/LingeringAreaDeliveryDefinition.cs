@@ -533,7 +533,9 @@ namespace ProjectEri.SkillSystemV2
                     point,
                     normal.sqrMagnitude > 0.000001f
                         ? normal.normalized
-                        : Vector2.zero);
+                        : Vector2.zero,
+                    1f,
+                    this);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     target,
@@ -837,7 +839,8 @@ namespace ProjectEri.SkillSystemV2
                 normal.sqrMagnitude > 0.000001f
                     ? normal.normalized
                     : Vector2.zero,
-                1f);
+                1f,
+                deliveryRuntime: this);
 
             IReadOnlyList<SpellEffectSlot> effects =
                 state.Definition.EffectSlots;
@@ -947,7 +950,8 @@ namespace ProjectEri.SkillSystemV2
                 normal.sqrMagnitude > 0.000001f
                     ? normal.normalized
                     : Vector2.zero,
-                1f);
+                1f,
+                deliveryRuntime: this);
 
             var effects = context.Spell.EffectSlots;
             for (int i = 0; i < effects.Count; i++)

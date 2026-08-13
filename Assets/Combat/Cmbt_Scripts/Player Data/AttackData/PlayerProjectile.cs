@@ -556,7 +556,13 @@ public class PlayerProjectile : MonoBehaviour
         if (damage <= 0)
             enemyHealth.PlayHitFlash();
 
-        enemyHealth.TakeDamage(damage);
+        float receivedMultiplier = SpellStatModifierUtility.Evaluate(
+            enemyHealth.gameObject,
+            SpellActorStat.DamageReceived,
+            1f);
+        enemyHealth.TakeDamage(Mathf.Max(
+            0,
+            Mathf.RoundToInt(damage * receivedMultiplier)));
         HitstopManager.Request(hitstopOnEnemyHit);
 
         CombatCameraShake.Request(

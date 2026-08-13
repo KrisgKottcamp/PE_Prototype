@@ -86,10 +86,19 @@ namespace ProjectEri.SkillSystemV2
             if (receiver == null)
                 return false;
 
+            float dealtMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Cast.Caster,
+                SpellActorStat.DamageDealt,
+                1f);
+            float receivedMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Target,
+                SpellActorStat.DamageReceived,
+                1f);
             var request = new SpellDamageRequest(
                 context,
                 resolved.DamageType,
-                resolved.Amount * context.PotencyScale,
+                resolved.Amount * context.PotencyScale * dealtMultiplier *
+                receivedMultiplier,
                 resolved.IgnoreInvulnerability);
             return receiver.TryReceiveDamage(request, out _);
         }

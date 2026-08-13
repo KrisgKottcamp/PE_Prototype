@@ -175,7 +175,7 @@ public class HeavyComboAttack : MonoBehaviour
 
         if (cooldownTimer > 0f)
         {
-            cooldownTimer -= Time.deltaTime;
+            cooldownTimer -= Time.deltaTime * GetAttackSpeedMultiplier();
             return;
         }
 
@@ -279,7 +279,8 @@ public class HeavyComboAttack : MonoBehaviour
             hit1MomentumGain
         );
 
-        yield return new WaitForSeconds(comboPunchDelay);
+        yield return new WaitForSeconds(
+            comboPunchDelay / GetAttackSpeedMultiplier());
 
         ApplyAttackCommitment(
             hit2MoveMultiplier,
@@ -366,7 +367,17 @@ public class HeavyComboAttack : MonoBehaviour
             uniqueEnemies[uniqueCount] = enemy;
             uniqueCount++;
 
-            enemy.TakeDamage(damage);
+            float dealt = SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.DamageDealt,
+                1f);
+            float received = SpellStatModifierUtility.Evaluate(
+                enemy.gameObject,
+                SpellActorStat.DamageReceived,
+                1f);
+            enemy.TakeDamage(Mathf.Max(
+                0,
+                Mathf.RoundToInt(damage * dealt * received)));
 
             EnemyStunnable stunnable =
                 enemy.GetComponentInParent<EnemyStunnable>();
@@ -450,6 +461,16 @@ public class HeavyComboAttack : MonoBehaviour
                 );
             }
         }
+    }
+
+    private float GetAttackSpeedMultiplier()
+    {
+        return Mathf.Max(
+            0.02f,
+            SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.BasicAttackSpeed,
+                1f));
     }
 
     private void SpawnAPParticles(int uniqueCount)

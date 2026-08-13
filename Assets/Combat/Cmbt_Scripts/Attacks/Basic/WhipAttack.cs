@@ -210,7 +210,7 @@ public class WhipAttack : MonoBehaviour
         UpdateMouseAim();
 
         if (cooldownTimer > 0f)
-            cooldownTimer -= Time.deltaTime;
+            cooldownTimer -= Time.deltaTime * GetAttackSpeedMultiplier();
 
         bool pressed =
             Input.GetKeyDown(attackKey) ||
@@ -448,7 +448,8 @@ public class WhipAttack : MonoBehaviour
         );
 
         if (windupDelay > 0f)
-            yield return new WaitForSeconds(windupDelay);
+            yield return new WaitForSeconds(
+                windupDelay / GetAttackSpeedMultiplier());
 
         Vector3 previousEnd = start;
 
@@ -456,7 +457,7 @@ public class WhipAttack : MonoBehaviour
 
         while (t < extendTime)
         {
-            t += Time.deltaTime;
+            t += Time.deltaTime * GetAttackSpeedMultiplier();
 
             float k =
                 extendTime <= 0f
@@ -517,7 +518,7 @@ public class WhipAttack : MonoBehaviour
 
         while (holdTimer < activeHoldTime)
         {
-            holdTimer += Time.deltaTime;
+            holdTimer += Time.deltaTime * GetAttackSpeedMultiplier();
 
             origin = GetLineOrigin();
 
@@ -549,7 +550,7 @@ public class WhipAttack : MonoBehaviour
 
         while (t < retractTime)
         {
-            t += Time.deltaTime;
+            t += Time.deltaTime * GetAttackSpeedMultiplier();
 
             float k =
                 retractTime <= 0f
@@ -687,7 +688,17 @@ public class WhipAttack : MonoBehaviour
             uniqueEnemies[uniqueCount] = enemy;
             uniqueCount++;
 
-            enemy.TakeDamage(damage);
+            float dealt = SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.DamageDealt,
+                1f);
+            float received = SpellStatModifierUtility.Evaluate(
+                enemy.gameObject,
+                SpellActorStat.DamageReceived,
+                1f);
+            enemy.TakeDamage(Mathf.Max(
+                0,
+                Mathf.RoundToInt(damage * dealt * received)));
 
             if (!hitstopRequestedThisSwing)
             {
@@ -728,6 +739,16 @@ public class WhipAttack : MonoBehaviour
                 }
             }
         }
+    }
+
+    private float GetAttackSpeedMultiplier()
+    {
+        return Mathf.Max(
+            0.02f,
+            SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.BasicAttackSpeed,
+                1f));
     }
 
     private bool HasAlreadyHit(

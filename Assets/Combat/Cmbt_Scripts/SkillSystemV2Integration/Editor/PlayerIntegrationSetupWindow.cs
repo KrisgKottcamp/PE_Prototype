@@ -113,6 +113,18 @@ public sealed class PlayerIntegrationSetupWindow : EditorWindow
         CasterMovementEffectDefinition casterMovement =
             CreateOrLoad<CasterMovementEffectDefinition>(
                 $"{EffectsRoot}/Effect_CasterMovement.asset");
+        SpellStatModifierEffectDefinition statModifier =
+            CreateOrLoad<SpellStatModifierEffectDefinition>(
+                $"{EffectsRoot}/Effect_StatModifier.asset");
+        SpatialForceEffectDefinition spatialForce =
+            CreateOrLoad<SpatialForceEffectDefinition>(
+                $"{EffectsRoot}/Effect_SpatialForce.asset");
+        ActorRelocationEffectDefinition relocateActor =
+            CreateOrLoad<ActorRelocationEffectDefinition>(
+                $"{EffectsRoot}/Effect_RelocateActor.asset");
+        SetString(statModifier, "displayName", "Stat Modifier");
+        SetString(spatialForce, "displayName", "Spatial Force");
+        SetString(relocateActor, "displayName", "Relocate Actor");
         DamageTypeDefinition physicalDamage =
             AssetDatabase.LoadAssetAtPath<DamageTypeDefinition>(
                 $"{DefinitionsRoot}/DamageType_Physical.asset");

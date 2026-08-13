@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c59c252de624f22bd162aaf075d28af, type: 3}
+  m_Name: Effect_RelocateActor
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.ActorRelocationEffectDefinition
+  displayName: Relocate Actor
+  mode: 0
+  destination: 0
+  speed: 10
+  maximumDistance: 8
+  destinationOffset: {x: 0, y: 0}
+  requireLineOfSight: 1
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  clampToObstacles: 1
+  obstacleSkin: 0.03
+  preserveVelocity: 0

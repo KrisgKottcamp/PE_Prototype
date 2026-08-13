@@ -1,8 +1,9 @@
 using System.Collections;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class KnockbackReceiver2D : MonoBehaviour
+public class KnockbackReceiver2D : MonoBehaviour, ISpellMotionBlocker
 {
     [Header("Kinematic Knockback")]
     [Tooltip("For Kinematic bodies, treat force as units/second push speed.")]
@@ -36,6 +37,7 @@ public class KnockbackReceiver2D : MonoBehaviour
     /// or velocity write can erase the knockback immediately.
     /// </summary>
     public bool IsKnockbackActive => routine != null;
+    public bool BlocksSpellMotion => IsKnockbackActive;
 
     private readonly RaycastHit2D[] castResults = new RaycastHit2D[8];
     private ContactFilter2D castFilter;

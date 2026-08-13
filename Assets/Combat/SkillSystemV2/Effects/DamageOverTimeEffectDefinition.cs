@@ -306,8 +306,18 @@ namespace ProjectEri.SkillSystemV2
         {
             context = effectContext;
             damageType = settings.DamageType;
+            float dealtMultiplier = SpellStatModifierUtility.Evaluate(
+                effectContext.Cast.Caster,
+                SpellActorStat.DamageDealt,
+                1f);
+            float receivedMultiplier = SpellStatModifierUtility.Evaluate(
+                effectContext.Target,
+                SpellActorStat.DamageReceived,
+                1f);
             damagePerTick = settings.DamagePerTick *
-                            effectContext.PotencyScale;
+                            effectContext.PotencyScale *
+                            dealtMultiplier *
+                            receivedMultiplier;
             tickInterval = settings.TickInterval;
             remaining = settings.Duration;
             ignoreInvulnerability = settings.IgnoreInvulnerability;

@@ -111,10 +111,19 @@ namespace ProjectEri.SkillSystemV2
             if (resolvedDirection.sqrMagnitude <= 0.000001f)
                 return false;
 
+            float dealtMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Cast.Caster,
+                SpellActorStat.KnockbackDealt,
+                1f);
+            float receivedMultiplier = SpellStatModifierUtility.Evaluate(
+                context.Target,
+                SpellActorStat.KnockbackReceived,
+                1f);
             var request = new SpellImpulseRequest(
                 context,
                 resolvedDirection,
-                resolved.Magnitude * context.PotencyScale,
+                resolved.Magnitude * context.PotencyScale * dealtMultiplier *
+                receivedMultiplier,
                 resolved.Duration,
                 resolved.Mode);
             return receiver.TryReceiveImpulse(request);

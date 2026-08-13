@@ -1,4 +1,5 @@
 using UnityEngine;
+using ProjectEri.SkillSystemV2;
 using static CharacterDefinition;
 
 public class ProjectileBasicAttack : MonoBehaviour
@@ -108,12 +109,18 @@ public class ProjectileBasicAttack : MonoBehaviour
 
         UpdateMouseAim();
 
+        float attackDelta = Time.deltaTime *
+            SpellStatModifierUtility.Evaluate(
+                gameObject,
+                SpellActorStat.BasicAttackSpeed,
+                1f);
+
         if (shotTimer > 0f)
-            shotTimer -= Time.deltaTime;
+            shotTimer -= attackDelta;
 
         if (recoveryTimer > 0f)
         {
-            recoveryTimer -= Time.deltaTime;
+            recoveryTimer -= attackDelta;
 
             if (recoveryTimer <= 0f)
             {
@@ -256,10 +263,18 @@ public class ProjectileBasicAttack : MonoBehaviour
 
         projectile.ConfigureBasicAttackReaction(basicHitReaction);
 
+        float dealtMultiplier = SpellStatModifierUtility.Evaluate(
+            gameObject,
+            SpellActorStat.DamageDealt,
+            1f);
+        int resolvedDamage = Mathf.Max(
+            0,
+            Mathf.RoundToInt(damage * dealtMultiplier));
+
         projectile.Fire(
             direction,
             ownerIndex,
-            damage,
+            resolvedDamage,
             stunSeconds,
             projectileSpeed,
             projectileLifetime,

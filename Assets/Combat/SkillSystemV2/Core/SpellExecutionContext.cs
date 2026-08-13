@@ -85,7 +85,8 @@ namespace ProjectEri.SkillSystemV2
                 target,
                 hitPoint,
                 hitNormal,
-                potencyScale).AppliedCount;
+                potencyScale,
+                null).AppliedCount;
         }
 
         public int ApplyEffects(
@@ -100,7 +101,25 @@ namespace ProjectEri.SkillSystemV2
                 detectedObject,
                 hitPoint,
                 hitNormal,
-                potencyScale).AppliedCount;
+                potencyScale,
+                null).AppliedCount;
+        }
+
+        public int ApplyEffects(
+            GameObject target,
+            GameObject detectedObject,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            Component deliveryRuntime,
+            float potencyScale = 1f)
+        {
+            return ApplyEffectsDetailed(
+                target,
+                detectedObject,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                deliveryRuntime).AppliedCount;
         }
 
         public SpellEffectApplicationResult ApplyEffectsDetailed(
@@ -114,7 +133,8 @@ namespace ProjectEri.SkillSystemV2
                 target,
                 hitPoint,
                 hitNormal,
-                potencyScale);
+                potencyScale,
+                null);
         }
 
         public SpellEffectApplicationResult ApplyEffectsDetailed(
@@ -124,13 +144,31 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
+            return ApplyEffectsDetailed(
+                target,
+                detectedObject,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                null);
+        }
+
+        public SpellEffectApplicationResult ApplyEffectsDetailed(
+            GameObject target,
+            GameObject detectedObject,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale,
+            Component deliveryRuntime)
+        {
             return ApplyEffectsInternal(
                 target,
                 detectedObject,
                 hitPoint,
                 hitNormal,
                 potencyScale,
-                includeAreaPresenceEffects: true);
+                includeAreaPresenceEffects: true,
+                deliveryRuntime: deliveryRuntime);
         }
 
         internal int ApplyNonPresenceEffects(
@@ -144,7 +182,8 @@ namespace ProjectEri.SkillSystemV2
                 target,
                 hitPoint,
                 hitNormal,
-                potencyScale);
+                potencyScale,
+                null);
         }
 
         internal int ApplyNonPresenceEffects(
@@ -154,13 +193,31 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
+            return ApplyNonPresenceEffects(
+                target,
+                detectedObject,
+                hitPoint,
+                hitNormal,
+                potencyScale,
+                null);
+        }
+
+        internal int ApplyNonPresenceEffects(
+            GameObject target,
+            GameObject detectedObject,
+            Vector2 hitPoint,
+            Vector2 hitNormal,
+            float potencyScale,
+            Component deliveryRuntime)
+        {
             return ApplyEffectsInternal(
                 target,
                 detectedObject,
                 hitPoint,
                 hitNormal,
                 potencyScale,
-                includeAreaPresenceEffects: false).AppliedCount;
+                includeAreaPresenceEffects: false,
+                deliveryRuntime: deliveryRuntime).AppliedCount;
         }
 
         internal int ApplyNonPresenceEffectSlotsUnchecked(
@@ -181,7 +238,8 @@ namespace ProjectEri.SkillSystemV2
                 hitPoint,
                 hitNormal,
                 potencyScale,
-                includeAreaPresenceEffects: false).AppliedCount;
+                includeAreaPresenceEffects: false,
+                deliveryRuntime: null).AppliedCount;
         }
 
         private SpellEffectApplicationResult ApplyEffectsInternal(
@@ -190,7 +248,8 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitPoint,
             Vector2 hitNormal,
             float potencyScale,
-            bool includeAreaPresenceEffects)
+            bool includeAreaPresenceEffects,
+            Component deliveryRuntime)
         {
             if (Spell == null)
             {
@@ -278,7 +337,8 @@ namespace ProjectEri.SkillSystemV2
                 hitPoint,
                 hitNormal,
                 potencyScale,
-                includeAreaPresenceEffects);
+                includeAreaPresenceEffects,
+                deliveryRuntime: deliveryRuntime);
         }
 
         private SpellEffectApplicationResult ApplyEffectSlotsInternal(

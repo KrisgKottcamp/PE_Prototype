@@ -187,7 +187,13 @@ public sealed class PartyManagerSpellAdapter : MonoBehaviour,
         float multiplier = applyActiveCharacterSkillCostMultiplier && active != null
             ? Mathf.Max(1f, active.skillCostMultiplier)
             : 1f;
-        return Mathf.Max(0, Mathf.CeilToInt(baseAmount * multiplier));
+        float efficiency = SpellStatModifierUtility.Evaluate(
+            gameObject,
+            SpellActorStat.ActionPointCost,
+            1f);
+        return Mathf.Max(
+            0,
+            Mathf.CeilToInt(baseAmount * multiplier * efficiency));
     }
 
     private static bool IsActionPoints(string resourceId)
