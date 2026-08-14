@@ -541,7 +541,8 @@ namespace ProjectEri.SkillSystemV2
                     target,
                     hit.gameObject,
                     point,
-                    normal.normalized);
+                    normal.normalized,
+                    this);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     target,

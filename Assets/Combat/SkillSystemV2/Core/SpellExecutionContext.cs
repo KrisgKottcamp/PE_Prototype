@@ -4,17 +4,28 @@ using UnityEngine;
 
 namespace ProjectEri.SkillSystemV2
 {
+    public interface ISpellDeliveryExecutionObserver
+    {
+        void OnDeliveryEvent(in SpellEventOccurrence occurrence);
+    }
+
     public readonly struct SpellExecutionContext
     {
         public SpellDefinition Spell { get; }
         public CastContext Cast { get; }
+        public bool SuppressGameplayEffects { get; }
+        private ISpellDeliveryExecutionObserver Observer { get; }
 
         public SpellExecutionContext(
             SpellDefinition spell,
-            in CastContext cast)
+            in CastContext cast,
+            bool suppressGameplayEffects = false,
+            ISpellDeliveryExecutionObserver observer = null)
         {
             Spell = spell;
             Cast = cast;
+            SuppressGameplayEffects = suppressGameplayEffects;
+            Observer = observer;
         }
 
         public int DispatchEvent(in SpellEventOccurrence occurrence)
@@ -26,6 +37,9 @@ namespace ProjectEri.SkillSystemV2
                 Spell,
                 Cast,
                 occurrence);
+            Observer?.OnDeliveryEvent(occurrence);
+            if (SuppressGameplayEffects)
+                return 0;
 
             IReadOnlyList<SpellEventEffectRoute> routes =
                 Spell.EventEffectRoutes;
@@ -49,7 +63,8 @@ namespace ProjectEri.SkillSystemV2
             string routeId,
             in SpellEventOccurrence occurrence)
         {
-            if (Spell == null || string.IsNullOrWhiteSpace(routeId))
+            if (Spell == null || SuppressGameplayEffects ||
+                string.IsNullOrWhiteSpace(routeId))
                 return 0;
 
             IReadOnlyList<SpellEventEffectRoute> routes =
@@ -161,6 +176,9 @@ namespace ProjectEri.SkillSystemV2
             float potencyScale,
             Component deliveryRuntime)
         {
+            if (SuppressGameplayEffects)
+                return default;
+
             return ApplyEffectsInternal(
                 target,
                 detectedObject,
@@ -177,6 +195,9 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
+            if (SuppressGameplayEffects)
+                return 0;
+
             return ApplyNonPresenceEffects(
                 target,
                 target,
@@ -193,6 +214,9 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
+            if (SuppressGameplayEffects)
+                return 0;
+
             return ApplyNonPresenceEffects(
                 target,
                 detectedObject,
@@ -210,6 +234,9 @@ namespace ProjectEri.SkillSystemV2
             float potencyScale,
             Component deliveryRuntime)
         {
+            if (SuppressGameplayEffects)
+                return 0;
+
             return ApplyEffectsInternal(
                 target,
                 detectedObject,
@@ -227,7 +254,7 @@ namespace ProjectEri.SkillSystemV2
             Vector2 hitNormal,
             float potencyScale = 1f)
         {
-            if (Spell == null || target == null)
+            if (SuppressGameplayEffects || Spell == null || target == null)
                 return 0;
 
             return ApplyEffectSlotsInternal(
@@ -251,6 +278,9 @@ namespace ProjectEri.SkillSystemV2
             bool includeAreaPresenceEffects,
             Component deliveryRuntime)
         {
+            if (SuppressGameplayEffects)
+                return default;
+
             if (Spell == null)
             {
                 return ReportApplication(new SpellEffectApplicationResult(

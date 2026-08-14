@@ -328,7 +328,8 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     nearest.collider.gameObject,
                     point,
-                    surfaceNormal);
+                    surfaceNormal,
+                    this);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetHit,
                     subject,

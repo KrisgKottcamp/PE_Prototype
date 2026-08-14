@@ -13,6 +13,12 @@ namespace ProjectEri.SkillSystemV2
         public bool HasTargetPoint { get; }
         public GameObject SelectedTarget { get; }
         public SpellTargetingPayload TargetingPayload { get; }
+        public Vector2 SupplementalTargetPoint { get; }
+        public bool HasSupplementalTargetPoint { get; }
+        public Vector2 SupplementalAimDirection { get; }
+        public bool HasSupplementalAimDirection { get; }
+        public GameObject SupplementalSelectedTarget { get; }
+        public SpellTargetingPayload SupplementalTargetingPayload { get; }
         public CastChainBudget ChainBudget { get; }
         public int ChainDepth { get; }
 
@@ -32,7 +38,13 @@ namespace ProjectEri.SkillSystemV2
             GameObject selectedTarget,
             CastChainBudget chainBudget = null,
             int chainDepth = 0,
-            SpellTargetingPayload targetingPayload = null)
+            SpellTargetingPayload targetingPayload = null,
+            Vector2 supplementalTargetPoint = default,
+            bool hasSupplementalTargetPoint = false,
+            Vector2 supplementalAimDirection = default,
+            bool hasSupplementalAimDirection = false,
+            GameObject supplementalSelectedTarget = null,
+            SpellTargetingPayload supplementalTargetingPayload = null)
         {
             Caster = caster;
             CasterTeam = casterTeam;
@@ -46,6 +58,15 @@ namespace ProjectEri.SkillSystemV2
             HasTargetPoint = hasTargetPoint;
             SelectedTarget = selectedTarget;
             TargetingPayload = targetingPayload;
+            SupplementalTargetPoint = supplementalTargetPoint;
+            HasSupplementalTargetPoint = hasSupplementalTargetPoint;
+            HasSupplementalAimDirection = hasSupplementalAimDirection &&
+                supplementalAimDirection.sqrMagnitude > 0.000001f;
+            SupplementalAimDirection = HasSupplementalAimDirection
+                ? supplementalAimDirection.normalized
+                : Vector2.zero;
+            SupplementalSelectedTarget = supplementalSelectedTarget;
+            SupplementalTargetingPayload = supplementalTargetingPayload;
             ChainBudget = chainBudget;
             ChainDepth = Mathf.Max(0, chainDepth);
         }
@@ -119,7 +140,13 @@ namespace ProjectEri.SkillSystemV2
                 SelectedTarget,
                 ChainBudget,
                 ChainDepth,
-                TargetingPayload);
+                TargetingPayload,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalSelectedTarget,
+                SupplementalTargetingPayload);
         }
 
         public CastContext WithBudget(CastChainBudget budget)
@@ -135,7 +162,13 @@ namespace ProjectEri.SkillSystemV2
                 SelectedTarget,
                 budget,
                 ChainDepth,
-                TargetingPayload);
+                TargetingPayload,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalSelectedTarget,
+                SupplementalTargetingPayload);
         }
 
         public CastContext WithTargetPoint(Vector2 targetPoint)
@@ -152,7 +185,13 @@ namespace ProjectEri.SkillSystemV2
                 SelectedTarget,
                 ChainBudget,
                 ChainDepth,
-                TargetingPayload);
+                TargetingPayload,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalSelectedTarget,
+                SupplementalTargetingPayload);
         }
 
         public CastContext WithAimDirection(Vector2 aimDirection)
@@ -168,7 +207,13 @@ namespace ProjectEri.SkillSystemV2
                 SelectedTarget,
                 ChainBudget,
                 ChainDepth,
-                TargetingPayload);
+                TargetingPayload,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalSelectedTarget,
+                SupplementalTargetingPayload);
         }
 
         public CastContext WithTargetingPayload(
@@ -185,7 +230,72 @@ namespace ProjectEri.SkillSystemV2
                 SelectedTarget,
                 ChainBudget,
                 ChainDepth,
-                payload);
+                payload,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalSelectedTarget,
+                SupplementalTargetingPayload);
+        }
+
+        public CastContext WithSupplementalTargetPoint(Vector2 targetPoint)
+        {
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                AimDirection,
+                HasAimDirection,
+                TargetPoint,
+                HasTargetPoint,
+                SelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                TargetingPayload,
+                targetPoint,
+                true,
+                targetPoint - Origin,
+                (targetPoint - Origin).sqrMagnitude > 0.000001f);
+        }
+
+        public CastContext WithSupplementalTargeting(
+            in CastContext supplemental)
+        {
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                AimDirection,
+                HasAimDirection,
+                TargetPoint,
+                HasTargetPoint,
+                SelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                TargetingPayload,
+                supplemental.TargetPoint,
+                supplemental.HasTargetPoint,
+                supplemental.AimDirection,
+                supplemental.HasAimDirection,
+                supplemental.SelectedTarget,
+                supplemental.TargetingPayload);
+        }
+
+        public CastContext CreateSupplementalContext()
+        {
+            return new CastContext(
+                Caster,
+                CasterTeam,
+                Origin,
+                SupplementalAimDirection,
+                HasSupplementalAimDirection,
+                SupplementalTargetPoint,
+                HasSupplementalTargetPoint,
+                SupplementalSelectedTarget,
+                ChainBudget,
+                ChainDepth,
+                SupplementalTargetingPayload);
         }
 
         public CastContext CreateChild(

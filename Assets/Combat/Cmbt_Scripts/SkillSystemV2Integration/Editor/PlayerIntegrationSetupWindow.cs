@@ -207,6 +207,7 @@ public sealed class PlayerIntegrationSetupWindow : EditorWindow
             CreateOrLoad<PointClickDeliveryDefinition>(
                 $"{DeliveriesRoot}/Delivery_PointClick.asset");
         SetObject(pointClickDelivery, "playerTargeting", pointClickTargeting);
+        SetObject(relocateActor, "aimedPointDelivery", pointClickDelivery);
 
         TripWireDeliveryDefinition tripWireDelivery =
             CreateOrLoad<TripWireDeliveryDefinition>(

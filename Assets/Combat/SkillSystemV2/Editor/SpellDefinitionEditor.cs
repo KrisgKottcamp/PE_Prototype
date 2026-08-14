@@ -2554,9 +2554,16 @@ namespace ProjectEri.SkillSystemV2.Editor
             SerializedProperty property)
         {
             SerializedProperty mode = property.FindPropertyRelative("mode");
+            SerializedProperty destination =
+                property.FindPropertyRelative("destination");
             EditorGUILayout.PropertyField(mode);
-            EditorGUILayout.PropertyField(
-                property.FindPropertyRelative("destination"));
+            EditorGUILayout.PropertyField(destination);
+            if ((ActorRelocationDestination)destination.enumValueIndex ==
+                ActorRelocationDestination.AimedPoint)
+            {
+                DrawRelocationDestinationDelivery(
+                    property.FindPropertyRelative("aimedPointDelivery"));
+            }
             if ((ActorRelocationMode)mode.enumValueIndex ==
                 ActorRelocationMode.Travel)
             {
@@ -2584,6 +2591,70 @@ namespace ProjectEri.SkillSystemV2.Editor
             {
                 EditorGUILayout.PropertyField(
                     property.FindPropertyRelative("preserveVelocity"));
+            }
+        }
+
+        private static void DrawRelocationDestinationDelivery(
+            SerializedProperty deliverySlot)
+        {
+            if (deliverySlot == null)
+                return;
+
+            SerializedProperty delivery =
+                deliverySlot.FindPropertyRelative("delivery");
+            SerializedProperty settings =
+                deliverySlot.FindPropertyRelative("settings");
+            var definition =
+                delivery.objectReferenceValue as DeliveryDefinition;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField(
+                    new GUIContent(
+                        "Aimed Point Selection",
+                        "This secondary delivery runs after the main target is confirmed and resolves where Relocate Actor moves that actor."),
+                    EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Point Click resolves immediately. Projectile, Grenade, " +
+                    "and Ricochet resolve where they stop; areas resolve at " +
+                    "creation. The destination delivery keeps its visuals, " +
+                    "movement, collision, and timing, but cannot apply the " +
+                    "spell's effects a second time.",
+                    MessageType.None);
+
+                EditorGUI.BeginChangeCheck();
+                EditorGUILayout.PropertyField(
+                    delivery,
+                    new GUIContent(
+                        "Destination Delivery",
+                        "Choose the secondary delivery that travels to or otherwise resolves the relocation destination."));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    definition =
+                        delivery.objectReferenceValue as DeliveryDefinition;
+                    settings.managedReferenceValue = definition != null
+                        ? definition.CreateDefaultSettings()
+                        : null;
+                }
+
+                if (definition == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Assign a destination delivery. Delivery_PointClick " +
+                        "is immediate; Delivery_Projectile moves visibly to " +
+                        "the destination.",
+                        MessageType.Warning);
+                    return;
+                }
+
+                EnsureCompatibleSettings(definition, settings);
+                if (definition.SettingsType != null)
+                {
+                    EditorGUILayout.LabelField(
+                        "Destination Targeting Settings",
+                        EditorStyles.boldLabel);
+                    DrawManagedReferenceChildren(settings);
+                }
             }
         }
 

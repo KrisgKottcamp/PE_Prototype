@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: Relocate Actor
   mode: 0
   destination: 0
+  aimedPointDelivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
   speed: 10
   maximumDistance: 8
   destinationOffset: {x: 0, y: 0}

@@ -151,6 +151,22 @@ area's persistent behavior from new behavior unlocked by an interaction—for
 example, a Slow Orb can always slow everything inside but enable enemy-only
 Damage Over Time after a projectile hits it.
 
+## Relocate Actor destination targeting
+
+Relocate Actor's **Aimed Point** destination uses a secondary destination
+delivery. The normal delivery first selects the actor that receives the effect;
+the destination delivery then runs independently to determine where that actor
+moves. `Delivery_PointClick` resolves immediately, while Projectile, Grenade,
+and Ricochet deliveries move normally and relocate the actor where they stop.
+Areas resolve when created, and mines or trip wires resolve when armed.
+
+The destination delivery keeps its targeting, preview, visuals, motion,
+collision, and timing. Its normal effects, Event Effect Recipes, and delivery
+reactions are suppressed so the spell cannot apply twice. The final
+`CastContext` retains both the original selected actor and the complete
+supplemental targeting context. Enemy AI can provide the same data through
+`CastContext.WithSupplementalTargeting`.
+
 ## Event Effect Recipes
 
 Default Effects remain the simple path: the delivery applies them at its normal

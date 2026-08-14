@@ -52,6 +52,17 @@ namespace ProjectEri.SkillSystemV2
             out string rejectionReason);
     }
 
+    /// <summary>
+    /// Optional contract for an effect that needs one additional player
+    /// targeting pass before the spell is cast. The effect may then execute
+    /// that delivery independently to resolve a later world destination.
+    /// </summary>
+    public interface ISpellSupplementalTargetingEffectDefinition
+    {
+        SpellDeliverySlot ResolveSupplementalTargetingDelivery(
+            SpellEffectSettings settings);
+    }
+
     public readonly struct SpellEffectContext
     {
         public SpellDefinition Spell { get; }

@@ -84,10 +84,8 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
             return;
 
         MenuSelectTargetingDefinition menuDefinition =
-            targetingController.ActiveSpell != null
-                ? targetingController.ActiveSpell.PlayerTargeting as
-                    MenuSelectTargetingDefinition
-                : null;
+            targetingController.ActiveTargetingDefinition as
+                MenuSelectTargetingDefinition;
         if (menuDefinition != null)
         {
             targetMenu?.OpenOrRefresh(menuDefinition);

@@ -350,9 +350,12 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Travel visibly over time or teleport immediately.")]
         [SerializeField] private ActorRelocationMode mode =
             ActorRelocationMode.Travel;
-        [Tooltip("Where the affected actor is moved.")]
+        [Tooltip("Where the affected actor is moved. Aimed Point uses the chosen point (or projects along the aim direction), Event Point uses the current hit/event point, Delivery Center uses the live delivery object or placed point, and actor destinations use their resolved actor root.")]
         [SerializeField] private ActorRelocationDestination destination =
             ActorRelocationDestination.AimedPoint;
+        [Tooltip("A secondary delivery that resolves Aimed Point. Point Click resolves immediately; Projectile relocates the actor where the projectile stops.")]
+        [SerializeField] private SpellDeliverySlot aimedPointDelivery =
+            new SpellDeliverySlot();
         [Tooltip("Travel speed in world units per second. Ignored by an instant teleport.")]
         [SerializeField, Min(0.01f)] private float speed = 10f;
         [Tooltip("Maximum distance the effect may move the target.")]
@@ -372,6 +375,8 @@ namespace ProjectEri.SkillSystemV2
 
         public ActorRelocationMode Mode => mode;
         public ActorRelocationDestination Destination => destination;
+        public SpellDeliverySlot AimedPointDelivery =>
+            aimedPointDelivery ??= new SpellDeliverySlot();
         public float Speed => Mathf.Max(0.01f, speed);
         public float MaximumDistance => Mathf.Max(0.01f, maximumDistance);
         public Vector2 DestinationOffset => destinationOffset;
@@ -393,10 +398,13 @@ namespace ProjectEri.SkillSystemV2
             bool clampAtBlocker = true,
             bool keepVelocity = false,
             Vector2 offset = default,
-            float skin = 0.03f)
+            float skin = 0.03f,
+            SpellDeliverySlot supplementalDelivery = null)
         {
             mode = relocationMode;
             destination = destinationSource;
+            aimedPointDelivery = supplementalDelivery ??
+                new SpellDeliverySlot();
             speed = Mathf.Max(0.01f, travelSpeed);
             maximumDistance = Mathf.Max(0.01f, maxDistance);
             requireLineOfSight = lineOfSight;
@@ -408,7 +416,9 @@ namespace ProjectEri.SkillSystemV2
         }
     }
 
-    public abstract class ActorRelocationEffectDefinitionBase : EffectDefinition
+    public abstract class ActorRelocationEffectDefinitionBase :
+        EffectDefinition,
+        ISpellSupplementalTargetingEffectDefinition
     {
         [Tooltip("Default choice between visible travel and an immediate teleport.")]
         [SerializeField] private ActorRelocationMode mode =
@@ -416,6 +426,8 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Default source used to resolve the affected actor's destination.")]
         [SerializeField] private ActorRelocationDestination destination =
             ActorRelocationDestination.AimedPoint;
+        [Tooltip("Default secondary delivery used to resolve Aimed Point. Point Click resolves immediately; moving deliveries resolve when they reach their destination.")]
+        [SerializeField] private DeliveryDefinition aimedPointDelivery;
         [Tooltip("Default travel speed copied into each spell. Ignored for an instant teleport.")]
         [SerializeField, Min(0.01f)] private float speed = 10f;
         [Tooltip("Default maximum distance the effect may move an actor.")]
@@ -448,8 +460,21 @@ namespace ProjectEri.SkillSystemV2
                 clampToObstacles,
                 preserveVelocity,
                 destinationOffset,
-                obstacleSkin);
+                obstacleSkin,
+                aimedPointDelivery != null
+                    ? new SpellDeliverySlot(aimedPointDelivery)
+                    : new SpellDeliverySlot());
             return settings;
+        }
+
+        public SpellDeliverySlot ResolveSupplementalTargetingDelivery(
+            SpellEffectSettings settings)
+        {
+            ActorRelocationEffectSettings resolved = Resolve(settings);
+            return resolved.Destination ==
+                    ActorRelocationDestination.AimedPoint
+                ? resolved.AimedPointDelivery
+                : null;
         }
 
         public override bool Apply(in SpellEffectContext context)
@@ -462,15 +487,47 @@ namespace ProjectEri.SkillSystemV2
             SpellEffectSettings settings)
         {
             ActorRelocationEffectSettings resolved = Resolve(settings);
+            SpellDeliverySlot destinationDelivery =
+                ResolveSupplementalTargetingDelivery(resolved);
+            if (resolved.Destination ==
+                    ActorRelocationDestination.AimedPoint &&
+                destinationDelivery?.Delivery != null)
+            {
+                return SpellRelocationDestinationDelivery2D.Launch(
+                    context,
+                    this,
+                    resolved,
+                    destinationDelivery);
+            }
+
+            return ApplyResolvedDestination(
+                context.Target,
+                context,
+                resolved);
+        }
+
+        internal bool ApplyResolvedDestination(
+            GameObject actor,
+            Vector2 destinationPoint,
+            ActorRelocationEffectSettings settings)
+        {
             SpellActorMotionController2D controller =
-                SpellActorMotionUtility.GetOrAddController(context.Target);
-            if (controller == null ||
-                !TryResolveDestination(context, resolved, out Vector2 point))
+                SpellActorMotionUtility.GetOrAddController(actor);
+            return controller != null &&
+                   controller.Relocate(destinationPoint, settings);
+        }
+
+        private bool ApplyResolvedDestination(
+            GameObject actor,
+            in SpellEffectContext context,
+            ActorRelocationEffectSettings settings)
+        {
+            if (!TryResolveDestination(context, settings, out Vector2 point))
             {
                 return false;
             }
 
-            return controller.Relocate(point, resolved);
+            return ApplyResolvedDestination(actor, point, settings);
         }
 
         public override string DescribeApplicationFailure(
@@ -498,6 +555,36 @@ namespace ProjectEri.SkillSystemV2
                     SpellValidationSeverity.Warning,
                     "Relocate Actor requires line of sight, but its Obstacle Mask is Nothing."));
             }
+
+            if (resolved.Destination !=
+                ActorRelocationDestination.AimedPoint)
+            {
+                return;
+            }
+
+            SpellDeliverySlot supplemental = resolved.AimedPointDelivery;
+            DeliveryDefinition delivery = supplemental.Delivery;
+            if (delivery == null)
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    "Relocate Actor using Aimed Point needs an Aimed Point Delivery. Assign Point Click for an immediate destination or a moving delivery such as Projectile."));
+                return;
+            }
+
+            PlayerTargetingDefinition targeting = supplemental.PlayerTargeting;
+            if (targeting == null)
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    $"Relocate Actor's Aimed Point Delivery '{delivery.DisplayName}' has no Player Targeting module."));
+            }
+            else if (!targeting.Supports(delivery.TargetingRequirement))
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    $"Aimed Point targeting '{targeting.DisplayName}' does not provide the context required by '{delivery.DisplayName}'."));
+            }
         }
 
         private ActorRelocationEffectSettings Resolve(
@@ -523,36 +610,59 @@ namespace ProjectEri.SkillSystemV2
                     point = context.Cast.Caster.transform.position;
                     break;
                 case ActorRelocationDestination.SelectedTarget:
+                {
                     if (context.Cast.SelectedTarget == null)
                     {
                         point = default;
                         return false;
                     }
-                    point = context.Cast.SelectedTarget.transform.position;
+                    GameObject selectedTarget =
+                        SpellTargetResolver.Resolve(
+                            context.Cast.SelectedTarget) ??
+                        context.Cast.SelectedTarget;
+                    point = selectedTarget.transform.position;
                     break;
+                }
                 case ActorRelocationDestination.DeliveryCenter:
-                    if (context.DeliveryRuntime == null)
+                    if (context.DeliveryRuntime != null)
                     {
-                        point = default;
-                        return false;
+                        point = context.DeliveryRuntime.transform.position;
                     }
-                    point = context.DeliveryRuntime.transform.position;
+                    else if (context.Cast.HasTargetPoint)
+                    {
+                        // Instant area deliveries do not have a Component
+                        // runtime. Their chosen point is still their center.
+                        point = context.Cast.TargetPoint;
+                    }
+                    else
+                    {
+                        // Direction-only deliveries such as melee arcs are
+                        // centered on the cast origin when no runtime exists.
+                        point = context.Cast.Origin;
+                    }
                     break;
                 case ActorRelocationDestination.EventPoint:
-                    if (!context.HasDeliveryEvent)
-                    {
-                        point = default;
-                        return false;
-                    }
+                    // Default effects receive the same hit point as event
+                    // recipes, but intentionally have EventType.None. The
+                    // point remains valid and must not be discarded.
                     point = context.HitPoint;
                     break;
                 default:
-                    if (!context.Cast.HasTargetPoint)
+                    if (context.Cast.HasTargetPoint)
+                    {
+                        point = context.Cast.TargetPoint;
+                    }
+                    else if (context.Cast.HasAimDirection)
+                    {
+                        point = context.Cast.Origin +
+                            context.Cast.AimDirection *
+                            settings.MaximumDistance;
+                    }
+                    else
                     {
                         point = default;
                         return false;
                     }
-                    point = context.Cast.TargetPoint;
                     break;
             }
 
@@ -560,6 +670,206 @@ namespace ProjectEri.SkillSystemV2
             return true;
         }
 
+    }
+
+    /// <summary>
+    /// Runs Relocate Actor's secondary delivery as a destination probe. The
+    /// delivery keeps its visuals, movement, collision, and timing, while its
+    /// normal effects, event recipes, and delivery reactions are suppressed.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class SpellRelocationDestinationDelivery2D :
+        MonoBehaviour,
+        ISpellDeliveryExecutionObserver
+    {
+        private ActorRelocationEffectDefinitionBase effect;
+        private ActorRelocationEffectSettings settings;
+        private SpellDeliverySlot destinationDelivery;
+        private GameObject actor;
+        private ISpellDeliveryExecution execution;
+        private SpellTimeMode timeMode;
+        private bool initialized;
+        private bool destinationResolved;
+        private bool relocationApplied;
+        private bool cleaningUp;
+
+        public bool DestinationResolved => destinationResolved;
+        public bool RelocationApplied => relocationApplied;
+
+        public static bool Launch(
+            in SpellEffectContext context,
+            ActorRelocationEffectDefinitionBase relocationEffect,
+            ActorRelocationEffectSettings relocationSettings,
+            SpellDeliverySlot deliverySlot)
+        {
+            if (context.Spell == null || context.Target == null ||
+                relocationEffect == null || relocationSettings == null ||
+                deliverySlot?.Delivery == null)
+            {
+                return false;
+            }
+
+            var runtimeObject = new GameObject(
+                $"{context.Spell.DisplayName} Relocation Destination");
+            runtimeObject.transform.position = context.Cast.Origin;
+            SpellRelocationDestinationDelivery2D runtime =
+                runtimeObject.AddComponent<
+                    SpellRelocationDestinationDelivery2D>();
+            bool launched = runtime.Initialize(
+                context,
+                relocationEffect,
+                relocationSettings,
+                deliverySlot);
+            if (!launched)
+            {
+                if (Application.isPlaying)
+                    Destroy(runtimeObject);
+                else
+                    DestroyImmediate(runtimeObject);
+            }
+            return launched;
+        }
+
+        private bool Initialize(
+            in SpellEffectContext context,
+            ActorRelocationEffectDefinitionBase relocationEffect,
+            ActorRelocationEffectSettings relocationSettings,
+            SpellDeliverySlot deliverySlot)
+        {
+            CastContext destinationCast =
+                context.Cast.CreateSupplementalContext();
+            if (!deliverySlot.Delivery.ValidateContext(
+                    destinationCast,
+                    deliverySlot.Settings,
+                    out _))
+            {
+                return false;
+            }
+
+            effect = relocationEffect;
+            settings = relocationSettings;
+            destinationDelivery = deliverySlot;
+            actor = context.Target;
+            timeMode = context.Spell.Timing.TimeMode;
+            var destinationContext = new SpellExecutionContext(
+                context.Spell,
+                destinationCast,
+                suppressGameplayEffects: true,
+                observer: this);
+            execution = destinationDelivery.Delivery.CreateExecution(
+                destinationContext,
+                destinationDelivery.Settings);
+            if (execution == null)
+                return false;
+
+            initialized = true;
+            execution.Begin();
+            if (destinationResolved)
+            {
+                execution.End();
+                ScheduleCleanup(cancelDelivery: true);
+                return relocationApplied;
+            }
+
+            if (execution.IsComplete)
+            {
+                execution.End();
+                initialized = false;
+                return false;
+            }
+
+            return true;
+        }
+
+        public void OnDeliveryEvent(in SpellEventOccurrence occurrence)
+        {
+            if (!initialized || destinationResolved ||
+                !IsDestinationResolvedEvent(
+                    destinationDelivery.Delivery,
+                    occurrence.Type))
+            {
+                return;
+            }
+
+            destinationResolved = true;
+            relocationApplied = effect.ApplyResolvedDestination(
+                actor,
+                occurrence.Point + settings.DestinationOffset,
+                settings);
+        }
+
+        private void Update()
+        {
+            if (!initialized || execution == null)
+                return;
+
+            if (destinationResolved)
+            {
+                ScheduleCleanup(cancelDelivery: true);
+                return;
+            }
+
+            float delta = timeMode == SpellTimeMode.Unscaled
+                ? Time.unscaledDeltaTime
+                : Time.deltaTime;
+            execution.Tick(Mathf.Max(0f, delta));
+            if (!execution.IsComplete)
+                return;
+
+            execution.End();
+            initialized = false;
+            ScheduleCleanup(cancelDelivery: false);
+        }
+
+        private void OnDisable()
+        {
+            if (!cleaningUp && initialized && execution != null)
+                execution.Cancel();
+            initialized = false;
+        }
+
+        private void ScheduleCleanup(bool cancelDelivery)
+        {
+            if (cleaningUp)
+                return;
+            cleaningUp = true;
+            if (cancelDelivery && execution != null)
+                execution.Cancel();
+            initialized = false;
+            if (Application.isPlaying)
+                Destroy(gameObject);
+        }
+
+        private static bool IsDestinationResolvedEvent(
+            DeliveryDefinition delivery,
+            SpellEventType eventType)
+        {
+            if (delivery is PointClickDeliveryDefinition ||
+                delivery is SelfDeliveryDefinition)
+            {
+                return eventType == SpellEventType.PointReached;
+            }
+
+            if (delivery is AreaDeliveryDefinition ||
+                delivery is LingeringAreaDeliveryDefinition)
+            {
+                return eventType == SpellEventType.AreaCreated;
+            }
+
+            if (delivery is ProximityMineDeliveryDefinition ||
+                delivery is TripWireDeliveryDefinition)
+            {
+                return eventType == SpellEventType.Armed;
+            }
+
+            if (delivery is InstantTargetDeliveryDefinition ||
+                delivery is MeleeArcDeliveryDefinition)
+            {
+                return eventType == SpellEventType.TargetHit;
+            }
+
+            return eventType == SpellEventType.DeliveryStopped;
+        }
     }
 
     [DefaultExecutionOrder(-50)]

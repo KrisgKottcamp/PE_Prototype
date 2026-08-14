@@ -458,7 +458,8 @@ namespace ProjectEri.SkillSystemV2
                 target,
                 detectedObject != null ? detectedObject : target,
                 point,
-                normal);
+                normal,
+                this);
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.TargetHit,
                 target,

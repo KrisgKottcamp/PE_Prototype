@@ -28,6 +28,10 @@ namespace ProjectEri.SkillSystemV2
         private ITargetingTimeController timeController;
         private SpellDefinition activeSpell;
         private PlayerTargetingDefinition activeDefinition;
+        private PlayerTargetingDefinition supplementalDefinition;
+        private SpellDeliverySlot supplementalDelivery;
+        private CastContext primaryContext;
+        private bool choosingSupplementalTarget;
         private CastContext currentContext;
         private PlayerTargetingPreview currentPreview;
         private bool canConfirm;
@@ -47,6 +51,10 @@ namespace ProjectEri.SkillSystemV2
         public bool IsTargeting => activeSpell != null;
         public bool CanConfirm => IsTargeting && canConfirm;
         public SpellDefinition ActiveSpell => activeSpell;
+        public PlayerTargetingDefinition ActiveTargetingDefinition =>
+            activeDefinition;
+        public bool IsChoosingSupplementalTarget =>
+            choosingSupplementalTarget;
         public CastContext CurrentContext => currentContext;
         public PlayerTargetingPreview CurrentPreview => currentPreview;
         public string ValidationMessage => validationMessage;
@@ -112,8 +120,33 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
 
+            supplementalDelivery = spell.TryGetSupplementalTargetingDelivery(
+                out SpellDeliverySlot configuredSupplemental)
+                ? configuredSupplemental
+                : null;
+            supplementalDefinition = supplementalDelivery?.PlayerTargeting;
+            if (supplementalDelivery != null &&
+                supplementalDefinition == null)
+            {
+                failure = PlayerTargetingFailure.MissingTargetingDefinition;
+                supplementalDelivery = null;
+                return false;
+            }
+            if (supplementalDelivery != null &&
+                !supplementalDefinition.Supports(
+                    supplementalDelivery.Delivery.TargetingRequirement))
+            {
+                failure =
+                    PlayerTargetingFailure.IncompatibleTargetingDefinition;
+                supplementalDelivery = null;
+                supplementalDefinition = null;
+                return false;
+            }
+
             activeSpell = spell;
             activeDefinition = definition;
+            choosingSupplementalTarget = false;
+            primaryContext = default;
             confirmedPoints.Clear();
             beganOnFrame = Time.frameCount;
             ResolveTimeController();
@@ -195,11 +228,22 @@ namespace ProjectEri.SkillSystemV2
             // validation only when the final stage is being aimed.
             if (canConfirm && !awaitingMoreTargetingStages)
             {
-                canConfirm = activeSpell.TryResolveContext(
-                    currentContext,
-                    out CastContext resolvedContext,
-                    out validationMessage);
-                currentContext = resolvedContext;
+                if (choosingSupplementalTarget)
+                {
+                    canConfirm = supplementalDelivery.Delivery
+                        .ValidateContext(
+                            currentContext,
+                            supplementalDelivery.Settings,
+                            out validationMessage);
+                }
+                else
+                {
+                    canConfirm = activeSpell.TryResolveContext(
+                        currentContext,
+                        out CastContext resolvedContext,
+                        out validationMessage);
+                    currentContext = resolvedContext;
+                }
             }
 
             if (currentContext.HasTargetPoint)
@@ -257,6 +301,31 @@ namespace ProjectEri.SkillSystemV2
             CastContext context = currentContext;
             PlayerTargetingPreview preview = currentPreview;
 
+            if (!choosingSupplementalTarget &&
+                supplementalDelivery != null)
+            {
+                primaryContext = context;
+                choosingSupplementalTarget = true;
+                activeDefinition = supplementalDefinition;
+                confirmedPoints.Clear();
+                beganOnFrame = Time.frameCount;
+                timeController?.Release(this);
+                timeController?.Acquire(
+                    this,
+                    activeDefinition.AimTimeScale);
+                EvaluateAim(
+                    lastPointerWorldPosition,
+                    null,
+                    notify: true);
+                targetingFailure = PlayerTargetingFailure.None;
+                return true;
+            }
+
+            if (choosingSupplementalTarget)
+            {
+                context = primaryContext.WithSupplementalTargeting(context);
+            }
+
             if (!spellRunner.TryCast(spell, context, out castFailure))
             {
                 targetingFailure = PlayerTargetingFailure.CastRejected;
@@ -298,6 +367,10 @@ namespace ProjectEri.SkillSystemV2
             timeController?.Release(this);
             activeSpell = null;
             activeDefinition = null;
+            supplementalDefinition = null;
+            supplementalDelivery = null;
+            primaryContext = default;
+            choosingSupplementalTarget = false;
             currentContext = default;
             currentPreview = default;
             canConfirm = false;

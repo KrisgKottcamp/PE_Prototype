@@ -291,7 +291,8 @@ namespace ProjectEri.SkillSystemV2
                     point,
                     normal.sqrMagnitude > 0.000001f
                         ? normal.normalized
-                        : Vector2.zero);
+                        : Vector2.zero,
+                    this);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.TargetCrossed,
                     target,

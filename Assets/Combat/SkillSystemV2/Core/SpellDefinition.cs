@@ -202,6 +202,74 @@ namespace ProjectEri.SkillSystemV2
                 MaximumRootActivations);
         }
 
+        public bool TryGetSupplementalTargetingDelivery(
+            out SpellDeliverySlot supplementalDelivery)
+        {
+            EnsureEffectSlots();
+            if (TryFindSupplementalTargeting(
+                    effectSlots,
+                    out supplementalDelivery))
+            {
+                return true;
+            }
+
+            EnsureEventEffectRoutes();
+            for (int i = 0; i < eventEffectRoutes.Count; i++)
+            {
+                SpellEventEffectRoute route = eventEffectRoutes[i];
+                if (route != null && route.Enabled &&
+                    TryFindSupplementalTargeting(
+                        route.EffectSlots,
+                        out supplementalDelivery))
+                {
+                    return true;
+                }
+            }
+
+            EnsureReactiveEffectGroups();
+            for (int i = 0; i < reactiveEffectGroups.Count; i++)
+            {
+                SpellReactiveEffectGroup group = reactiveEffectGroups[i];
+                if (group != null && TryFindSupplementalTargeting(
+                        group.EffectSlots,
+                        out supplementalDelivery))
+                {
+                    return true;
+                }
+            }
+
+            supplementalDelivery = null;
+            return false;
+        }
+
+        private static bool TryFindSupplementalTargeting(
+            IReadOnlyList<SpellEffectSlot> slots,
+            out SpellDeliverySlot supplementalDelivery)
+        {
+            int count = slots?.Count ?? 0;
+            for (int i = 0; i < count; i++)
+            {
+                SpellEffectSlot slot = slots[i];
+                if (!(slot?.Effect is
+                        ISpellSupplementalTargetingEffectDefinition provider))
+                {
+                    continue;
+                }
+
+                SpellDeliverySlot candidate =
+                    provider.ResolveSupplementalTargetingDelivery(
+                        slot.Settings);
+                if (candidate?.Delivery == null)
+                    continue;
+
+                supplementalDelivery = candidate;
+                return true;
+            }
+
+            supplementalDelivery = null;
+            return false;
+        }
+
         [ContextMenu("Regenerate Stable ID")]
         public void RegenerateStableId()
         {

@@ -179,6 +179,359 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void RelocateActor_AimedPointFallsBackToAimDirection()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            ActorRelocationEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            CastContext cast = CastContext.ForDirection(
+                caster,
+                Vector2.zero,
+                Vector2.right);
+            var context = new SpellEffectContext(
+                null,
+                cast,
+                target,
+                target.transform.position,
+                Vector2.right,
+                1f);
+            var settings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.AimedPoint,
+                10f,
+                4f,
+                lineOfSight: false);
+
+            Assert.That(effect.Apply(context, settings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(4f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_EventPointWorksForDefaultEffects()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            ActorRelocationEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            CastContext cast = CastContext.ForDirection(
+                caster,
+                Vector2.zero,
+                Vector2.right);
+            var context = new SpellEffectContext(
+                null,
+                cast,
+                target,
+                new Vector2(3f, 0f),
+                Vector2.left,
+                1f);
+            var settings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.EventPoint,
+                10f,
+                8f,
+                lineOfSight: false);
+
+            Assert.That(context.HasDeliveryEvent, Is.False);
+            Assert.That(effect.Apply(context, settings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(3f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_DeliveryCenterUsesRuntimeTransform()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            GameObject delivery = Track(
+                new GameObject("Relocation Delivery Runtime"));
+            delivery.transform.position = new Vector2(5f, 0f);
+            CircleCollider2D runtime =
+                delivery.AddComponent<CircleCollider2D>();
+            ActorRelocationEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                new Vector2(2f, 0f));
+            var context = new SpellEffectContext(
+                null,
+                cast,
+                target,
+                target.transform.position,
+                Vector2.left,
+                1f,
+                deliveryRuntime: runtime);
+            var settings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.DeliveryCenter,
+                10f,
+                8f,
+                lineOfSight: false);
+
+            Assert.That(effect.Apply(context, settings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(5f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_DeliveryCenterUsesPlacedAreaPointWithoutRuntime()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            ActorRelocationEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                new Vector2(7f, 0f));
+            var context = new SpellEffectContext(
+                null,
+                cast,
+                target,
+                target.transform.position,
+                Vector2.left,
+                1f);
+            var settings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.DeliveryCenter,
+                10f,
+                8f,
+                lineOfSight: false);
+
+            Assert.That(effect.Apply(context, settings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(7f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_SelectedTargetCanMoveDifferentRecipient()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            GameObject selected = Track(
+                new GameObject("Relocation Selected Target"));
+            selected.transform.position = new Vector2(6f, 0f);
+            ActorRelocationEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            CastContext cast = CastContext.ForTarget(
+                caster,
+                Vector2.zero,
+                selected);
+            var context = new SpellEffectContext(
+                null,
+                cast,
+                target,
+                target.transform.position,
+                Vector2.right,
+                1f);
+            var settings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.SelectedTarget,
+                10f,
+                8f,
+                lineOfSight: false);
+
+            Assert.That(effect.Apply(context, settings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(6f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_PlayerChoosesActorThenAimedPoint()
+        {
+            target.transform.position = new Vector2(2f, 0f);
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+
+            SelectedTargetingDefinition actorTargeting = Track(
+                ScriptableObject.CreateInstance<
+                    SelectedTargetingDefinition>());
+            PointTargetingDefinition pointTargeting = Track(
+                ScriptableObject.CreateInstance<
+                    PointTargetingDefinition>());
+            InstantTargetDeliveryDefinition actorDelivery = Track(
+                ScriptableObject.CreateInstance<
+                    InstantTargetDeliveryDefinition>());
+            PointClickDeliveryDefinition pointDelivery = Track(
+                ScriptableObject.CreateInstance<
+                    PointClickDeliveryDefinition>());
+            ActorRelocationEffectDefinition effect = Track(
+                ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+
+            var destinationDelivery = new SpellDeliverySlot(
+                pointDelivery,
+                new PointClickDeliverySettings(pointTargeting));
+            var relocation = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.AimedPoint,
+                10f,
+                8f,
+                lineOfSight: false,
+                supplementalDelivery: destinationDelivery);
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                actorDelivery,
+                new InstantTargetDeliverySettings(actorTargeting)));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(
+                effect,
+                relocation));
+            spell.RegenerateStableId();
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(TargetRelationship.Any));
+
+            SpellRunner runner = caster.AddComponent<SpellRunner>();
+            caster.AddComponent<TargetingTimeScaleController>();
+            PlayerSpellTargetingController targeting =
+                caster.AddComponent<PlayerSpellTargetingController>();
+            SetField(targeting, "spellRunner", runner);
+
+            Assert.That(targeting.BeginTargeting(
+                spell,
+                out PlayerTargetingFailure beginFailure), Is.True,
+                beginFailure.ToString());
+            Assert.That(targeting.UpdateAim(
+                target.transform.position,
+                target), Is.True);
+            Assert.That(targeting.ConfirmTargeting(
+                out PlayerTargetingFailure actorFailure,
+                out _), Is.True, actorFailure.ToString());
+            Assert.That(targeting.IsChoosingSupplementalTarget, Is.True);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(2f).Within(0.001f),
+                "The actor must not move until the destination is confirmed.");
+
+            Assert.That(targeting.UpdateAim(
+                new Vector2(6f, 0f)), Is.True);
+            Assert.That(targeting.ConfirmTargeting(
+                out PlayerTargetingFailure pointFailure,
+                out SpellCastFailure castFailure), Is.True,
+                $"{pointFailure}: {castFailure}");
+            SpellRelocationDestinationDelivery2D destinationRuntime =
+                Object.FindObjectOfType<
+                    SpellRelocationDestinationDelivery2D>();
+            Assert.That(destinationRuntime, Is.Not.Null);
+            Track(destinationRuntime.gameObject);
+            Assert.That(targeting.IsTargeting, Is.False);
+            Assert.That(target.transform.position.x,
+                Is.EqualTo(6f).Within(0.001f));
+        }
+
+        [Test]
+        public void RelocateActor_ProjectileMovesActorWhereItStops()
+        {
+            target.AddComponent<Rigidbody2D>().bodyType =
+                RigidbodyType2D.Dynamic;
+            GameObject blocker = Track(
+                new GameObject("Relocation Projectile Blocker"));
+            blocker.transform.position = new Vector2(3f, 0f);
+            blocker.AddComponent<BoxCollider2D>().size =
+                new Vector2(0.5f, 1f);
+            SpellVitality blockerVitality =
+                blocker.AddComponent<SpellVitality>();
+            Physics2D.SyncTransforms();
+
+            DirectionTargetingDefinition projectileTargeting = Track(
+                ScriptableObject.CreateInstance<
+                    DirectionTargetingDefinition>());
+            ProjectileDeliveryDefinition projectileDelivery = Track(
+                ScriptableObject.CreateInstance<
+                    ProjectileDeliveryDefinition>());
+            var projectileSettings = new ProjectileDeliverySettings(
+                projectileTargeting,
+                null,
+                false,
+                10f,
+                5f,
+                0f,
+                (LayerMask)1,
+                false,
+                1,
+                true,
+                16);
+            var destinationDelivery = new SpellDeliverySlot(
+                projectileDelivery,
+                projectileSettings);
+            ActorRelocationEffectDefinition relocationEffect = Track(
+                ScriptableObject.CreateInstance<
+                    ActorRelocationEffectDefinition>());
+            var relocationSettings = new ActorRelocationEffectSettings(
+                ActorRelocationMode.InstantTeleport,
+                ActorRelocationDestination.AimedPoint,
+                10f,
+                8f,
+                lineOfSight: false,
+                supplementalDelivery: destinationDelivery);
+
+            DamageEffectDefinition damage = Track(
+                ScriptableObject.CreateInstance<DamageEffectDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            spell.ReplaceEffectSlots(new SpellEffectSlot(
+                damage,
+                new DamageEffectSettings(10f)));
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(TargetRelationship.Any));
+
+            CastContext primary = CastContext.ForTarget(
+                caster,
+                Vector2.zero,
+                target);
+            CastContext destination = CastContext.ForDirection(
+                caster,
+                Vector2.zero,
+                Vector2.right);
+            CastContext cast = primary.WithSupplementalTargeting(destination);
+            var context = new SpellEffectContext(
+                spell,
+                cast,
+                target,
+                target.transform.position,
+                Vector2.right,
+                1f);
+
+            Assert.That(relocationEffect.Apply(
+                context,
+                relocationSettings), Is.True);
+            Assert.That(target.transform.position.x,
+                Is.Zero.Within(0.001f),
+                "The actor must wait for the projectile to stop.");
+
+            SpellProjectile2D projectile =
+                Object.FindObjectOfType<SpellProjectile2D>();
+            SpellRelocationDestinationDelivery2D runtime =
+                Object.FindObjectOfType<
+                    SpellRelocationDestinationDelivery2D>();
+            Assert.That(projectile, Is.Not.Null);
+            Assert.That(runtime, Is.Not.Null);
+            Track(projectile.gameObject);
+            Track(runtime.gameObject);
+
+            projectile.Step(1f);
+
+            Assert.That(runtime.DestinationResolved, Is.True);
+            Assert.That(runtime.RelocationApplied, Is.True);
+            Assert.That(target.transform.position.x,
+                Is.GreaterThan(2f));
+            Assert.That(blockerVitality.CurrentHealth,
+                Is.EqualTo(100f).Within(0.001f),
+                "A destination delivery must not apply the spell's effects " +
+                "to objects it hits.");
+        }
+
+        [Test]
         public void SpatialForce_PresenceOwnsMotionUntilRemoved()
         {
             target.AddComponent<Rigidbody2D>().bodyType =

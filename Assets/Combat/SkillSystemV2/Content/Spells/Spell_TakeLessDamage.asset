@@ -94,11 +94,9 @@ MonoBehaviour:
     - rid: 1819652478116036690
       type: {class: SpellStatModifierSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        stat: 7
+        stat: 1
         operation: 1
         value: 0.75
         duration: 10
         stacking: 0
         maximumStacks: 1
-        resetWhenTargetBecomesInactive: 1
-        applyToAllPartyMembers: 0

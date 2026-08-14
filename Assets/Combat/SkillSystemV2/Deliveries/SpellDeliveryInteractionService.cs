@@ -33,7 +33,8 @@ namespace ProjectEri.SkillSystemV2
 
         public static void Register(ISpellDeliveryInteractionVolume volume)
         {
-            if (volume == null)
+            if (volume == null ||
+                volume.InteractionExecutionContext.SuppressGameplayEffects)
                 return;
 
             PruneDestroyed();
@@ -102,6 +103,9 @@ namespace ProjectEri.SkillSystemV2
             int sourceRuntimeId = 0,
             ISet<int> contactedVolumes = null)
         {
+            if (source.SuppressGameplayEffects)
+                return 0;
+
             PruneDestroyed();
             int count = 0;
             float safeRadius = Mathf.Max(0f, radius);
@@ -144,6 +148,9 @@ namespace ProjectEri.SkillSystemV2
             int sourceRuntimeId = 0,
             ISet<int> contactedVolumes = null)
         {
+            if (source.SuppressGameplayEffects)
+                return 0;
+
             PruneDestroyed();
             int count = 0;
             for (int i = 0; i < volumes.Count; i++)
@@ -187,6 +194,9 @@ namespace ProjectEri.SkillSystemV2
             DeliveryContactPhase phase = DeliveryContactPhase.Impact,
             int sourceRuntimeId = 0)
         {
+            if (source.SuppressGameplayEffects)
+                return 0;
+
             PruneDestroyed();
             Vector2 aim = direction.sqrMagnitude > 0.000001f
                 ? direction.normalized
