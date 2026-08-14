@@ -250,7 +250,9 @@ namespace ProjectEri.SkillSystemV2
     }
 
     [DisallowMultipleComponent]
-    public sealed class SpellGrenade2D : MonoBehaviour
+    public sealed class SpellGrenade2D : MonoBehaviour,
+        ISpellSpatialForceTarget,
+        ISpellDeliveryRadiusProvider
     {
         private SpellExecutionContext context;
         private GrenadeDeliverySettings settings;
@@ -273,6 +275,10 @@ namespace ProjectEri.SkillSystemV2
         private float collisionRearmDistance;
 
         public bool IsComplete { get; private set; }
+        public GameObject SpatialForceTargetObject => gameObject;
+        public float DeliveryRadius => settings != null
+            ? settings.ExplosionRadius
+            : 0f;
 
         public void SetVisualRoot(Transform assignedVisualRoot)
         {
@@ -301,6 +307,7 @@ namespace ProjectEri.SkillSystemV2
             overlapBuffer = new Collider2D[settings.CastBufferSize];
             recentlyBouncedColliderId = 0;
             collisionRearmDistance = 0f;
+            EnsureSpatialForceSensor();
             EnsureVisual();
             CacheVisualTransform();
             context.DispatchEvent(new SpellEventOccurrence(
@@ -309,6 +316,27 @@ namespace ProjectEri.SkillSystemV2
                 transform.position,
                 direction,
                 this));
+        }
+
+        private void EnsureSpatialForceSensor()
+        {
+            CircleCollider2D sensor = GetComponent<CircleCollider2D>();
+            if (sensor == null)
+                sensor = gameObject.AddComponent<CircleCollider2D>();
+            sensor.isTrigger = true;
+            sensor.radius = Mathf.Max(0.08f, settings.CollisionRadius);
+            sensor.enabled = true;
+
+            Rigidbody2D body = GetComponent<Rigidbody2D>();
+            if (body == null)
+                body = gameObject.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.simulated = true;
+
+            int projectileLayer = LayerMask.NameToLayer("Projectile");
+            if (projectileLayer >= 0)
+                gameObject.layer = projectileLayer;
         }
 
         private void Update()

@@ -14,6 +14,16 @@ namespace ProjectEri.SkillSystemV2
     }
 
     /// <summary>
+    /// Marks a moving projectile root that can be displaced by Spatial Force
+    /// without replacing the projectile's own forward-motion simulation.
+    /// Child trigger sensors resolve back to this stable root object.
+    /// </summary>
+    public interface ISpellSpatialForceTarget
+    {
+        GameObject SpatialForceTargetObject { get; }
+    }
+
+    /// <summary>
     /// Allows a stable actor proxy to keep stat modifiers while deciding
     /// whether those modifiers currently contribute to gameplay evaluation.
     /// </summary>

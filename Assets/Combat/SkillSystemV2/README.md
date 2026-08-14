@@ -172,6 +172,25 @@ world-space outline matching the configured Range and Cone Angle. A 360-degree
 cone renders as a circle. Cone hits remain instantaneous and do not instantiate
 the moving Projectile Prefab.
 
+Spatial Force can move actor rigidbodies and projectile motion owners. Legacy
+player/enemy projectiles, moving Skill V2 projectiles, ricochet projectiles,
+and grenades keep their normal forward motion while the force adds a separate
+inward or outward displacement. Area Hit Masks and Target Rules must include
+the projectile's detected layer; the authored Black Hole includes both
+`Projectile` and `PlayerProjectile` and uses the `Any` relationship.
+
+Enable **Use Spatial Curve** for gravity-style motion. In this mode Strength is
+acceleration rather than an imposed velocity, so an object's entry direction
+and speed remain part of its trajectory. Gravity increases toward the center
+using `Gravity Exponent` (2 is inverse-square-like) and is stabilized by
+`Gravity Softening Distance`. `Maximum Speed` caps only the momentum contributed
+by the field. With **Preserve Curve Momentum After Exit** enabled, objects retain
+their bent trajectory after escaping the field. Projectile motion retains the
+added curve velocity alongside its normal flight, while actor momentum is
+returned to `Rigidbody2D` physics when the field releases control. The authored
+Black Hole enables this mode while the reusable Spatial Force effect keeps it
+off by default for backward compatibility.
+
 ## Event Effect Recipes
 
 Default Effects remain the simple path: the delivery applies them at its normal

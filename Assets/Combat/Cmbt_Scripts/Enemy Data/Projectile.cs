@@ -35,7 +35,7 @@ public class ReflectDamageTracker
     }
 }
 
-public class Projectile : MonoBehaviour
+public class Projectile : MonoBehaviour, ISpellSpatialForceTarget
 {
     public enum ProjectileTeam
     {
@@ -105,6 +105,7 @@ public class Projectile : MonoBehaviour
     private SpeedModifier speedModifier;
 
     public ProjectileTeam Team => team;
+    public GameObject SpatialForceTargetObject => gameObject;
 
     private void Awake()
     {

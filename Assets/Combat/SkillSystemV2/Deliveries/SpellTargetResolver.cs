@@ -25,6 +25,15 @@ namespace ProjectEri.SkillSystemV2
                 }
             }
 
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ISpellSpatialForceTarget projectile &&
+                    projectile.SpatialForceTargetObject != null)
+                {
+                    return projectile.SpatialForceTargetObject;
+                }
+            }
+
             CombatTeamMember teamMember =
                 candidate.GetComponentInParent<CombatTeamMember>(true);
             if (teamMember != null)

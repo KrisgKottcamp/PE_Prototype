@@ -392,6 +392,57 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void AuthoredBlackHole_DetectsBothProjectileFamilies()
+        {
+            const string path =
+                "Assets/Combat/SkillSystemV2/Content/Spells/Spell_BlackHole.asset";
+            SpellDefinition spell =
+                AssetDatabase.LoadAssetAtPath<SpellDefinition>(path);
+
+            Assert.That(spell, Is.Not.Null);
+            Assert.That(
+                spell.TargetFilter.Relationship,
+                Is.EqualTo(TargetRelationship.Any));
+            Assert.That(
+                spell.DeliverySettings,
+                Is.TypeOf<LingeringAreaDeliverySettings>());
+
+            var settings =
+                (LingeringAreaDeliverySettings)spell.DeliverySettings;
+            int enemyProjectileLayer = LayerMask.NameToLayer("Projectile");
+            int playerProjectileLayer =
+                LayerMask.NameToLayer("PlayerProjectile");
+            Assert.That(enemyProjectileLayer, Is.GreaterThanOrEqualTo(0));
+            Assert.That(playerProjectileLayer, Is.GreaterThanOrEqualTo(0));
+            Assert.That(
+                (settings.HitMask.value &
+                 (1 << enemyProjectileLayer)) != 0,
+                Is.True);
+            Assert.That(
+                (settings.HitMask.value &
+                 (1 << playerProjectileLayer)) != 0,
+                Is.True);
+            Assert.That(
+                (spell.TargetFilter.AllowedLayers.value &
+                 (1 << enemyProjectileLayer)) != 0,
+                Is.True);
+            Assert.That(
+                (spell.TargetFilter.AllowedLayers.value &
+                 (1 << playerProjectileLayer)) != 0,
+                Is.True);
+            Assert.That(spell.EffectSlots.Count, Is.GreaterThan(0));
+            Assert.That(
+                spell.EffectSlots[0].Settings,
+                Is.TypeOf<SpatialForceEffectSettings>());
+            var force =
+                (SpatialForceEffectSettings)spell.EffectSlots[0].Settings;
+            Assert.That(force.UseSpatialCurve, Is.True);
+            Assert.That(force.PreserveCurveMomentumAfterExit, Is.True);
+            Assert.That(force.GravityExponent,
+                Is.EqualTo(2f).Within(0.001f));
+        }
+
+        [Test]
         public void TripWire_AnyFilterLetsCasterCrossAndTakeDamage()
         {
             caster.AddComponent<CombatTarget>();

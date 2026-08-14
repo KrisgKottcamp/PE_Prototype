@@ -201,7 +201,9 @@ namespace ProjectEri.SkillSystemV2
 
     [DisallowMultipleComponent]
     public sealed class SpellRicochetProjectile2D : MonoBehaviour,
-        ISpellDeflectableDelivery
+        ISpellDeflectableDelivery,
+        ISpellSpatialForceTarget,
+        ISpellDeliveryRadiusProvider
     {
         private SpellExecutionContext context;
         private RicochetProjectileDeliverySettings settings;
@@ -220,6 +222,10 @@ namespace ProjectEri.SkillSystemV2
         private int casterImmunityUntilBounceCount;
 
         public bool IsComplete { get; private set; }
+        public GameObject SpatialForceTargetObject => gameObject;
+        public float DeliveryRadius => settings != null
+            ? settings.CollisionRadius
+            : 0f;
 
         public void Launch(
             in SpellExecutionContext executionContext,

@@ -254,6 +254,8 @@ namespace ProjectEri.SkillSystemV2
                     validationMessage);
             }
 
+            currentPreview = ResolveDeliveryPreview(currentPreview);
+
             if (notify)
             {
                 TargetingUpdated?.Invoke(new PlayerTargetingEvent(
@@ -263,6 +265,27 @@ namespace ProjectEri.SkillSystemV2
             }
 
             return canConfirm;
+        }
+
+        private PlayerTargetingPreview ResolveDeliveryPreview(
+            in PlayerTargetingPreview preview)
+        {
+            DeliveryDefinition delivery;
+            SpellDeliverySettings settings;
+            if (choosingSupplementalTarget)
+            {
+                delivery = supplementalDelivery?.Delivery;
+                settings = supplementalDelivery?.Settings;
+            }
+            else
+            {
+                delivery = activeSpell?.Delivery;
+                settings = activeSpell?.DeliverySettings;
+            }
+
+            return delivery != null
+                ? delivery.ResolveTargetingPreview(preview, settings)
+                : preview;
         }
 
         public bool ConfirmTargeting(

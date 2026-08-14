@@ -63,6 +63,17 @@ namespace ProjectEri.SkillSystemV2
             return settings?.PlayerTargeting ?? playerTargeting;
         }
 
+        /// <summary>
+        /// Lets a delivery replace generic targeting-asset preview geometry
+        /// with the exact per-spell geometry used by its runtime query.
+        /// </summary>
+        public virtual PlayerTargetingPreview ResolveTargetingPreview(
+            in PlayerTargetingPreview preview,
+            SpellDeliverySettings settings)
+        {
+            return preview;
+        }
+
         public abstract CastTargetingRequirement TargetingRequirement
         {
             get;

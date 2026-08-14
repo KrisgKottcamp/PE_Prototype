@@ -42,7 +42,7 @@ MonoBehaviour:
     useLayerMask: 1
     allowedLayers:
       serializedVersion: 2
-      m_Bits: 1792
+      m_Bits: 3840
     requireSpellTarget: 0
   placementRules:
     maximumDistance: 0
@@ -96,7 +96,7 @@ MonoBehaviour:
         applicationInterval: 0.25
         hitMask:
           serializedVersion: 2
-          m_Bits: 1792
+          m_Bits: 3840
         maximumColliders: 32
         zoneColor: {r: 0.62892497, g: 0, b: 0.6603774, a: 0.24}
         sortingOrderOffset: 20
@@ -108,6 +108,10 @@ MonoBehaviour:
         center: 0
         strength: 5
         maximumSpeed: 8
+        useSpatialCurve: 1
+        gravityExponent: 2
+        gravitySofteningDistance: 0.25
+        preserveCurveMomentumAfterExit: 1
         falloff: 0
         falloffDistance: 0
         stopDistance: 0.12

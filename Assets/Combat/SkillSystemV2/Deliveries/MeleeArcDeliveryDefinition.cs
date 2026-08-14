@@ -69,6 +69,26 @@ namespace ProjectEri.SkillSystemV2
                 PlayerTargeting, range, arcAngle, hitMask, maximumColliders);
         }
 
+        public override PlayerTargetingPreview ResolveTargetingPreview(
+            in PlayerTargetingPreview preview,
+            SpellDeliverySettings settings)
+        {
+            MeleeArcDeliverySettings resolved =
+                settings as MeleeArcDeliverySettings ??
+                (MeleeArcDeliverySettings)CreateDefaultSettings();
+            return new PlayerTargetingPreview(
+                PlayerTargetingPreviewShape.Cone,
+                preview.Origin,
+                preview.AimPoint,
+                preview.Direction,
+                resolved.Range,
+                preview.Radius,
+                resolved.ArcAngle,
+                preview.SelectedTarget,
+                preview.IsValid,
+                preview.ValidationMessage);
+        }
+
         public override ISpellDeliveryExecution CreateExecution(
             in SpellExecutionContext context)
         {

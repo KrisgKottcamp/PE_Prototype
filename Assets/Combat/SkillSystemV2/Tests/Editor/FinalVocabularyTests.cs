@@ -428,6 +428,46 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void MeleeArcPreview_UsesPerSpellRangeAndAngle()
+        {
+            DirectionTargetingDefinition directionTargeting = Track(
+                ScriptableObject.CreateInstance<
+                    DirectionTargetingDefinition>());
+            MeleeArcDeliveryDefinition delivery = Track(
+                ScriptableObject.CreateInstance<
+                    MeleeArcDeliveryDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                delivery,
+                new MeleeArcDeliverySettings(
+                    directionTargeting,
+                    5.5f,
+                    135f,
+                    ~0,
+                    24)));
+
+            SpellRunner runner = caster.AddComponent<SpellRunner>();
+            caster.AddComponent<TargetingTimeScaleController>();
+            PlayerSpellTargetingController targeting =
+                caster.AddComponent<PlayerSpellTargetingController>();
+            SetField(targeting, "spellRunner", runner);
+
+            Assert.That(targeting.BeginTargeting(
+                spell,
+                out PlayerTargetingFailure beginFailure), Is.True,
+                beginFailure.ToString());
+            Assert.That(targeting.UpdateAim(Vector2.right), Is.True);
+
+            Assert.That(targeting.CurrentPreview.Shape,
+                Is.EqualTo(PlayerTargetingPreviewShape.Cone));
+            Assert.That(targeting.CurrentPreview.Range,
+                Is.EqualTo(5.5f).Within(0.001f));
+            Assert.That(targeting.CurrentPreview.ConeAngle,
+                Is.EqualTo(135f).Within(0.001f));
+        }
+
+        [Test]
         public void RelocateActor_ProjectileMovesActorWhereItStops()
         {
             target.AddComponent<Rigidbody2D>().bodyType =
@@ -578,6 +618,325 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(
                 SpellActorMotionUtility.IsControllingMotion(target),
                 Is.False);
+        }
+
+        [Test]
+        public void SpatialForce_PullsSkillProjectileThroughItsChildSensor()
+        {
+            GameObject projectile = Track(
+                new GameObject("Spatial Force Skill Projectile"));
+            projectile.AddComponent<SpellProjectile2D>();
+            GameObject sensor = new GameObject("Projectile Sensor");
+            sensor.transform.SetParent(projectile.transform, false);
+            Rigidbody2D sensorBody = sensor.AddComponent<Rigidbody2D>();
+            sensorBody.bodyType = RigidbodyType2D.Kinematic;
+            sensor.AddComponent<CircleCollider2D>().isTrigger = true;
+
+            GameObject area = Track(new GameObject("Projectile Force Area"));
+            area.transform.position = new Vector2(4f, 0f);
+            CircleCollider2D source = area.AddComponent<CircleCollider2D>();
+            SpatialForceEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    SpatialForceEffectDefinition>());
+            var settings = new SpatialForceEffectSettings(
+                SpatialForceDirection.TowardCenter,
+                SpatialForceCenter.DeliveryCenter,
+                4f,
+                8f,
+                1f,
+                blockByObstacles: false);
+            GameObject resolved = SpellTargetResolver.Resolve(sensor);
+            var context = new SpellEffectContext(
+                null,
+                CastContext.ForDirection(
+                    caster,
+                    Vector2.zero,
+                    Vector2.right),
+                resolved,
+                projectile.transform.position,
+                Vector2.zero,
+                1f,
+                deliveryRuntime: source);
+
+            Assert.That(resolved, Is.SameAs(projectile));
+            Assert.That(effect.ApplyPresence(context, source, settings),
+                Is.True);
+            SpellActorMotionController2D controller =
+                projectile.GetComponent<SpellActorMotionController2D>();
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(
+                sensor.GetComponent<SpellActorMotionController2D>(),
+                Is.Null,
+                "The child sensor must resolve to and move the projectile root.");
+
+            controller.StepProjectileSpatialForce(0.5f);
+
+            Assert.That(projectile.transform.position.x,
+                Is.EqualTo(2f).Within(0.001f));
+            effect.RemovePresence(projectile, source, settings);
+            Assert.That(controller.IsControllingMotion, Is.False);
+        }
+
+        [Test]
+        public void SpatialForce_GrenadePullSurvivesDetonationRuntime()
+        {
+            GameObject projectile = Track(
+                new GameObject("Grenade Pull Projectile"));
+            projectile.AddComponent<SpellProjectile2D>();
+
+            GameObject grenadeObject = Track(
+                new GameObject("Expiring Grenade Runtime"));
+            SpellGrenade2D grenade =
+                grenadeObject.AddComponent<SpellGrenade2D>();
+            var grenadeSettings = new GrenadeDeliverySettings(
+                null,
+                null,
+                8f,
+                1.5f,
+                0.1f,
+                4f,
+                ~0,
+                GrenadeCollisionMode.Regular,
+                0.8f,
+                4,
+                32);
+            grenade.Launch(
+                new SpellExecutionContext(
+                    null,
+                    CastContext.ForPoint(
+                        caster,
+                        new Vector2(4f, 0f),
+                        new Vector2(4f, 0f))),
+                grenadeSettings);
+
+            Assert.That(
+                ((ISpellDeliveryRadiusProvider)grenade).DeliveryRadius,
+                Is.EqualTo(4f).Within(0.001f));
+
+            SpatialForceEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    SpatialForceEffectDefinition>());
+            var forceSettings = new SpatialForceEffectSettings(
+                SpatialForceDirection.TowardCenter,
+                SpatialForceCenter.DeliveryCenter,
+                4f,
+                20f,
+                1f,
+                forceFalloff: SpatialForceFalloff.None,
+                falloffRange: 0f,
+                blockByObstacles: false,
+                useCurve: true,
+                curveExponent: 2f,
+                curveSofteningDistance: 0.25f);
+            var effectContext = new SpellEffectContext(
+                null,
+                CastContext.ForDirection(
+                    caster,
+                    Vector2.zero,
+                    Vector2.right),
+                projectile,
+                projectile.transform.position,
+                Vector2.zero,
+                1f,
+                deliveryRuntime: grenade);
+
+            Assert.That(effect.Apply(effectContext, forceSettings), Is.True);
+            SpellActorMotionController2D controller =
+                projectile.GetComponent<SpellActorMotionController2D>();
+
+            // Grenades are destroyed immediately after applying their
+            // detonation effects. The timed force must remain independently
+            // owned until its configured Duration expires.
+            Object.DestroyImmediate(grenadeObject);
+            controller.StepProjectileSpatialForce(0.5f);
+
+            Assert.That(projectile.transform.position.x,
+                Is.EqualTo(1f).Within(0.01f),
+                "The pull must survive grenade destruction and auto-scale " +
+                "from the four-unit explosion radius.");
+        }
+
+        [Test]
+        public void SpatialCurve_PreservesEntryPathAndExitMomentum()
+        {
+            GameObject projectile = Track(
+                new GameObject("Curved Skill Projectile"));
+            projectile.transform.position = new Vector2(4f, 0f);
+            projectile.AddComponent<SpellProjectile2D>();
+            GameObject area = Track(new GameObject("Gravity Center"));
+            area.transform.position = Vector2.zero;
+            CircleCollider2D source = area.AddComponent<CircleCollider2D>();
+            SpatialForceEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    SpatialForceEffectDefinition>());
+            var settings = new SpatialForceEffectSettings(
+                SpatialForceDirection.TowardCenter,
+                SpatialForceCenter.DeliveryCenter,
+                4f,
+                20f,
+                1f,
+                forceFalloff: SpatialForceFalloff.None,
+                falloffRange: 4f,
+                blockByObstacles: false,
+                useCurve: true,
+                curveExponent: 2f,
+                curveSofteningDistance: 0.25f,
+                preserveCurveMomentum: true);
+            var context = new SpellEffectContext(
+                null,
+                CastContext.ForDirection(
+                    caster,
+                    Vector2.zero,
+                    Vector2.right),
+                projectile,
+                projectile.transform.position,
+                Vector2.zero,
+                1f,
+                deliveryRuntime: source);
+
+            Assert.That(effect.ApplyPresence(context, source, settings),
+                Is.True);
+            SpellActorMotionController2D controller =
+                projectile.GetComponent<SpellActorMotionController2D>();
+            controller.StepProjectileSpatialForce(0.25f);
+
+            projectile.transform.position += Vector3.up;
+            controller.StepProjectileSpatialForce(0.25f);
+
+            Assert.That(projectile.transform.position.x, Is.LessThan(3.5f));
+            Assert.That(projectile.transform.position.y, Is.GreaterThan(0.8f),
+                "Gravity must bend rather than replace perpendicular entry motion.");
+
+            effect.RemovePresence(projectile, source, settings);
+            Vector2 exitPoint = projectile.transform.position;
+            controller.StepProjectileSpatialForce(0.25f);
+            Vector2 exitTravel =
+                (Vector2)projectile.transform.position - exitPoint;
+
+            Assert.That(controller.IsControllingMotion, Is.True);
+            Assert.That(exitTravel.magnitude, Is.GreaterThan(0.1f));
+            Assert.That(exitTravel.x, Is.LessThan(0f));
+            Assert.That(exitTravel.y, Is.LessThan(0f));
+        }
+
+        [Test]
+        public void SpatialCurve_GravityStrengthIncreasesNearCenter()
+        {
+            GameObject farProjectile = Track(
+                new GameObject("Far Gravity Projectile"));
+            farProjectile.transform.position = new Vector2(4f, 0f);
+            farProjectile.AddComponent<SpellProjectile2D>();
+            GameObject nearProjectile = Track(
+                new GameObject("Near Gravity Projectile"));
+            nearProjectile.transform.position = new Vector2(1f, 0f);
+            nearProjectile.AddComponent<SpellProjectile2D>();
+            GameObject area = Track(new GameObject("Gravity Comparison Area"));
+            area.transform.position = Vector2.zero;
+            CircleCollider2D source = area.AddComponent<CircleCollider2D>();
+            SpatialForceEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    SpatialForceEffectDefinition>());
+            var settings = new SpatialForceEffectSettings(
+                SpatialForceDirection.TowardCenter,
+                SpatialForceCenter.DeliveryCenter,
+                4f,
+                20f,
+                1f,
+                forceFalloff: SpatialForceFalloff.None,
+                falloffRange: 4f,
+                blockByObstacles: false,
+                useCurve: true,
+                curveExponent: 2f,
+                curveSofteningDistance: 0.25f);
+            CastContext cast = CastContext.ForDirection(
+                caster,
+                Vector2.zero,
+                Vector2.right);
+
+            Assert.That(effect.ApplyPresence(
+                new SpellEffectContext(
+                    null,
+                    cast,
+                    farProjectile,
+                    farProjectile.transform.position,
+                    Vector2.zero,
+                    1f,
+                    deliveryRuntime: source),
+                source,
+                settings), Is.True);
+            Assert.That(effect.ApplyPresence(
+                new SpellEffectContext(
+                    null,
+                    cast,
+                    nearProjectile,
+                    nearProjectile.transform.position,
+                    Vector2.zero,
+                    1f,
+                    deliveryRuntime: source),
+                source,
+                settings), Is.True);
+
+            SpellActorMotionController2D farController =
+                farProjectile.GetComponent<SpellActorMotionController2D>();
+            SpellActorMotionController2D nearController =
+                nearProjectile.GetComponent<SpellActorMotionController2D>();
+            farController.StepProjectileSpatialForce(0.1f);
+            nearController.StepProjectileSpatialForce(0.1f);
+
+            Assert.That(
+                nearController.ForcedVelocity.magnitude,
+                Is.GreaterThan(farController.ForcedVelocity.magnitude * 4f));
+        }
+
+        [Test]
+        public void SpatialCurve_ActorEntryMomentumReturnsOnExit()
+        {
+            target.transform.position = new Vector2(4f, 0f);
+            Rigidbody2D body = target.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.linearVelocity = Vector2.up * 3f;
+            GameObject area = Track(new GameObject("Actor Gravity Area"));
+            area.transform.position = Vector2.zero;
+            CircleCollider2D source = area.AddComponent<CircleCollider2D>();
+            SpatialForceEffectDefinition effect =
+                Track(ScriptableObject.CreateInstance<
+                    SpatialForceEffectDefinition>());
+            var settings = new SpatialForceEffectSettings(
+                SpatialForceDirection.TowardCenter,
+                SpatialForceCenter.DeliveryCenter,
+                4f,
+                20f,
+                1f,
+                falloffRange: 4f,
+                blockByObstacles: false,
+                useCurve: true,
+                preserveCurveMomentum: true);
+            var context = new SpellEffectContext(
+                null,
+                CastContext.ForDirection(
+                    caster,
+                    Vector2.zero,
+                    Vector2.right),
+                target,
+                target.transform.position,
+                Vector2.zero,
+                1f,
+                deliveryRuntime: source);
+
+            Assert.That(effect.ApplyPresence(context, source, settings),
+                Is.True);
+            Assert.That(body.linearVelocity, Is.EqualTo(Vector2.zero),
+                "The force controller should own the captured entry momentum while inside.");
+
+            effect.RemovePresence(target, source, settings);
+
+            Assert.That(body.linearVelocity.x, Is.Zero.Within(0.001f));
+            Assert.That(body.linearVelocity.y,
+                Is.EqualTo(3f).Within(0.001f));
+            Assert.That(
+                SpellActorMotionUtility.IsControllingMotion(target),
+                Is.False,
+                "After exit, actor momentum returns to Rigidbody2D physics.");
         }
 
         [Test]

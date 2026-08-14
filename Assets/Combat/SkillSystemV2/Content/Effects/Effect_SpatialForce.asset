@@ -17,6 +17,10 @@ MonoBehaviour:
   center: 0
   strength: 5
   maximumSpeed: 8
+  useSpatialCurve: 0
+  gravityExponent: 2
+  gravitySofteningDistance: 0.25
+  preserveCurveMomentumAfterExit: 1
   falloff: 0
   falloffDistance: 0
   stopDistance: 0.12

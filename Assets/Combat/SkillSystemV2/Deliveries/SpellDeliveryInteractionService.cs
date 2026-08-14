@@ -13,6 +13,16 @@ namespace ProjectEri.SkillSystemV2
     }
 
     /// <summary>
+    /// Exposes the authored radius of a transient delivery so effects can
+    /// derive sensible distance-based behavior without depending on a
+    /// persistent interaction volume.
+    /// </summary>
+    public interface ISpellDeliveryRadiusProvider
+    {
+        float DeliveryRadius { get; }
+    }
+
+    /// <summary>
     /// Normalizes contacts between every delivery shape and registered
     /// persistent delivery volume. It deliberately contains geometry only;
     /// reactions and outcomes remain authored on the receiving spell.

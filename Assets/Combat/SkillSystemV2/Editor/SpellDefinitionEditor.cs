@@ -2527,17 +2527,48 @@ namespace ProjectEri.SkillSystemV2.Editor
                 property.FindPropertyRelative("strength"));
             EditorGUILayout.PropertyField(
                 property.FindPropertyRelative("maximumSpeed"));
-            SerializedProperty falloff =
-                property.FindPropertyRelative("falloff");
-            EditorGUILayout.PropertyField(falloff);
-            if ((SpatialForceFalloff)falloff.enumValueIndex !=
-                SpatialForceFalloff.None)
+            SerializedProperty useCurve =
+                property.FindPropertyRelative("useSpatialCurve");
+            EditorGUILayout.PropertyField(
+                useCurve,
+                new GUIContent(
+                    "Use Spatial Curve",
+                    "Treat Strength as acceleration, preserve entry momentum, and bend the target's trajectory like gravity."));
+            if (useCurve.boolValue)
             {
                 EditorGUILayout.PropertyField(
-                    property.FindPropertyRelative("falloffDistance"));
+                    property.FindPropertyRelative("gravityExponent"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative(
+                        "gravitySofteningDistance"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative(
+                        "preserveCurveMomentumAfterExit"));
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("falloffDistance"),
+                    new GUIContent(
+                        "Gravity Reference Distance",
+                        "Distance where gravity uses exactly the configured Strength. Zero uses the delivery area's radius."));
+                EditorGUILayout.HelpBox(
+                    "Curve mode adds acceleration to the target's existing " +
+                    "trajectory. Attraction grows closer to the center, and " +
+                    "preserved momentum continues after the target exits.",
+                    MessageType.Info);
             }
-            EditorGUILayout.PropertyField(
-                property.FindPropertyRelative("stopDistance"));
+            else
+            {
+                SerializedProperty falloff =
+                    property.FindPropertyRelative("falloff");
+                EditorGUILayout.PropertyField(falloff);
+                if ((SpatialForceFalloff)falloff.enumValueIndex !=
+                    SpatialForceFalloff.None)
+                {
+                    EditorGUILayout.PropertyField(
+                        property.FindPropertyRelative("falloffDistance"));
+                }
+                EditorGUILayout.PropertyField(
+                    property.FindPropertyRelative("stopDistance"));
+            }
             EditorGUILayout.PropertyField(
                 property.FindPropertyRelative("duration"));
             SerializedProperty respect =

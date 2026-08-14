@@ -2,7 +2,7 @@
 using ProjectEri.SkillSystemV2;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class PlayerProjectile : MonoBehaviour
+public class PlayerProjectile : MonoBehaviour, ISpellSpatialForceTarget
 {
     [Header("Movement")]
     [SerializeField] private float speed = 10f;
@@ -93,6 +93,8 @@ public class PlayerProjectile : MonoBehaviour
 
     private readonly RaycastHit2D[] closeRangeHits =
         new RaycastHit2D[24];
+
+    public GameObject SpatialForceTargetObject => gameObject;
 
     private void Awake()
     {

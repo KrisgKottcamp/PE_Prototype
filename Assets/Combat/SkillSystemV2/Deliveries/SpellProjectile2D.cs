@@ -4,7 +4,9 @@ using UnityEngine;
 namespace ProjectEri.SkillSystemV2
 {
     [DisallowMultipleComponent]
-    public sealed class SpellProjectile2D : MonoBehaviour
+    public sealed class SpellProjectile2D : MonoBehaviour,
+        ISpellSpatialForceTarget,
+        ISpellDeliveryRadiusProvider
     {
         private static Sprite fallbackSprite;
         private SpellExecutionContext context;
@@ -32,6 +34,8 @@ namespace ProjectEri.SkillSystemV2
         private bool returningToCaster;
 
         public bool IsComplete { get; private set; }
+        public GameObject SpatialForceTargetObject => gameObject;
+        public float DeliveryRadius => collisionRadius;
 
         public void Launch(
             in SpellExecutionContext executionContext,
