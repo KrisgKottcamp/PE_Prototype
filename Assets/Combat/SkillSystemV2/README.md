@@ -167,6 +167,11 @@ reactions are suppressed so the spell cannot apply twice. The final
 supplemental targeting context. Enemy AI can provide the same data through
 `CastContext.WithSupplementalTargeting`.
 
+Projectile deliveries using the **Cone** hit shape render a short-lived
+world-space outline matching the configured Range and Cone Angle. A 360-degree
+cone renders as a circle. Cone hits remain instantaneous and do not instantiate
+the moving Projectile Prefab.
+
 ## Event Effect Recipes
 
 Default Effects remain the simple path: the delivery applies them at its normal

@@ -2713,6 +2713,11 @@ namespace ProjectEri.SkillSystemV2.Editor
             {
                 EditorGUILayout.PropertyField(
                     shape.FindPropertyRelative("coneAngle"));
+                EditorGUILayout.HelpBox(
+                    "Cone resolves instantly and displays a short-lived outline " +
+                    "using its Range and Cone Angle. It does not spawn the " +
+                    "moving Projectile Prefab.",
+                    MessageType.Info);
             }
 
             EditorGUILayout.Space(3f);

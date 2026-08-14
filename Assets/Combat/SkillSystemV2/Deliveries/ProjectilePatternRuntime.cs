@@ -130,6 +130,10 @@ namespace ProjectEri.SkillSystemV2
     [DisallowMultipleComponent]
     public sealed class SpellInstantRangedShape2D : MonoBehaviour
     {
+        private const float VisualLifetime = 0.15f;
+        private static readonly Color ShapeColor =
+            new Color(0.25f, 0.9f, 1f, 0.9f);
+
         private SpellExecutionContext context;
         private readonly HashSet<int> contactedVolumes = new HashSet<int>();
 
@@ -153,7 +157,7 @@ namespace ProjectEri.SkillSystemV2
                 TimedSpellObject lifetime =
                     runtimeObject.AddComponent<TimedSpellObject>();
                 lifetime.Initialize(
-                    0.08f,
+                    VisualLifetime,
                     executionContext.Spell.Timing.TimeMode);
             }
         }
@@ -364,6 +368,7 @@ namespace ProjectEri.SkillSystemV2
                 settings.ShotShape.ConeAngle,
                 DeliveryContactPhase.Impact,
                 GetInstanceID());
+            AddConeVisual(origin, aim, settings);
         }
 
         private bool HasClearPath(
@@ -409,16 +414,64 @@ namespace ProjectEri.SkillSystemV2
             Vector2 end,
             ProjectileDeliverySettings settings)
         {
-            LineRenderer line = gameObject.AddComponent<LineRenderer>();
-            line.positionCount = 2;
-            line.useWorldSpace = true;
-            line.SetPosition(0, start);
-            line.SetPosition(1, end);
-            line.startWidth = Mathf.Max(0.025f, settings.ShotShape.BeamWidth);
-            line.endWidth = line.startWidth;
-            line.startColor = new Color(0.25f, 0.9f, 1f, 0.9f);
-            line.endColor = line.startColor;
-            line.sortingOrder = 150;
+            LineRenderer line = SpellDeliveryVisualUtility.CreateLine(
+                gameObject,
+                ShapeColor,
+                Mathf.Max(0.025f, settings.ShotShape.BeamWidth),
+                150);
+            SpellDeliveryVisualUtility.SetSegment(line, start, end);
+            MatchCasterSorting(line);
+        }
+
+        private void AddConeVisual(
+            Vector2 origin,
+            Vector2 aim,
+            ProjectileDeliverySettings settings)
+        {
+            float angle = settings.ShotShape.ConeAngle;
+            bool fullCircle = angle >= 359.9f;
+            LineRenderer line = SpellDeliveryVisualUtility.CreateLine(
+                gameObject,
+                ShapeColor,
+                Mathf.Max(0.035f, settings.CollisionRadius * 0.5f),
+                150,
+                fullCircle);
+            MatchCasterSorting(line);
+
+            if (fullCircle)
+            {
+                SpellDeliveryVisualUtility.SetCircle(
+                    line,
+                    origin,
+                    settings.Range,
+                    72);
+                return;
+            }
+
+            int arcSegments = Mathf.Clamp(
+                Mathf.CeilToInt(angle / 5f),
+                6,
+                72);
+            line.loop = false;
+            line.positionCount = arcSegments + 3;
+            line.SetPosition(0, origin);
+            for (int i = 0; i <= arcSegments; i++)
+            {
+                float offset = Mathf.Lerp(
+                    -angle * 0.5f,
+                    angle * 0.5f,
+                    i / (float)arcSegments);
+                Vector2 edgeDirection =
+                    Quaternion.Euler(0f, 0f, offset) * aim;
+                line.SetPosition(
+                    i + 1,
+                    origin + edgeDirection * settings.Range);
+            }
+            line.SetPosition(line.positionCount - 1, origin);
+        }
+
+        private void MatchCasterSorting(LineRenderer line)
+        {
             Renderer casterRenderer = context.Cast.Caster != null
                 ? context.Cast.Caster.GetComponentInChildren<Renderer>(true)
                 : null;

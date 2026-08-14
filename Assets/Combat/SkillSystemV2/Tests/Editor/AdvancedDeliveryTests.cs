@@ -23,6 +23,7 @@ namespace ProjectEri.SkillSystemV2.Tests
             DestroyAll<SpellProximityMine2D>();
             DestroyAll<SpellGrenade2D>();
             DestroyAll<SpellRicochetProjectile2D>();
+            DestroyAll<SpellInstantRangedShape2D>();
             Object.DestroyImmediate(caster);
         }
 
@@ -135,6 +136,66 @@ namespace ProjectEri.SkillSystemV2.Tests
             Object.DestroyImmediate(mine);
             Object.DestroyImmediate(grenade);
             Object.DestroyImmediate(ricochet);
+        }
+
+        [Test]
+        public void ProjectileCone_CreatesVisibleRangeOutline()
+        {
+            var delivery = ScriptableObject.CreateInstance<
+                ProjectileDeliveryDefinition>();
+            SpellDefinition spell = CreateSpell(
+                delivery,
+                "test-projectile-cone-visual");
+            var settings = new ProjectileDeliverySettings(
+                null,
+                null,
+                false,
+                8f,
+                6f,
+                0.08f,
+                0,
+                false,
+                4,
+                true,
+                16,
+                new ProjectileEmissionSettings(
+                    ProjectileEmissionPattern.Forward,
+                    1,
+                    0f),
+                new ProjectileMotionSettings(),
+                new ProjectileShapeSettings(
+                    ProjectileHitShape.Cone,
+                    0.12f,
+                    60f),
+                new ProjectileFalloffSettings());
+            spell.ReplaceDelivery(new SpellDeliverySlot(delivery, settings));
+            ISpellDeliveryExecution execution = delivery.CreateExecution(
+                new SpellExecutionContext(
+                    spell,
+                    CastContext.ForDirection(
+                        caster,
+                        Vector2.zero,
+                        Vector2.right)),
+                settings);
+
+            execution.Begin();
+
+            SpellInstantRangedShape2D runtime =
+                Object.FindObjectOfType<SpellInstantRangedShape2D>();
+            Assert.That(runtime, Is.Not.Null);
+            LineRenderer visual = runtime.GetComponent<LineRenderer>();
+            Assert.That(visual, Is.Not.Null);
+            Assert.That(visual.positionCount, Is.GreaterThan(3));
+            Assert.That(visual.GetPosition(0), Is.EqualTo(Vector3.zero));
+            Assert.That(
+                visual.GetPosition(1).magnitude,
+                Is.EqualTo(6f).Within(0.001f));
+            Assert.That(
+                visual.GetPosition(visual.positionCount - 1),
+                Is.EqualTo(Vector3.zero));
+
+            Object.DestroyImmediate(spell);
+            Object.DestroyImmediate(delivery);
         }
 
         [Test]
