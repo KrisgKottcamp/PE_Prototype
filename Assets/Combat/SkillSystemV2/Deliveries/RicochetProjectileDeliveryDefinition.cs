@@ -203,7 +203,8 @@ namespace ProjectEri.SkillSystemV2
     public sealed class SpellRicochetProjectile2D : MonoBehaviour,
         ISpellDeflectableDelivery,
         ISpellSpatialForceTarget,
-        ISpellDeliveryRadiusProvider
+        ISpellDeliveryRadiusProvider,
+        ISpellDeliveryGeometryProvider
     {
         private SpellExecutionContext context;
         private RicochetProjectileDeliverySettings settings;
@@ -226,6 +227,15 @@ namespace ProjectEri.SkillSystemV2
         public float DeliveryRadius => settings != null
             ? settings.CollisionRadius
             : 0f;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.FollowCircle(
+                transform,
+                settings != null ? settings.CollisionRadius : 0f);
+            return settings != null && !IsComplete;
+        }
 
         public void Launch(
             in SpellExecutionContext executionContext,
@@ -253,7 +263,10 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 direction,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        settings.CollisionRadius)));
         }
 
         private void Update()
@@ -341,7 +354,10 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     point,
                     surfaceNormal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            point,
+                            settings.CollisionRadius)));
                 if (hitTargets.Count >= settings.MaximumTargetHits)
                 {
                     Complete(subject, point, nearest.normal);
@@ -360,7 +376,10 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     point,
                     surfaceNormal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            point,
+                            settings.CollisionRadius)));
             }
 
             if (bounceCount >= settings.MaximumBounces)
@@ -389,7 +408,10 @@ namespace ProjectEri.SkillSystemV2
                 subject,
                 point,
                 surfaceNormal,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        settings.CollisionRadius)));
             UpdateFallbackVisual();
         }
 
@@ -426,7 +448,10 @@ namespace ProjectEri.SkillSystemV2
                 newCaster,
                 transform.position,
                 direction,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        settings.CollisionRadius)));
             return true;
         }
 
@@ -547,7 +572,12 @@ namespace ProjectEri.SkillSystemV2
                 subject,
                 point,
                 normal,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Circle(
+                        point,
+                        settings != null
+                            ? settings.CollisionRadius
+                            : 0f)));
             IsComplete = true;
             Destroy(gameObject);
         }

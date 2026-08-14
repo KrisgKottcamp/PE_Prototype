@@ -69,15 +69,23 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
+    delivery: {fileID: 11400000, guid: 035c34a168aff25429f522cdaff0ab46, type: 2}
     settings:
-      rid: 1819652478116036692
+      rid: 1819652478116036710
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: faade918748d5cb4e81f23af2fce273f, type: 2}
     settings:
       rid: 1819652478116036693
+    deliveryBinding: 0
+    anchorTrigger: 2
+    anchorApplication: 2
+    anchorMultiplicity: 1
+    anchorDuration: 1
+    anchorInterval: 0.25
+    anchorSizeOverride: 0
+    reapplyAfterExit: 1
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -87,22 +95,36 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652478116036692
-      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}
     - rid: 1819652478116036693
       type: {class: ActorRelocationEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         mode: 1
-        destination: 4
+        destination: 0
+        aimedPointDelivery:
+          delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
+          settings:
+            rid: 1819652478116036708
         speed: 10
         maximumDistance: 8
         destinationOffset: {x: 0, y: 0}
-        requireLineOfSight: 1
+        requireLineOfSight: 0
         obstacleMask:
           serializedVersion: 2
-          m_Bits: 128
+          m_Bits: 0
         clampToObstacles: 1
         obstacleSkin: 0.03
         preserveVelocity: 0
+    - rid: 1819652478116036708
+      type: {class: PointClickDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}
+    - rid: 1819652478116036710
+      type: {class: MeleeArcDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: 2a45799fdb78d6f44b7e72a14acc27f9, type: 2}
+        range: 1.75
+        arcAngle: 90
+        hitMask:
+          serializedVersion: 2
+          m_Bits: 1024
+        maximumColliders: 24

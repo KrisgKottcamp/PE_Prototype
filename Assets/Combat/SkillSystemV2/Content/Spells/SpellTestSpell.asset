@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_Grenade
+  m_Name: SpellTestSpell
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Grenade
-  stableId: fd47d302139d4b4ba546c5e253580f13
+  displayName: Test Spell
+  stableId: 1c97050557db4eccb95ee166962249af
   description: 
   icon: {fileID: 0}
   category: Skill
@@ -39,10 +39,10 @@ MonoBehaviour:
     amount: 0
   targetFilter:
     relationship: 0
-    useLayerMask: 0
+    useLayerMask: 1
     allowedLayers:
       serializedVersion: 2
-      m_Bits: 0
+      m_Bits: 512
     requireSpellTarget: 0
   placementRules:
     maximumDistance: 0
@@ -69,33 +69,33 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: 2a3e349d62d2ce84f8ca7622ed9f2743, type: 2}
+    delivery: {fileID: 11400000, guid: edc614f49846bca48af14de8b1dcf080, type: 2}
     settings:
-      rid: 1819652408774492256
+      rid: 1819652482963603534
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
-  - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
+  - effect: {fileID: 11400000, guid: 2bd7657bec7f16349a8d42d4fcebdef4, type: 2}
     settings:
-      rid: 1819652408774492258
-    deliveryBinding: 0
+      rid: 1819652482963603535
+    deliveryBinding: 1
     anchorTrigger: 2
     anchorApplication: 2
     anchorMultiplicity: 1
-    anchorDuration: 1
+    anchorDuration: 1.4
     anchorInterval: 0.25
-    anchorSizeOverride: 0
+    anchorSizeOverride: 3
     reapplyAfterExit: 1
-  - effect: {fileID: 11400000, guid: 88f0450f13420ad4dba3e313ac258ce5, type: 2}
+  - effect: {fileID: 11400000, guid: da41eaec31e48924885f80b3d00c479a, type: 2}
     settings:
-      rid: 1819652408774492259
-    deliveryBinding: 0
+      rid: 1819652482963603536
+    deliveryBinding: 1
     anchorTrigger: 2
     anchorApplication: 2
     anchorMultiplicity: 1
-    anchorDuration: 1
+    anchorDuration: 1.4
     anchorInterval: 0.25
-    anchorSizeOverride: 0
+    anchorSizeOverride: 3
     reapplyAfterExit: 1
   eventEffectRoutes: []
   reactiveEffectGroups: []
@@ -106,42 +106,48 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492256
-      type: {class: GrenadeDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652482963603534
+      type: {class: RicochetProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 11400000, guid: d1623807a09b43e2890af19b6a41df9a, type: 2}
+        playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
         visualPrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
-        speed: 8
-        throwArcHeight: 0.35
-        throwSpinDegreesPerSecond: 540
-        fuseDuration: 1.5
-        collisionRadius: 0.1
-        explosionRadius: 1.5
+        speed: 10
+        range: 14
+        collisionRadius: 0.08
         collisionMask:
           serializedVersion: 2
           m_Bits: 128
-        explosionTargetMask:
+        maximumBounces: 5
+        bounceSpeedRetention: 1
+        bounceOffTargets: 1
+        maximumTargetHits: 4
+        deflectableByBasicAttacks: 1
+        deflectionSpeedMultiplier: 1.1
+        castBufferSize: 24
+        prototypeColor: {r: 0.7, g: 0.35, b: 1, a: 1}
+    - rid: 1819652482963603535
+      type: {class: SpatialForceEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        direction: 0
+        center: 0
+        strength: 10
+        maximumSpeed: 8
+        useSpatialCurve: 1
+        gravityExponent: 2
+        gravitySofteningDistance: 0.25
+        preserveCurveMomentumAfterExit: 1
+        falloff: 0
+        falloffDistance: 0
+        stopDistance: 0.12
+        duration: 0.25
+        respectObstacles: 1
+        obstacleMask:
           serializedVersion: 2
-          m_Bits: 1280
-        collisionMode: 0
-        bounceSpeedRetention: 0.8
-        maximumBounces: 4
-        castBufferSize: 32
-        prototypeColor: {r: 1, g: 0.65, b: 0.15, a: 1}
-    - rid: 1819652408774492258
-      type: {class: DamageOverTimeEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+          m_Bits: 128
+    - rid: 1819652482963603536
+      type: {class: ReflectProjectileEffectSettings, ns: , asm: Assembly-CSharp}
       data:
-        damageType: {fileID: 0}
-        damagePerTick: 5
-        tickInterval: 0.5
-        duration: 3
-        tickImmediately: 1
-        ignoreInvulnerability: 0
-        stackingPolicy: 0
-    - rid: 1819652408774492259
-      type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        direction: 3
-        magnitude: 10
-        duration: 0.15
-        mode: 2
+        motionMode: 1
+        reflectedDamageBase: 10
+        reflectedLayerName: PlayerProjectile
+        trackerRetentionSeconds: 1

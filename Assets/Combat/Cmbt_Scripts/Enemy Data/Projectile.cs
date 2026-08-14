@@ -213,11 +213,17 @@ public class Projectile : MonoBehaviour, ISpellSpatialForceTarget
 
     /// <summary>
     /// Called by PushBack.
-    /// Reverses direction, changes ownership, changes layer, clears enemy collision ignores,
+    /// Changes ownership, changes layer, clears enemy collision ignores,
     /// tints the projectile, and optionally replaces its normal lifetime with
-    /// the reflected safety lifetime.
+    /// the reflected safety lifetime. Direction is reversed only when
+    /// reverseDirection is true; allegiance-only conversions preserve the
+    /// projectile's current velocity and trajectory.
     /// </summary>
-    public void Reflect(Transform newOwner, int newLayer = -1, ReflectDamageTracker tracker = null)
+    public void Reflect(
+        Transform newOwner,
+        int newLayer = -1,
+        ReflectDamageTracker tracker = null,
+        bool reverseDirection = true)
     {
         hasBeenReflected = true;
 
@@ -225,10 +231,17 @@ public class Projectile : MonoBehaviour, ISpellSpatialForceTarget
             ? ProjectileTeam.Player
             : ProjectileTeam.Enemy;
 
-        // Push Back sends the projectile back along its original path.
-        direction = -direction;
-
-        transform.rotation = Quaternion.FromToRotation(Vector3.right, direction);
+        if (reverseDirection)
+        {
+            // Traditional reflection sends the projectile back along its
+            // original path. Allegiance-only conversion intentionally leaves
+            // both the stored travel direction and live Rigidbody velocity
+            // untouched.
+            direction = -direction;
+            transform.rotation = Quaternion.FromToRotation(
+                Vector3.right,
+                direction);
+        }
 
         ownerRoot = newOwner != null ? newOwner.root : null;
 
@@ -253,7 +266,8 @@ public class Projectile : MonoBehaviour, ISpellSpatialForceTarget
         else
             destroyAt = Time.time + Mathf.Max(0.05f, lifetime);
 
-        ApplyVelocity();
+        if (reverseDirection)
+            ApplyVelocity();
     }
 
     private void OnTriggerEnter2D(Collider2D other)

@@ -100,3 +100,5 @@ MonoBehaviour:
         duration: 10
         stacking: 0
         maximumStacks: 1
+        resetWhenTargetBecomesInactive: 0
+        applyToAllPartyMembers: 0

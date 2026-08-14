@@ -38,23 +38,54 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 1
+    relationship: 0
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
       m_Bits: 0
     requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
     settings:
-      rid: 1819652394160488523
+      rid: 1819652482963603528
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
     settings:
       rid: 1819652394160488522
+    deliveryBinding: 0
+    anchorTrigger: 2
+    anchorApplication: 2
+    anchorMultiplicity: 1
+    anchorDuration: 1
+    anchorInterval: 0.25
+    anchorSizeOverride: 0
+    reapplyAfterExit: 1
   eventEffectRoutes:
   - enabled: 1
     displayName: Event Effect Recipe 1
@@ -73,6 +104,14 @@ MonoBehaviour:
     - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
       settings:
         rid: 1819652394160488578
+      deliveryBinding: 0
+      anchorTrigger: 2
+      anchorApplication: 2
+      anchorMultiplicity: 1
+      anchorDuration: 1
+      anchorInterval: 0.25
+      anchorSizeOverride: 0
+      reapplyAfterExit: 1
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
   reactionSlots: []
@@ -94,22 +133,6 @@ MonoBehaviour:
           m_Bits: 4294967295
         keepOutsideHitSurface: 1
         extraSurfaceClearance: 0.05
-    - rid: 1819652394160488523
-      type: {class: ProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        playerTargeting: {fileID: 11400000, guid: d1623807a09b43e2890af19b6a41df9a, type: 2}
-        projectilePrefab: {fileID: 7666303392692351521, guid: 730e3ffb110ccf241a827615b250e29a, type: 3}
-        allowPrefabGameplayComponents: 0
-        speed: 15
-        range: 10
-        collisionRadius: 0.08
-        collisionMask:
-          serializedVersion: 2
-          m_Bits: 1152
-        pierceTargets: 0
-        maximumTargetHits: 1
-        stopOnBlockedCollider: 1
-        castBufferSize: 16
     - rid: 1819652394160488578
       type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
@@ -123,3 +146,7 @@ MonoBehaviour:
           m_Bits: 1152
         keepOutsideHitSurface: 1
         extraSurfaceClearance: 0.05
+    - rid: 1819652482963603528
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}

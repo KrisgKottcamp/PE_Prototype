@@ -196,7 +196,9 @@ namespace ProjectEri.SkillSystemV2
     }
 
     [DisallowMultipleComponent]
-    public sealed class SpellProximityMine2D : MonoBehaviour
+    public sealed class SpellProximityMine2D : MonoBehaviour,
+        ISpellDeliveryGeometryProvider,
+        ISpellDeliveryRadiusProvider
     {
         private enum MineState
         {
@@ -217,6 +219,18 @@ namespace ProjectEri.SkillSystemV2
         private static Sprite fallbackMarkerSprite;
 
         public bool IsComplete { get; private set; }
+        public float DeliveryRadius => settings != null
+            ? settings.EffectRadius
+            : 0f;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.FollowCircle(
+                transform,
+                settings != null ? settings.EffectRadius : 0f);
+            return settings != null && !IsComplete;
+        }
 
         public void Initialize(
             in SpellExecutionContext executionContext,
@@ -232,7 +246,10 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 Vector2.zero,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        settings.EffectRadius)));
             SpellDeliveryInteractionService.EmitPoint(
                 context,
                 transform.position,
@@ -291,7 +308,10 @@ namespace ProjectEri.SkillSystemV2
                     null,
                     transform.position,
                     Vector2.zero,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            settings.TriggerRadius)));
             }
         }
 
@@ -314,7 +334,10 @@ namespace ProjectEri.SkillSystemV2
                     null,
                     transform.position,
                     Vector2.zero,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            settings.TriggerRadius)));
             }
         }
 
@@ -343,7 +366,10 @@ namespace ProjectEri.SkillSystemV2
                     hit.ClosestPoint(transform.position),
                     (Vector2)target.transform.position -
                     (Vector2)transform.position,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            settings.TriggerRadius)));
                 if (stateTimer <= 0f)
                     Detonate();
                 return;
@@ -353,6 +379,10 @@ namespace ProjectEri.SkillSystemV2
         private void Detonate()
         {
             Vector2 center = transform.position;
+            SpellDeliveryGeometry blastGeometry =
+                SpellDeliveryGeometry.Circle(
+                    center,
+                    settings.EffectRadius);
             SpellDeliveryInteractionService.EmitCircle(
                 context,
                 center,
@@ -404,7 +434,7 @@ namespace ProjectEri.SkillSystemV2
                 triggeringTarget,
                 center,
                 Vector2.zero,
-                this));
+                this).WithGeometry(blastGeometry));
 
             if (settings.SingleUse)
                 Complete(SpellEventType.DeliveryStopped);
@@ -465,7 +495,10 @@ namespace ProjectEri.SkillSystemV2
                 target,
                 point,
                 offset,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Circle(
+                        center,
+                        settings.EffectRadius)));
             return true;
         }
 
@@ -538,7 +571,12 @@ namespace ProjectEri.SkillSystemV2
                     null,
                     transform.position,
                     Vector2.zero,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            transform.position,
+                            settings != null
+                                ? settings.EffectRadius
+                                : 0f)));
             }
             if (Application.isPlaying)
                 Destroy(gameObject);

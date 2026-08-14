@@ -77,8 +77,14 @@ public class HitstopManager : MonoBehaviour
     private float blendStartedRealtime;
     private float blendDuration;
     private float releaseBlendDuration;
+    private bool restoreWhenManagerScaleReturns;
+    private float deferredManagerScale = 1f;
 
     public bool IsStopping => isStopping;
+    public static bool IsControllingTime =>
+        Instance != null && Instance.isStopping;
+    public static bool HasDeferredRestore =>
+        Instance != null && Instance.restoreWhenManagerScaleReturns;
 
     private void Awake()
     {
@@ -97,12 +103,21 @@ public class HitstopManager : MonoBehaviour
     private void Update()
     {
         if (!isStopping)
+        {
+            RecoverDeferredRestore();
             return;
+        }
 
         // Yield to a true pause or another controller that deliberately takes
         // ownership of time scale during our effect.
         if (!Mathf.Approximately(Time.timeScale, lastManagerScale))
         {
+            // Another controller temporarily replaced our scale. Remember
+            // the unfinished restore so that, if that controller later puts
+            // our tiny hitstop value back, it cannot become the new permanent
+            // gameplay baseline.
+            restoreWhenManagerScaleReturns = true;
+            deferredManagerScale = lastManagerScale;
             isStopping = false;
             isReleasing = false;
             isBlending = false;
@@ -178,10 +193,13 @@ public class HitstopManager : MonoBehaviour
     /// </summary>
     public static void ReleaseForExternalTimeControl()
     {
-        if (Instance == null || !Instance.isStopping)
+        if (Instance == null)
             return;
 
-        Instance.FinishHitstop();
+        if (Instance.isStopping)
+            Instance.FinishHitstop();
+        else
+            Instance.RecoverDeferredRestore();
     }
 
     private static HitstopManager GetOrCreateInstance()
@@ -242,6 +260,10 @@ public class HitstopManager : MonoBehaviour
 
         if (!isStopping)
         {
+            // A fresh hit owns the current external baseline from this point
+            // forward. Any older deferred handoff is superseded.
+            restoreWhenManagerScaleReturns = false;
+            deferredManagerScale = Time.timeScale;
             isStopping = true;
             isReleasing = false;
             restoreTimeScale = Time.timeScale;
@@ -376,17 +398,46 @@ public class HitstopManager : MonoBehaviour
     private void FinishHitstop()
     {
         if (!isStopping)
+        {
+            RecoverDeferredRestore();
             return;
+        }
 
         // Do not overwrite a pause or another system that deliberately changed
         // time scale during the very short hitstop window.
         if (Mathf.Approximately(Time.timeScale, lastManagerScale))
+        {
             Time.timeScale = restoreTimeScale;
+            restoreWhenManagerScaleReturns = false;
+        }
+        else
+        {
+            restoreWhenManagerScaleReturns = true;
+            deferredManagerScale = lastManagerScale;
+        }
 
         isStopping = false;
         isReleasing = false;
         isBlending = false;
         lastManagerScale = restoreTimeScale;
+    }
+
+    private void RecoverDeferredRestore()
+    {
+        if (!restoreWhenManagerScaleReturns)
+            return;
+
+        if (Mathf.Approximately(Time.timeScale, restoreTimeScale))
+        {
+            restoreWhenManagerScaleReturns = false;
+            return;
+        }
+
+        if (!Mathf.Approximately(Time.timeScale, deferredManagerScale))
+            return;
+
+        Time.timeScale = restoreTimeScale;
+        restoreWhenManagerScaleReturns = false;
     }
 
     private void OnDisable()

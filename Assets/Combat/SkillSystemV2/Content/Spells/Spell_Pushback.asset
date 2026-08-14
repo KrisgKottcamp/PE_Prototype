@@ -89,4 +89,5 @@ MonoBehaviour:
       data:
         reflectedDamageBase: 10
         reflectedLayerName: PlayerProjectile
+        motionMode: 0
         trackerRetentionSeconds: 1

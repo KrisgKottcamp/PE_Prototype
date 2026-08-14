@@ -46,18 +46,23 @@ namespace ProjectEri.SkillSystemV2
             public void Begin()
             {
                 GameObject caster = context.Cast.Caster;
+                SpellDeliveryGeometry geometry = caster != null
+                    ? SpellDeliveryGeometry.FollowCircle(
+                        caster.transform,
+                        0f)
+                    : SpellDeliveryGeometry.Point(context.Cast.Origin);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,
                     context.Cast.Origin,
-                    context.Cast.AimDirection));
+                    context.Cast.AimDirection).WithGeometry(geometry));
                 if (caster != null)
                 {
                     context.DispatchEvent(new SpellEventOccurrence(
                         SpellEventType.PointReached,
                         null,
                         caster.transform.position,
-                        Vector2.zero));
+                        Vector2.zero).WithGeometry(geometry));
                     SpellDeliveryInteractionService.EmitPoint(
                         context,
                         caster.transform.position);
@@ -69,7 +74,7 @@ namespace ProjectEri.SkillSystemV2
                         SpellEventType.TargetHit,
                         caster,
                         caster.transform.position,
-                        Vector2.zero));
+                        Vector2.zero).WithGeometry(geometry));
                 }
 
                 IsComplete = true;

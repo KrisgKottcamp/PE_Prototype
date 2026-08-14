@@ -144,11 +144,16 @@ namespace ProjectEri.SkillSystemV2
 
             public void Begin()
             {
+                SpellDeliveryGeometry geometry = SpellDeliveryGeometry.Arc(
+                    context.Cast.Origin,
+                    context.Cast.AimDirection,
+                    range,
+                    arcAngle);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,
                     context.Cast.Origin,
-                    context.Cast.AimDirection));
+                    context.Cast.AimDirection).WithGeometry(geometry));
                 SpellDeliveryInteractionService.EmitArc(
                     context,
                     context.Cast.Origin,
@@ -209,7 +214,7 @@ namespace ProjectEri.SkillSystemV2
                         SpellEventType.TargetHit,
                         target,
                         hitPoint,
-                        toTarget));
+                        toTarget).WithGeometry(geometry));
                 }
 
                 IsComplete = true;
@@ -221,6 +226,11 @@ namespace ProjectEri.SkillSystemV2
                 for (int i = 0; i < effects.Count; i++)
                 {
                     SpellEffectSlot slot = effects[i];
+                    if (slot?.DeliveryBinding ==
+                        SpellEffectDeliveryBinding.DeliveryAnchor)
+                    {
+                        continue;
+                    }
                     EffectDefinition effect = slot?.Effect;
                     if (!(effect is IMeleeArcCastEffectDefinition arcEffect))
                         continue;

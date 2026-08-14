@@ -159,7 +159,9 @@ namespace ProjectEri.SkillSystemV2
     }
 
     [DisallowMultipleComponent]
-    public sealed class SpellTripWire2D : MonoBehaviour
+    public sealed class SpellTripWire2D : MonoBehaviour,
+        ISpellDeliveryGeometryProvider,
+        ISpellDeliveryRadiusProvider
     {
         private SpellExecutionContext context;
         private TripWireDeliverySettings settings;
@@ -174,6 +176,19 @@ namespace ProjectEri.SkillSystemV2
         private LineRenderer line;
 
         public bool IsComplete { get; private set; }
+        public float DeliveryRadius => settings != null
+            ? settings.TriggerWidth
+            : 0f;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.Segment(
+                start,
+                end,
+                settings != null ? settings.TriggerWidth : 0f);
+            return settings != null && !IsComplete;
+        }
 
         public void Initialize(
             in SpellExecutionContext executionContext,
@@ -204,13 +219,21 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 end - start,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Segment(
+                        start,
+                        end,
+                        settings.TriggerWidth)));
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.Armed,
                 null,
                 transform.position,
                 end - start,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Segment(
+                        start,
+                        end,
+                        settings.TriggerWidth)));
             SpellDeliveryInteractionService.EmitSegment(
                 context,
                 start,
@@ -298,7 +321,11 @@ namespace ProjectEri.SkillSystemV2
                     target,
                     point,
                     normal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Segment(
+                            start,
+                            end,
+                            settings.TriggerWidth)));
                 if (settings.SingleUse)
                 {
                     Complete(SpellEventType.DeliveryStopped);
@@ -334,7 +361,13 @@ namespace ProjectEri.SkillSystemV2
                     null,
                     transform.position,
                     end - start,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Segment(
+                            start,
+                            end,
+                            settings != null
+                                ? settings.TriggerWidth
+                                : 0f)));
             }
             if (Application.isPlaying)
                 Destroy(gameObject);

@@ -6,7 +6,8 @@ namespace ProjectEri.SkillSystemV2
     [DisallowMultipleComponent]
     public sealed class SpellProjectile2D : MonoBehaviour,
         ISpellSpatialForceTarget,
-        ISpellDeliveryRadiusProvider
+        ISpellDeliveryRadiusProvider,
+        ISpellDeliveryGeometryProvider
     {
         private static Sprite fallbackSprite;
         private SpellExecutionContext context;
@@ -36,6 +37,15 @@ namespace ProjectEri.SkillSystemV2
         public bool IsComplete { get; private set; }
         public GameObject SpatialForceTargetObject => gameObject;
         public float DeliveryRadius => collisionRadius;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.FollowCircle(
+                transform,
+                collisionRadius);
+            return launched && !IsComplete;
+        }
 
         public void Launch(
             in SpellExecutionContext executionContext,
@@ -118,7 +128,10 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 direction,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        collisionRadius)));
         }
 
         public void Cancel()
@@ -226,7 +239,10 @@ namespace ProjectEri.SkillSystemV2
                             resolved,
                             hit.point,
                             hit.normal,
-                            this));
+                            this).WithGeometry(
+                                SpellDeliveryGeometry.Circle(
+                                    hit.point,
+                                    collisionRadius)));
                         Complete(
                             resolved,
                             hit.point,
@@ -258,7 +274,10 @@ namespace ProjectEri.SkillSystemV2
                     resolved,
                     hit.point,
                     hit.normal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            hit.point,
+                            collisionRadius)));
                 targetHitCount++;
 
                 if (!pierceTargets || targetHitCount >= maximumTargetHits)
@@ -450,7 +469,10 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     stopPoint,
                     stopNormal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            stopPoint,
+                            collisionRadius)));
             }
 
             IsComplete = true;

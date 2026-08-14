@@ -16,13 +16,13 @@ namespace ProjectEri.SkillSystemV2
     {
         [Tooltip("Optional prefab used only as the grenade's appearance.")]
         [SerializeField] private GameObject visualPrefab;
-        [Tooltip("How fast the grenade travels toward the clicked point.")]
+        [Tooltip("How fast the grenade travels toward the targeted point. This does not set throw distance; the Player Targeting asset and spell Placement Rules do.")]
         [SerializeField, Min(0.01f)] private float speed = 8f;
         [Tooltip("Visual height of the grenade at the middle of its initial throw. This is a top-down presentation effect; it does not change collision height.")]
         [SerializeField, Min(0f)] private float throwArcHeight = 0.35f;
         [Tooltip("How many degrees the visible grenade spins per second while it is in its initial throw.")]
         [SerializeField] private float throwSpinDegreesPerSecond = 540f;
-        [Tooltip("Seconds from the throw until detonation. The fuse starts immediately.")]
+        [Tooltip("Seconds from the throw until detonation. The fuse starts immediately, so a target farther away than Speed multiplied by Fuse Duration detonates before arrival.")]
         [SerializeField, Min(0.01f)] private float fuseDuration = 1.5f;
         [Tooltip("Radius used while checking the grenade's movement for collisions.")]
         [SerializeField, Min(0f)] private float collisionRadius = 0.1f;
@@ -201,6 +201,37 @@ namespace ProjectEri.SkillSystemV2
                 (GrenadeDeliverySettings)CreateDefaultSettings());
         }
 
+        public override void CollectValidationIssues(
+            List<SpellValidationIssue> issues,
+            SpellDeliverySettings settings)
+        {
+            base.CollectValidationIssues(issues, settings);
+            if (issues == null)
+                return;
+
+            GrenadeDeliverySettings resolved =
+                settings as GrenadeDeliverySettings ??
+                (GrenadeDeliverySettings)CreateDefaultSettings();
+            PlayerTargetingDefinition targeting =
+                ResolvePlayerTargeting(resolved);
+            if (targeting == null || targeting.MaximumRange <= 0f)
+                return;
+
+            float fuseTravelDistance =
+                resolved.Speed * resolved.FuseDuration;
+            if (targeting.MaximumRange >= fuseTravelDistance * 0.5f)
+                return;
+
+            issues.Add(new SpellValidationIssue(
+                SpellValidationSeverity.Info,
+                $"Grenade landing distance is capped at " +
+                $"{targeting.MaximumRange:0.##} units by Player Targeting " +
+                $"'{targeting.DisplayName}'. Speed {resolved.Speed:0.##} " +
+                $"changes travel rate, not throw range. Assign a " +
+                $"longer-range targeting asset if this short throw is not " +
+                $"intentional."));
+        }
+
         private sealed class Execution : ISpellDeliveryExecution
         {
             private readonly SpellExecutionContext context;
@@ -252,7 +283,8 @@ namespace ProjectEri.SkillSystemV2
     [DisallowMultipleComponent]
     public sealed class SpellGrenade2D : MonoBehaviour,
         ISpellSpatialForceTarget,
-        ISpellDeliveryRadiusProvider
+        ISpellDeliveryRadiusProvider,
+        ISpellDeliveryGeometryProvider
     {
         private SpellExecutionContext context;
         private GrenadeDeliverySettings settings;
@@ -279,6 +311,15 @@ namespace ProjectEri.SkillSystemV2
         public float DeliveryRadius => settings != null
             ? settings.ExplosionRadius
             : 0f;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.FollowCircle(
+                transform,
+                settings != null ? settings.CollisionRadius : 0f);
+            return settings != null && !IsComplete;
+        }
 
         public void SetVisualRoot(Transform assignedVisualRoot)
         {
@@ -315,7 +356,10 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 direction,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        transform,
+                        settings.CollisionRadius)));
         }
 
         private void EnsureSpatialForceSensor()
@@ -363,7 +407,10 @@ namespace ProjectEri.SkillSystemV2
                     null,
                     transform.position,
                     Vector2.zero,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.Circle(
+                            transform.position,
+                            settings.ExplosionRadius)));
                 Detonate();
                 return;
             }
@@ -472,7 +519,10 @@ namespace ProjectEri.SkillSystemV2
                 subject,
                 point,
                 surfaceNormal,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Circle(
+                        point,
+                        settings.CollisionRadius)));
 
             if (settings.CollisionMode == GrenadeCollisionMode.Sticky)
             {
@@ -483,7 +533,10 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     point,
                     surfaceNormal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            settings.CollisionRadius)));
                 return;
             }
 
@@ -508,7 +561,10 @@ namespace ProjectEri.SkillSystemV2
                     subject,
                     point,
                     surfaceNormal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            settings.CollisionRadius)));
                 return;
             }
 
@@ -534,6 +590,10 @@ namespace ProjectEri.SkillSystemV2
             if (IsComplete)
                 return;
             Vector2 center = transform.position;
+            SpellDeliveryGeometry explosionGeometry =
+                SpellDeliveryGeometry.Circle(
+                    center,
+                    settings.ExplosionRadius);
             SpellDeliveryInteractionService.EmitCircle(
                 context,
                 center,
@@ -576,20 +636,20 @@ namespace ProjectEri.SkillSystemV2
                     target,
                     point,
                     normal,
-                    this));
+                    this).WithGeometry(explosionGeometry));
             }
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.Detonated,
                 null,
                 center,
                 Vector2.zero,
-                this));
+                this).WithGeometry(explosionGeometry));
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.DeliveryStopped,
                 null,
                 center,
                 Vector2.zero,
-                this));
+                this).WithGeometry(explosionGeometry));
             IsComplete = true;
             Destroy(gameObject);
         }

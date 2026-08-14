@@ -105,16 +105,18 @@ namespace ProjectEri.SkillSystemV2
             public void Begin()
             {
                 Vector2 center = context.Cast.TargetPoint;
+                SpellDeliveryGeometry geometry =
+                    SpellDeliveryGeometry.Circle(center, radius);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,
-                    context.Cast.Origin,
-                    context.Cast.AimDirection));
+                    center,
+                    context.Cast.AimDirection).WithGeometry(geometry));
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.AreaCreated,
                     null,
                     center,
-                    Vector2.zero));
+                    Vector2.zero).WithGeometry(geometry));
                 SpellDeliveryInteractionService.EmitCircle(
                     context,
                     center,
@@ -159,14 +161,14 @@ namespace ProjectEri.SkillSystemV2
                         SpellEventType.TargetHit,
                         target,
                         hitPoint,
-                        normal));
+                        normal).WithGeometry(geometry));
                 }
 
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.AreaPulse,
                     null,
                     center,
-                    Vector2.zero));
+                    Vector2.zero).WithGeometry(geometry));
 
                 IsComplete = true;
             }

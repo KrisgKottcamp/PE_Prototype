@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: 
   reflectedDamageBase: 10
   reflectedLayerName: PlayerProjectile
+  motionMode: 0
   trackerRetentionSeconds: 1
   debugLastArcProjectileCount: 0
   debugTotalReflectedCount: 0

@@ -52,11 +52,17 @@ namespace ProjectEri.SkillSystemV2
                 GameObject target =
                     SpellTargetResolver.ResolveImmediateTarget(
                         context.Cast.SelectedTarget);
+                Vector2 deliveryPoint = target != null
+                    ? (Vector2)target.transform.position
+                    : context.Cast.Origin;
+                SpellDeliveryGeometry deliveryGeometry =
+                    SpellDeliveryGeometry.Point(deliveryPoint);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,
-                    context.Cast.Origin,
-                    context.Cast.AimDirection));
+                    deliveryPoint,
+                    context.Cast.AimDirection).WithGeometry(
+                        deliveryGeometry));
                 if (target != null && context.Spell != null &&
                     context.Spell.TargetFilter.IsValid(
                         context.Cast,
@@ -81,7 +87,8 @@ namespace ProjectEri.SkillSystemV2
                         SpellEventType.TargetHit,
                         target,
                         hitPoint,
-                        normal));
+                        normal).WithGeometry(
+                            SpellDeliveryGeometry.Point(hitPoint)));
                 }
 
                 IsComplete = true;

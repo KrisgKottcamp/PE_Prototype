@@ -468,6 +468,102 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void TargetingTime_ReleaseCannotRestoreStaleSlowBaseline()
+        {
+            float originalScale = Time.timeScale;
+            float originalFixedDelta = Time.fixedDeltaTime;
+            var owner = new object();
+            try
+            {
+                Time.timeScale = 1f;
+                Time.fixedDeltaTime = 0.02f;
+                TargetingTimeScaleController controller =
+                    caster.AddComponent<TargetingTimeScaleController>();
+
+                controller.Acquire(owner, 0.15f);
+                Assert.That(Time.timeScale,
+                    Is.EqualTo(0.15f).Within(0.0001f));
+
+                // Simulate an outer menu restoring normal time before the
+                // targeting cancellation callback arrives.
+                Time.timeScale = 1f;
+                Time.fixedDeltaTime = 0.02f;
+                controller.Release(owner);
+
+                Assert.That(Time.timeScale,
+                    Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(Time.fixedDeltaTime,
+                    Is.EqualTo(0.02f).Within(0.0001f));
+            }
+            finally
+            {
+                Time.timeScale = originalScale;
+                Time.fixedDeltaTime = originalFixedDelta;
+            }
+        }
+
+        [Test]
+        public void TargetingTime_ReleaseRestoresThroughTransientHitstop()
+        {
+            float originalScale = Time.timeScale;
+            float originalFixedDelta = Time.fixedDeltaTime;
+            var owner = new object();
+            try
+            {
+                Time.timeScale = 1f;
+                Time.fixedDeltaTime = 0.02f;
+                TargetingTimeScaleController controller =
+                    caster.AddComponent<TargetingTimeScaleController>();
+
+                controller.Acquire(owner, 0.15f);
+                Time.timeScale = 0.04f;
+                controller.Release(owner);
+
+                Assert.That(Time.timeScale,
+                    Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(Time.fixedDeltaTime,
+                    Is.EqualTo(0.02f).Within(0.0001f));
+            }
+            finally
+            {
+                Time.timeScale = originalScale;
+                Time.fixedDeltaTime = originalFixedDelta;
+            }
+        }
+
+        [Test]
+        public void TargetingTime_PrunesInactiveTargetingOwner()
+        {
+            float originalScale = Time.timeScale;
+            float originalFixedDelta = Time.fixedDeltaTime;
+            try
+            {
+                Time.timeScale = 1f;
+                Time.fixedDeltaTime = 0.02f;
+                TargetingTimeScaleController controller =
+                    caster.AddComponent<TargetingTimeScaleController>();
+                PlayerSpellTargetingController inactiveTargeting =
+                    caster.AddComponent<PlayerSpellTargetingController>();
+
+                Assert.That(inactiveTargeting.IsTargeting, Is.False);
+                controller.Acquire(inactiveTargeting, 0.15f);
+                Assert.That(controller.HasRequests, Is.True);
+                controller.SendMessage("Update");
+
+                Assert.That(controller.HasRequests, Is.False);
+                Assert.That(Time.timeScale,
+                    Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(Time.fixedDeltaTime,
+                    Is.EqualTo(0.02f).Within(0.0001f));
+            }
+            finally
+            {
+                Time.timeScale = originalScale;
+                Time.fixedDeltaTime = originalFixedDelta;
+            }
+        }
+
+        [Test]
         public void RelocateActor_ProjectileMovesActorWhereItStops()
         {
             target.AddComponent<Rigidbody2D>().bodyType =

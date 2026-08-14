@@ -334,6 +334,7 @@ namespace ProjectEri.SkillSystemV2
         {
             get
             {
+                EnsureRegistered();
                 RefreshActivationState();
                 Prune();
                 return entries.Count;
@@ -367,6 +368,7 @@ namespace ProjectEri.SkillSystemV2
             ref bool hasOverride,
             ref float overrideValue)
         {
+            EnsureRegistered();
             RefreshActivationState();
             Prune();
 
@@ -423,6 +425,7 @@ namespace ProjectEri.SkillSystemV2
             if (source == null || settings == null)
                 return;
 
+            EnsureRegistered();
             CaptureActivationState();
 
             string safeKey = string.IsNullOrWhiteSpace(key)
@@ -493,6 +496,7 @@ namespace ProjectEri.SkillSystemV2
             if (source == null || settings == null)
                 return;
 
+            EnsureRegistered();
             CaptureActivationState();
 
             int sourceId = source.GetInstanceID();
@@ -539,8 +543,7 @@ namespace ProjectEri.SkillSystemV2
         private void OnEnable()
         {
             activationStateInitialized = false;
-            if (!registeredControllers.Contains(this))
-                registeredControllers.Add(this);
+            EnsureRegistered();
         }
 
         private void OnDisable()
@@ -568,6 +571,22 @@ namespace ProjectEri.SkillSystemV2
                 RemoveResetOnInactiveEntries();
 
             previousActivationState = isActive;
+        }
+
+        /// <summary>
+        /// EditMode does not guarantee that a newly-added MonoBehaviour has
+        /// received OnEnable before another object queries it. Modifier
+        /// application therefore registers explicitly instead of relying on
+        /// callback timing. This is also harmless protection after a disabled
+        /// domain-reload workflow clears static state.
+        /// </summary>
+        internal void EnsureRegistered()
+        {
+            if (isActiveAndEnabled &&
+                !registeredControllers.Contains(this))
+            {
+                registeredControllers.Add(this);
+            }
         }
 
         private void CaptureActivationState()
@@ -781,7 +800,7 @@ namespace ProjectEri.SkillSystemV2
             ref bool hasOverride,
             ref float overrideValue)
         {
-            if (controller == null)
+            if (controller == null || !controller.isActiveAndEnabled)
                 return;
 
             controller.RefreshActivationState();
@@ -843,9 +862,14 @@ namespace ProjectEri.SkillSystemV2
             GameObject resolved = SpellTargetResolver.Resolve(actor) ?? actor;
             SpellStatModifierController controller =
                 resolved.GetComponent<SpellStatModifierController>();
-            return controller != null
-                ? controller
-                : resolved.AddComponent<SpellStatModifierController>();
+            if (controller == null)
+            {
+                controller =
+                    resolved.AddComponent<SpellStatModifierController>();
+            }
+
+            controller.EnsureRegistered();
+            return controller;
         }
     }
 

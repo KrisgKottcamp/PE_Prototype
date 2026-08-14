@@ -86,6 +86,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private float prevTimeScale = 1f;
     private float prevFixedDelta = 0.02f;
+    private float appliedMenuTimeScale = 1f;
 
     private CombatSkillSystem skillSystem;
     private PlayerSpellV2Bridge v2Bridge;
@@ -234,8 +235,14 @@ public class CombatSkillMenuController : MonoBehaviour
         prevTimeScale = Time.timeScale;
         prevFixedDelta = Time.fixedDeltaTime;
 
-        Time.timeScale = slowTimeScale;
-        Time.fixedDeltaTime = prevFixedDelta * Time.timeScale;
+        // Opening a menu must never make an already-slower world run faster.
+        appliedMenuTimeScale = Mathf.Min(
+            prevTimeScale,
+            Mathf.Clamp(slowTimeScale, 0.01f, 1f));
+        Time.timeScale = appliedMenuTimeScale;
+        Time.fixedDeltaTime = prevTimeScale > 0.0001f
+            ? prevFixedDelta * (appliedMenuTimeScale / prevTimeScale)
+            : 0.02f * appliedMenuTimeScale;
 
         DisablePawnControl(true);
 
@@ -314,8 +321,7 @@ public class CombatSkillMenuController : MonoBehaviour
         if (skillPanelRoot != null)
             skillPanelRoot.SetActive(false);
 
-        Time.timeScale = prevTimeScale;
-        Time.fixedDeltaTime = prevFixedDelta;
+        RestoreMenuTime();
 
         attackMomentum?.SetMomentumPaused(false);
         DisablePawnControl(false);
@@ -366,6 +372,23 @@ public class CombatSkillMenuController : MonoBehaviour
         }
 
         pawnControlScripts = list.ToArray();
+    }
+
+    private void RestoreMenuTime()
+    {
+        // Finish a hitstop that may have started while the menu was open so
+        // it cannot retain the menu's slow scale as its restore baseline.
+        HitstopManager.ReleaseForExternalTimeControl();
+
+        // If another outer controller has already restored a faster scale,
+        // do not put the menu's stale baseline back over it.
+        if (Time.timeScale <= appliedMenuTimeScale + 0.0001f)
+        {
+            Time.timeScale = prevTimeScale;
+            Time.fixedDeltaTime = prevFixedDelta;
+        }
+
+        appliedMenuTimeScale = Time.timeScale;
     }
 
     private void AddIfPresent(
@@ -1110,11 +1133,16 @@ public class CombatSkillMenuController : MonoBehaviour
 
         if (isOpen)
         {
-            Time.timeScale = prevTimeScale;
-            Time.fixedDeltaTime = prevFixedDelta;
+            RestoreMenuTime();
             attackMomentum?.SetMomentumPaused(false);
             DisablePawnControl(false);
         }
+
+        isOpen = false;
+        selectingPartyTarget = false;
+        selectingPlacement = false;
+        selectingDirectionalAim = false;
+        selectingV2Spell = false;
 
         BindV2Bridge(null);
     }

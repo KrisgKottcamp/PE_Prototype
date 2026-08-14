@@ -41,9 +41,13 @@ namespace ProjectEri.SkillSystemV2
             if (SuppressGameplayEffects)
                 return 0;
 
+            int applied =
+                SpellDeliveryEffectAnchorService.ActivateDefaultEffects(
+                    this,
+                    occurrence);
+
             IReadOnlyList<SpellEventEffectRoute> routes =
                 Spell.EventEffectRoutes;
-            int applied = 0;
             for (int i = 0; i < routes.Count; i++)
             {
                 SpellEventEffectRoute route = routes[i];
@@ -67,6 +71,16 @@ namespace ProjectEri.SkillSystemV2
                 string.IsNullOrWhiteSpace(routeId))
                 return 0;
 
+            SpellRuntimeDiagnostics.ReportDeliveryEvent(
+                Spell,
+                Cast,
+                occurrence);
+            Observer?.OnDeliveryEvent(occurrence);
+            int anchored =
+                SpellDeliveryEffectAnchorService.ActivateDefaultEffects(
+                    this,
+                    occurrence);
+
             IReadOnlyList<SpellEventEffectRoute> routes =
                 Spell.EventEffectRoutes;
             for (int i = 0; i < routes.Count; i++)
@@ -81,12 +95,13 @@ namespace ProjectEri.SkillSystemV2
                     continue;
                 }
 
-                return route.Matches(Spell, Cast, occurrence)
-                    ? ApplyEventEffectRoute(route, occurrence)
-                    : 0;
+                return anchored +
+                       (route.Matches(Spell, Cast, occurrence)
+                           ? ApplyEventEffectRoute(route, occurrence)
+                           : 0);
             }
 
-            return 0;
+            return anchored;
         }
 
         public int ApplyEffects(
@@ -407,6 +422,7 @@ namespace ProjectEri.SkillSystemV2
             int rejectedCount = 0;
             int skippedCount = 0;
             int exceptionCount = 0;
+            int anchorDeferredCount = 0;
 
             for (int i = 0; i < effects.Count; i++)
             {
@@ -423,6 +439,23 @@ namespace ProjectEri.SkillSystemV2
                             i,
                             SpellEffectSlotStatus.EmptySlot,
                             "The effect slot is empty."));
+                    continue;
+                }
+
+                if (slot.DeliveryBinding ==
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+                {
+                    skippedCount++;
+                    anchorDeferredCount++;
+                    SpellRuntimeDiagnostics.ReportEffectSlot(
+                        new SpellEffectSlotDiagnostic(
+                            Spell,
+                            effect,
+                            target,
+                            i,
+                            SpellEffectSlotStatus.DeliveryAnchorDeferred,
+                            "This slot is owned by a delivery effect anchor " +
+                            "instead of the delivery's immediate target."));
                     continue;
                 }
 
@@ -502,8 +535,19 @@ namespace ProjectEri.SkillSystemV2
             string message;
             if (attemptedCount == 0)
             {
-                status = SpellEffectApplicationStatus.NoApplicableEffects;
-                message = "Every configured slot was empty or intentionally skipped.";
+                if (anchorDeferredCount > 0)
+                {
+                    status = SpellEffectApplicationStatus
+                        .DeferredToDeliveryAnchor;
+                    message = "Anchored effects were deferred to their " +
+                              "independent delivery geometry.";
+                }
+                else
+                {
+                    status = SpellEffectApplicationStatus.NoApplicableEffects;
+                    message = "Every configured slot was empty or " +
+                              "intentionally skipped.";
+                }
             }
             else if (appliedCount > 0 &&
                      rejectedCount == 0 &&
@@ -547,9 +591,16 @@ namespace ProjectEri.SkillSystemV2
             SpellEventEffectRoute route,
             in SpellEventOccurrence occurrence)
         {
+            int anchored =
+                SpellDeliveryEffectAnchorService.ActivateEventEffects(
+                    this,
+                    route.EffectSlots,
+                    occurrence,
+                    route.StableId);
             GameObject recipient = route.ResolveRecipient(Cast, occurrence);
             if (recipient == null &&
-                route.Recipient != SpellEventRecipient.WorldPoint)
+                route.Recipient != SpellEventRecipient.WorldPoint &&
+                HasDeliveredTargetSlots(route.EffectSlots))
             {
                 ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.MissingTarget,
@@ -564,10 +615,10 @@ namespace ProjectEri.SkillSystemV2
                     0,
                     0,
                     $"Event Effect Recipe '{route.DisplayName}' could not resolve its recipient."));
-                return 0;
+                return anchored;
             }
 
-            return ApplyEffectSlotsInternal(
+            return anchored + ApplyEffectSlotsInternal(
                 route.EffectSlots,
                 recipient,
                 recipient,
@@ -579,6 +630,24 @@ namespace ProjectEri.SkillSystemV2
                 eventType: occurrence.Type,
                 eventSubject: occurrence.Subject,
                 deliveryRuntime: occurrence.DeliveryRuntime).AppliedCount;
+        }
+
+        private static bool HasDeliveredTargetSlots(
+            IReadOnlyList<SpellEffectSlot> slots)
+        {
+            if (slots == null)
+                return false;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                SpellEffectSlot slot = slots[i];
+                if (slot?.Effect != null &&
+                    slot.DeliveryBinding ==
+                        SpellEffectDeliveryBinding.DeliveredTargets)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static SpellEffectApplicationResult ReportApplication(

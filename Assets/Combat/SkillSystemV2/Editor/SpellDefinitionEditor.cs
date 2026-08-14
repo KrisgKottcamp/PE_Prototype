@@ -513,7 +513,11 @@ namespace ProjectEri.SkillSystemV2.Editor
                      effectIndex < routeEffects.arraySize;
                      effectIndex++)
                 {
-                    DrawEffectSlot(routeEffects, effectIndex);
+                    DrawEffectSlot(
+                        routeEffects,
+                        effectIndex,
+                        isEventRoute: true,
+                        supportsDeliveryAnchor: true);
                 }
 
                 if (GUILayout.Button(
@@ -590,6 +594,7 @@ namespace ProjectEri.SkillSystemV2.Editor
             int index = slots.arraySize;
             slots.arraySize++;
             SerializedProperty slot = slots.GetArrayElementAtIndex(index);
+            ResetEffectSlotDeliveryBinding(slot);
             slot.FindPropertyRelative("effect").objectReferenceValue =
                 definition;
             slot.FindPropertyRelative("settings").managedReferenceValue =
@@ -695,6 +700,19 @@ namespace ProjectEri.SkillSystemV2.Editor
             }
 
             bool usuallyHasSubject = EventUsuallyHasSubject(eventType);
+            bool hasDeliveredTargetEffects = false;
+            for (int i = 0; i < routeEffects.arraySize; i++)
+            {
+                SerializedProperty binding = routeEffects
+                    .GetArrayElementAtIndex(i)
+                    .FindPropertyRelative("deliveryBinding");
+                if (binding.enumValueIndex ==
+                    (int)SpellEffectDeliveryBinding.DeliveredTargets)
+                {
+                    hasDeliveredTargetEffects = true;
+                    break;
+                }
+            }
             if (!usuallyHasSubject &&
                 (subjectMode ==
                      SpellEventSubjectRuleMode.RequireEventSubject ||
@@ -710,7 +728,8 @@ namespace ProjectEri.SkillSystemV2.Editor
             }
 
             if (!usuallyHasSubject &&
-                recipientMode == SpellEventRecipient.EventSubject)
+                recipientMode == SpellEventRecipient.EventSubject &&
+                hasDeliveredTargetEffects)
             {
                 EditorGUILayout.HelpBox(
                     "This event usually has no involved object. Choose the " +
@@ -724,6 +743,12 @@ namespace ProjectEri.SkillSystemV2.Editor
                 {
                     SerializedProperty slot =
                         routeEffects.GetArrayElementAtIndex(i);
+                    if (slot.FindPropertyRelative("deliveryBinding")
+                            .enumValueIndex ==
+                        (int)SpellEffectDeliveryBinding.DeliveryAnchor)
+                    {
+                        continue;
+                    }
                     var effect = slot.FindPropertyRelative("effect")
                         .objectReferenceValue as EffectDefinition;
                     object settings = slot.FindPropertyRelative("settings")
@@ -758,11 +783,18 @@ namespace ProjectEri.SkillSystemV2.Editor
                 var names = new List<string>();
                 for (int i = 0; i < effects.arraySize; i++)
                 {
-                    var definition = effects.GetArrayElementAtIndex(i)
+                    SerializedProperty slot =
+                        effects.GetArrayElementAtIndex(i);
+                    var definition = slot
                         .FindPropertyRelative("effect")
                         .objectReferenceValue as EffectDefinition;
+                    bool anchored = slot
+                        .FindPropertyRelative("deliveryBinding")
+                        .enumValueIndex ==
+                        (int)SpellEffectDeliveryBinding.DeliveryAnchor;
                     names.Add(definition != null
-                        ? definition.DisplayName
+                        ? definition.DisplayName +
+                          (anchored ? " through a delivery anchor" : "")
                         : "an unassigned effect");
                 }
                 effectText = string.Join(", then ", names);
@@ -968,7 +1000,11 @@ namespace ProjectEri.SkillSystemV2.Editor
                      effectIndex < groupEffects.arraySize;
                      effectIndex++)
                 {
-                    DrawEffectSlot(groupEffects, effectIndex);
+                    DrawEffectSlot(
+                        groupEffects,
+                        effectIndex,
+                        isEventRoute: false,
+                        supportsDeliveryAnchor: false);
                 }
 
                 if (GUILayout.Button(
@@ -1030,6 +1066,7 @@ namespace ProjectEri.SkillSystemV2.Editor
             int index = slots.arraySize;
             slots.arraySize++;
             SerializedProperty slot = slots.GetArrayElementAtIndex(index);
+            ResetEffectSlotDeliveryBinding(slot);
             slot.FindPropertyRelative("effect").objectReferenceValue =
                 definition;
             slot.FindPropertyRelative("settings").managedReferenceValue =
@@ -2314,12 +2351,18 @@ namespace ProjectEri.SkillSystemV2.Editor
 
         private void DrawEffectSlot(int index)
         {
-            DrawEffectSlot(effectSlots, index);
+            DrawEffectSlot(
+                effectSlots,
+                index,
+                isEventRoute: false,
+                supportsDeliveryAnchor: true);
         }
 
         private static void DrawEffectSlot(
             SerializedProperty slots,
-            int index)
+            int index,
+            bool isEventRoute,
+            bool supportsDeliveryAnchor)
         {
             SerializedProperty slot = slots.GetArrayElementAtIndex(index);
             SerializedProperty effect = slot.FindPropertyRelative("effect");
@@ -2405,6 +2448,12 @@ namespace ProjectEri.SkillSystemV2.Editor
                     return;
                 }
 
+                DrawEffectDeliveryBinding(
+                    slot,
+                    definition,
+                    isEventRoute,
+                    supportsDeliveryAnchor);
+
                 EnsureCompatibleSettings(definition, settings);
                 if (definition.SettingsType == null)
                 {
@@ -2434,6 +2483,140 @@ namespace ProjectEri.SkillSystemV2.Editor
                             definition.CreateDefaultSettings();
                 }
             }
+        }
+
+        private static void DrawEffectDeliveryBinding(
+            SerializedProperty slot,
+            EffectDefinition definition,
+            bool isEventRoute,
+            bool supportsDeliveryAnchor)
+        {
+            SerializedProperty deliveryBinding =
+                slot.FindPropertyRelative("deliveryBinding");
+            SerializedProperty anchorTrigger =
+                slot.FindPropertyRelative("anchorTrigger");
+            SerializedProperty anchorApplication =
+                slot.FindPropertyRelative("anchorApplication");
+            SerializedProperty anchorMultiplicity =
+                slot.FindPropertyRelative("anchorMultiplicity");
+            SerializedProperty anchorDuration =
+                slot.FindPropertyRelative("anchorDuration");
+            SerializedProperty anchorInterval =
+                slot.FindPropertyRelative("anchorInterval");
+            SerializedProperty anchorSizeOverride =
+                slot.FindPropertyRelative("anchorSizeOverride");
+            SerializedProperty reapplyAfterExit =
+                slot.FindPropertyRelative("reapplyAfterExit");
+
+            EditorGUILayout.Space(2f);
+            EditorGUILayout.LabelField(
+                new GUIContent(
+                    "Delivery Binding",
+                    "Choose whether the delivery hands this effect its normal recipients or creates an independent geometry-aware effect anchor."),
+                EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(
+                deliveryBinding,
+                new GUIContent(
+                    "Apply Through",
+                    "Delivered Targets uses normal hit recipients. Delivery Anchor owns a point, circle, arc, segment, or moving field independently of the delivery's lifetime."));
+
+            bool usesAnchor = deliveryBinding.enumValueIndex ==
+                              (int)SpellEffectDeliveryBinding
+                                  .DeliveryAnchor;
+            if (!usesAnchor)
+                return;
+
+            if (!supportsDeliveryAnchor)
+            {
+                EditorGUILayout.HelpBox(
+                    "Reactive Effect Groups already inherit a lingering " +
+                    "area's exact presence lifetime. Use Delivered Targets " +
+                    "here; Delivery Anchor is supported in Default Effects " +
+                    "and Event Effect Recipes.",
+                    MessageType.Error);
+                return;
+            }
+
+            if (isEventRoute)
+            {
+                EditorGUILayout.HelpBox(
+                    "This recipe's WHEN event creates the anchor. The " +
+                    "Default Effects Anchor Trigger field is intentionally " +
+                    "not used here.",
+                    MessageType.None);
+            }
+            else
+            {
+                EditorGUILayout.PropertyField(
+                    anchorTrigger,
+                    new GUIContent(
+                        "Anchor Trigger",
+                        "The delivery event that creates this Default Effect anchor."));
+            }
+
+            EditorGUILayout.PropertyField(
+                anchorApplication,
+                new GUIContent(
+                    "Application",
+                    "On Enter applies on entry, Periodic reapplies on a timer, While Present owns exact apply/remove state when supported, and Once At Anchor runs one world-point effect."));
+            EditorGUILayout.PropertyField(
+                anchorMultiplicity,
+                new GUIContent(
+                    "Multiplicity",
+                    "Limit creation to the root cast, each delivery runtime, or each matching event occurrence."));
+            EditorGUILayout.PropertyField(anchorDuration);
+
+            SpellEffectAnchorApplication application =
+                (SpellEffectAnchorApplication)
+                    anchorApplication.enumValueIndex;
+            if (application == SpellEffectAnchorApplication.Periodic)
+                EditorGUILayout.PropertyField(anchorInterval);
+            EditorGUILayout.PropertyField(anchorSizeOverride);
+            if (application == SpellEffectAnchorApplication.OnEnter ||
+                application == SpellEffectAnchorApplication.WhilePresent)
+            {
+                EditorGUILayout.PropertyField(reapplyAfterExit);
+            }
+
+            if (application ==
+                    SpellEffectAnchorApplication.OnceAtAnchor &&
+                !definition.CanApplyWithoutRecipient(
+                    slot.FindPropertyRelative("settings")
+                        .managedReferenceValue as SpellEffectSettings))
+            {
+                EditorGUILayout.HelpBox(
+                    $"'{definition.DisplayName}' requires an object " +
+                    "recipient, so it cannot use Once At Anchor. Choose On " +
+                    "Enter/Periodic or use a world-point-capable effect.",
+                    MessageType.Error);
+            }
+            else if (application ==
+                         SpellEffectAnchorApplication.WhilePresent &&
+                     !(definition is IAreaPresenceEffectDefinition))
+            {
+                EditorGUILayout.HelpBox(
+                    "This effect does not expose exact presence removal. " +
+                    "While Present will safely apply it on entry and will " +
+                    "not remove unrelated state when the object exits.",
+                    MessageType.Info);
+            }
+        }
+
+        private static void ResetEffectSlotDeliveryBinding(
+            SerializedProperty slot)
+        {
+            slot.FindPropertyRelative("deliveryBinding").enumValueIndex =
+                (int)SpellEffectDeliveryBinding.DeliveredTargets;
+            slot.FindPropertyRelative("anchorTrigger").enumValueIndex =
+                (int)SpellEventType.DeliveryStarted;
+            slot.FindPropertyRelative("anchorApplication").enumValueIndex =
+                (int)SpellEffectAnchorApplication.WhilePresent;
+            slot.FindPropertyRelative("anchorMultiplicity").enumValueIndex =
+                (int)SpellEffectAnchorMultiplicity.PerDeliveryRuntime;
+            slot.FindPropertyRelative("anchorDuration").floatValue = 1f;
+            slot.FindPropertyRelative("anchorInterval").floatValue = 0.25f;
+            slot.FindPropertyRelative("anchorSizeOverride").floatValue = 0f;
+            slot.FindPropertyRelative("reapplyAfterExit").boolValue = true;
         }
 
         private static void EnsureCompatibleSettings(
@@ -2487,6 +2670,13 @@ namespace ProjectEri.SkillSystemV2.Editor
                 ProjectileDeliverySettings)
             {
                 DrawProjectileDeliverySettings(property);
+                return;
+            }
+
+            if (property.managedReferenceValue is
+                GrenadeDeliverySettings)
+            {
+                DrawGrenadeDeliverySettings(property);
                 return;
             }
 
@@ -2828,6 +3018,78 @@ namespace ProjectEri.SkillSystemV2.Editor
             }
         }
 
+        private static void DrawGrenadeDeliverySettings(
+            SerializedProperty property)
+        {
+            SerializedProperty targetingProperty =
+                property.FindPropertyRelative("playerTargeting");
+            EditorGUILayout.PropertyField(targetingProperty);
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("visualPrefab"));
+
+            SerializedProperty speedProperty =
+                property.FindPropertyRelative("speed");
+            SerializedProperty fuseProperty =
+                property.FindPropertyRelative("fuseDuration");
+            EditorGUILayout.PropertyField(speedProperty);
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("throwArcHeight"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative(
+                    "throwSpinDegreesPerSecond"));
+            EditorGUILayout.PropertyField(fuseProperty);
+
+            PlayerTargetingDefinition targeting =
+                targetingProperty.objectReferenceValue as
+                    PlayerTargetingDefinition;
+            if (targeting != null)
+            {
+                float targetingRange = targeting.MaximumRange;
+                float fuseTravelDistance =
+                    Mathf.Max(0f, speedProperty.floatValue) *
+                    Mathf.Max(0f, fuseProperty.floatValue);
+                string targetingLimit = targetingRange > 0f
+                    ? $"{targetingRange:0.##} units"
+                    : "unlimited range";
+                MessageType messageType =
+                    targetingRange > 0f &&
+                    fuseTravelDistance > 0f &&
+                    targetingRange < fuseTravelDistance * 0.5f
+                        ? MessageType.Warning
+                        : MessageType.Info;
+
+                EditorGUILayout.HelpBox(
+                    $"'{targeting.DisplayName}' gives this grenade a " +
+                    $"target-point limit of {targetingLimit}. Speed " +
+                    $"{speedProperty.floatValue:0.##} is travel rate, not " +
+                    $"throw range; its {fuseProperty.floatValue:0.##}s " +
+                    $"fuse permits up to {fuseTravelDistance:0.##} units " +
+                    $"of travel before detonation. Spell Maximum Distance " +
+                    $"can add a stricter cap but cannot extend this " +
+                    $"targeting limit.",
+                    messageType);
+            }
+
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("collisionRadius"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("explosionRadius"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("collisionMask"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("explosionTargetMask"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("collisionMode"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("bounceSpeedRetention"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("maximumBounces"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("castBufferSize"));
+            EditorGUILayout.PropertyField(
+                property.FindPropertyRelative("prototypeColor"));
+        }
+
         private static void DrawCasterMovementSettings(
             SerializedProperty property)
         {
@@ -2990,7 +3252,7 @@ namespace ProjectEri.SkillSystemV2.Editor
                 case "LegacyMovementSlowEffectDefinition":
                     return "Change movement speed for a duration or while the target remains inside an area. Multipliers below 1 slow; values above 1 speed up.";
                 case "LegacyProjectileReflectEffectDefinition":
-                    return "Reverse supported enemy projectiles, make them player-owned, and allow them to damage enemies.";
+                    return "Make supported enemy projectiles player-owned and able to damage enemies. Motion can reverse or preserve the incoming velocity.";
                 default:
                     return $"Apply the reusable {definition.DisplayName} effect. Its settings are stored independently for this spell.";
             }
@@ -3037,6 +3299,7 @@ namespace ProjectEri.SkillSystemV2.Editor
             int index = effectSlots.arraySize;
             effectSlots.arraySize++;
             SerializedProperty slot = effectSlots.GetArrayElementAtIndex(index);
+            ResetEffectSlotDeliveryBinding(slot);
             slot.FindPropertyRelative("effect").objectReferenceValue = definition;
             slot.FindPropertyRelative("settings").managedReferenceValue =
                 definition != null ? definition.CreateDefaultSettings() : null;

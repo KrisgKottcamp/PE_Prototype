@@ -13,6 +13,7 @@ namespace ProjectEri.SkillSystemV2
         TargetRejected,
         NoEffectsConfigured,
         NoApplicableEffects,
+        DeferredToDeliveryAnchor,
         AllEffectsRejected,
         EffectException
     }
@@ -22,6 +23,7 @@ namespace ProjectEri.SkillSystemV2
         Applied,
         EmptySlot,
         PresenceEffectSkipped,
+        DeliveryAnchorDeferred,
         Rejected,
         Exception
     }
@@ -48,7 +50,9 @@ namespace ProjectEri.SkillSystemV2
 
         public bool Succeeded => AppliedCount > 0;
         public bool HasProblems =>
-            Status != SpellEffectApplicationStatus.Applied;
+            Status != SpellEffectApplicationStatus.Applied &&
+            Status != SpellEffectApplicationStatus
+                .DeferredToDeliveryAnchor;
 
         public SpellEffectApplicationResult(
             SpellEffectApplicationStatus status,

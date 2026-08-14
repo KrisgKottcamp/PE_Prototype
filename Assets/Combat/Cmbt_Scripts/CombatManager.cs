@@ -86,7 +86,8 @@ public class CombatManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        normalFixedDeltaTime = Time.fixedDeltaTime;
+        normalFixedDeltaTime =
+            GlobalGameplayTimeGuard.NormalFixedDeltaTime;
     }
 
     private void Start()

@@ -128,14 +128,26 @@ namespace ProjectEri.SkillSystemV2
     }
 
     [DisallowMultipleComponent]
-    public sealed class SpellInstantRangedShape2D : MonoBehaviour
+    public sealed class SpellInstantRangedShape2D : MonoBehaviour,
+        ISpellDeliveryGeometryProvider,
+        ISpellDeliveryRadiusProvider
     {
         private const float VisualLifetime = 0.15f;
         private static readonly Color ShapeColor =
             new Color(0.25f, 0.9f, 1f, 0.9f);
 
         private SpellExecutionContext context;
+        private SpellDeliveryGeometry geometry;
         private readonly HashSet<int> contactedVolumes = new HashSet<int>();
+
+        public float DeliveryRadius => geometry.CharacteristicSize;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry deliveryGeometry)
+        {
+            deliveryGeometry = geometry;
+            return geometry.CharacteristicSize > 0f;
+        }
 
         public static void Fire(
             in SpellExecutionContext executionContext,
@@ -170,12 +182,23 @@ namespace ProjectEri.SkillSystemV2
             Vector2 aim = direction.sqrMagnitude > 0.000001f
                 ? direction.normalized
                 : Vector2.right;
+            geometry = settings.ShotShape.HitShape ==
+                       ProjectileHitShape.Cone
+                ? SpellDeliveryGeometry.Arc(
+                    origin,
+                    aim,
+                    settings.Range,
+                    settings.ShotShape.ConeAngle)
+                : SpellDeliveryGeometry.Segment(
+                    origin,
+                    origin + aim * settings.Range,
+                    settings.ShotShape.BeamWidth * 0.5f);
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.DeliveryStarted,
                 null,
                 origin,
                 aim,
-                this));
+                this).WithGeometry(geometry));
 
             if (settings.ShotShape.HitShape == ProjectileHitShape.Cone)
                 FireCone(settings, origin, aim);
@@ -187,7 +210,7 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 origin + aim * settings.Range,
                 -aim,
-                this));
+                this).WithGeometry(geometry));
         }
 
         private void FireBeam(
@@ -243,7 +266,7 @@ namespace ProjectEri.SkillSystemV2
                             resolved,
                             hit.point,
                             hit.normal,
-                            this));
+                            this).WithGeometry(geometry));
                         break;
                     }
                     continue;
@@ -266,7 +289,7 @@ namespace ProjectEri.SkillSystemV2
                     resolved,
                     hit.point,
                     hit.normal,
-                    this));
+                    this).WithGeometry(geometry));
                 targetHits++;
                 if (!settings.PierceTargets ||
                     targetHits >= settings.MaximumTargetHits)
@@ -354,7 +377,7 @@ namespace ProjectEri.SkillSystemV2
                     resolved,
                     detected.ClosestPoint(origin),
                     -offset.normalized,
-                    this));
+                    this).WithGeometry(geometry));
                 targetHits++;
                 if (targetHits >= settings.MaximumTargetHits)
                     break;

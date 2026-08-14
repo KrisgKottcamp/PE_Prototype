@@ -68,6 +68,7 @@ public class PlayerFocusMode : MonoBehaviour
     [SerializeField] private bool logApDrain = false;
 
     public bool IsFocusing { get; private set; }
+    public bool IsControllingGlobalTime => focusTimeSlowApplied;
 
     public float MoveMultiplier => IsFocusing ? focusMoveMultiplier : 1f;
 

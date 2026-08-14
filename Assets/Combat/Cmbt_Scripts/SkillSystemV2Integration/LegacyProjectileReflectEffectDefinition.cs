@@ -9,8 +9,26 @@ using UnityEngine;
 /// visuals, lifetime, and reflected-damage behavior.
 /// </summary>
 [Serializable]
+public enum ReflectedProjectileMotionMode
+{
+    [InspectorName("Reverse Direction")]
+    ReverseDirection = 0,
+
+    [InspectorName("Preserve Velocity (Allegiance Only)")]
+    PreserveVelocity = 1
+}
+
+[Serializable]
 public sealed class ReflectProjectileEffectSettings : SpellEffectSettings
 {
+    [Tooltip(
+        "Reverse Direction sends the projectile back along its incoming path. " +
+        "Preserve Velocity only makes it player-owned and leaves its current " +
+        "trajectory unchanged.")]
+    [SerializeField]
+    private ReflectedProjectileMotionMode motionMode =
+        ReflectedProjectileMotionMode.ReverseDirection;
+
     [Tooltip("Base damage assigned to an enemy projectile after it becomes player-owned.")]
     [SerializeField, Min(1)]
     private int reflectedDamageBase = 10;
@@ -25,6 +43,7 @@ public sealed class ReflectProjectileEffectSettings : SpellEffectSettings
 
     public int ReflectedDamageBase => Mathf.Max(1, reflectedDamageBase);
     public string ReflectedLayerName => reflectedLayerName;
+    public ReflectedProjectileMotionMode MotionMode => motionMode;
     public float TrackerRetentionSeconds =>
         Mathf.Max(0.1f, trackerRetentionSeconds);
 
@@ -35,11 +54,14 @@ public sealed class ReflectProjectileEffectSettings : SpellEffectSettings
     public ReflectProjectileEffectSettings(
         int damageBase,
         string layerName,
-        float retentionSeconds)
+        float retentionSeconds,
+        ReflectedProjectileMotionMode projectileMotionMode =
+            ReflectedProjectileMotionMode.ReverseDirection)
     {
         reflectedDamageBase = Mathf.Max(1, damageBase);
         reflectedLayerName = layerName;
         trackerRetentionSeconds = Mathf.Max(0.1f, retentionSeconds);
+        motionMode = projectileMotionMode;
     }
 }
 
@@ -60,6 +82,11 @@ public sealed class LegacyProjectileReflectEffectDefinition :
     [SerializeField, Min(1)] private int reflectedDamageBase = 10;
     [Tooltip("Default Unity layer name assigned after reflection.")]
     [SerializeField] private string reflectedLayerName = "PlayerProjectile";
+    [Tooltip(
+        "Default motion behavior copied into a spell. Preserve Velocity " +
+        "changes allegiance without redirecting the projectile.")]
+    [SerializeField] private ReflectedProjectileMotionMode motionMode =
+        ReflectedProjectileMotionMode.ReverseDirection;
     [Tooltip("Default lifetime of per-cast reflection tracking data.")]
     [SerializeField, Min(0.1f)] private float trackerRetentionSeconds = 1f;
 
@@ -80,7 +107,8 @@ public sealed class LegacyProjectileReflectEffectDefinition :
         return new ReflectProjectileEffectSettings(
             reflectedDamageBase,
             reflectedLayerName,
-            trackerRetentionSeconds);
+            trackerRetentionSeconds,
+            motionMode);
     }
 
     public override bool Apply(in SpellEffectContext context)
@@ -192,7 +220,12 @@ public sealed class LegacyProjectileReflectEffectDefinition :
             ? -1
             : LayerMask.NameToLayer(settings.ReflectedLayerName);
 
-        projectile.Reflect(newOwner, reflectedLayer, tracker);
+        projectile.Reflect(
+            newOwner,
+            reflectedLayer,
+            tracker,
+            settings.MotionMode ==
+            ReflectedProjectileMotionMode.ReverseDirection);
     }
 
     private ReflectDamageTracker GetTracker(

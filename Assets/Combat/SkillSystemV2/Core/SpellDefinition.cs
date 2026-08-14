@@ -479,7 +479,16 @@ namespace ProjectEri.SkillSystemV2
                         issues,
                         slot.Settings);
 
-                    if (slot.Effect is IAreaPresenceEffectDefinition)
+                    CollectEffectAnchorValidationIssues(
+                        issues,
+                        slot,
+                        $"Event Effect Recipe '{route.DisplayName}'",
+                        route.Trigger,
+                        validateDeliveryEvent: false);
+
+                    if (slot.DeliveryBinding ==
+                            SpellEffectDeliveryBinding.DeliveredTargets &&
+                        slot.Effect is IAreaPresenceEffectDefinition)
                     {
                         issues.Add(new SpellValidationIssue(
                             SpellValidationSeverity.Warning,
@@ -491,6 +500,8 @@ namespace ProjectEri.SkillSystemV2
                         movementSettings.DestinationSource ==
                             CasterMovementDestinationSource
                                 .DeliveryEventPoint &&
+                        slot.DeliveryBinding ==
+                            SpellEffectDeliveryBinding.DeliveredTargets &&
                         route.Recipient != SpellEventRecipient.Caster)
                     {
                         issues.Add(new SpellValidationIssue(
@@ -500,6 +511,8 @@ namespace ProjectEri.SkillSystemV2
 
                     if (route.Recipient ==
                             SpellEventRecipient.WorldPoint &&
+                        slot.DeliveryBinding ==
+                            SpellEffectDeliveryBinding.DeliveredTargets &&
                         !slot.Effect.CanApplyWithoutRecipient(slot.Settings))
                     {
                         issues.Add(new SpellValidationIssue(
@@ -578,6 +591,17 @@ namespace ProjectEri.SkillSystemV2
                     slot.Effect.CollectValidationIssues(
                         issues,
                         slot.Settings);
+
+                    if (slot.DeliveryBinding ==
+                        SpellEffectDeliveryBinding.DeliveryAnchor)
+                    {
+                        issues.Add(new SpellValidationIssue(
+                            SpellValidationSeverity.Error,
+                            $"Reactive Effect Group '{group.DisplayName}' " +
+                            "uses Delivery Anchor. Reactive groups already " +
+                            "inherit their area's exact presence lifetime; " +
+                            "use Delivered Targets here."));
+                    }
                 }
             }
 
@@ -674,12 +698,20 @@ namespace ProjectEri.SkillSystemV2
                         slot.Effect.CollectValidationIssues(
                             issues,
                             slot.Settings);
+                        CollectEffectAnchorValidationIssues(
+                            issues,
+                            slot,
+                            $"Effect slot {i + 1}",
+                            slot.AnchorTrigger,
+                            validateDeliveryEvent: true);
                         if (slot.Settings is
                                 CasterMovementEffectSettings
                                     movementSettings &&
                             movementSettings.DestinationSource ==
                                 CasterMovementDestinationSource
-                                    .DeliveryEventPoint)
+                                    .DeliveryEventPoint &&
+                            slot.DeliveryBinding ==
+                                SpellEffectDeliveryBinding.DeliveredTargets)
                         {
                             issues.Add(new SpellValidationIssue(
                                 SpellValidationSeverity.Error,
@@ -694,6 +726,60 @@ namespace ProjectEri.SkillSystemV2
                 issues.Add(new SpellValidationIssue(
                     SpellValidationSeverity.Error,
                     "Maximum root activations must be at least one."));
+            }
+        }
+
+        private void CollectEffectAnchorValidationIssues(
+            ICollection<SpellValidationIssue> issues,
+            SpellEffectSlot slot,
+            string ownerName,
+            SpellEventType trigger,
+            bool validateDeliveryEvent)
+        {
+            if (slot?.Effect == null ||
+                slot.DeliveryBinding !=
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+            {
+                return;
+            }
+
+            if (trigger == SpellEventType.None)
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    $"{ownerName} uses Delivery Anchor but has no trigger " +
+                    "event."));
+            }
+            else if (validateDeliveryEvent && Delivery != null &&
+                     !SpellEventSupport.DeliveryReports(Delivery, trigger))
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Warning,
+                    $"{ownerName} creates an anchor on {trigger}, but " +
+                    $"delivery '{Delivery.DisplayName}' does not report " +
+                    "that event."));
+            }
+
+            if (slot.AnchorApplication ==
+                    SpellEffectAnchorApplication.OnceAtAnchor &&
+                !slot.Effect.CanApplyWithoutRecipient(slot.Settings))
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Error,
+                    $"{ownerName} uses Once At Anchor, but effect " +
+                    $"'{slot.Effect.DisplayName}' requires an object " +
+                    "recipient."));
+            }
+            else if (slot.AnchorApplication ==
+                         SpellEffectAnchorApplication.WhilePresent &&
+                     !(slot.Effect is IAreaPresenceEffectDefinition))
+            {
+                issues.Add(new SpellValidationIssue(
+                    SpellValidationSeverity.Info,
+                    $"{ownerName} uses While Present with " +
+                    $"'{slot.Effect.DisplayName}'. That effect has no exact " +
+                    "presence-removal contract, so it safely applies on " +
+                    "entry instead."));
             }
         }
 

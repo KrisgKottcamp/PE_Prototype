@@ -24,6 +24,9 @@ skill system. It does not replace the current combat skill scripts yet.
   proximity mines, grenades, and ricocheting projectiles.
 - Universal effect receiver contracts decouple spell assets from player,
   enemy, prop, and summon implementations.
+- Delivery Effect Anchors let any effect opt into independent point, circle,
+  arc, segment, or moving-delivery geometry without delivery/effect-specific
+  synergy code.
 - Effects now cover damage, damage over time, healing, impulse/pushback,
   caster movement, resources/AP, statuses, spawning, gameplay signals, and
   safely queued secondary spells.
@@ -151,6 +154,45 @@ area's persistent behavior from new behavior unlocked by an interaction—for
 example, a Slow Orb can always slow everything inside but enable enemy-only
 Damage Over Time after a projectile hits it.
 
+## Delivery Effect Anchors
+
+Every Default Effect and Event Effect Recipe slot has an **Apply Through**
+choice. **Delivered Targets** preserves the delivery's normal behavior.
+**Delivery Anchor** creates a separate geometry-aware lifetime when the chosen
+delivery event occurs. Existing spell assets remain Delivered Targets unless a
+designer explicitly opts in.
+
+Anchors use the delivery's real shape and size: Self/Direct/Point Click expose
+points, Area and persistent objects expose circles, Melee and cone shots expose
+arcs, beams and trip wires expose segments, and projectile/grenade/ricochet
+objects expose moving circles. An optional size override changes the radius,
+arc range, or segment half-width without changing the delivery itself.
+
+Application modes are generic rather than effect-specific:
+
+- **On Enter** applies once as each valid object enters, with an optional
+  leave-and-reenter reset.
+- **Periodic** reapplies to current occupants at an independent interval.
+- **While Present** applies/removes exact source-owned state for effects that
+  implement `IAreaPresenceEffectDefinition`, including Spatial Force, Stat
+  Modifier, and Movement Speed Change. Other effects safely fall back to On
+  Enter instead of deleting state they do not own.
+- **Once At Anchor** runs one effect that supports a world point, such as Spawn,
+  Gameplay Signal, Trigger Spell, or Caster Movement.
+
+Multiplicity may be once per root cast, once per delivery runtime, or once for
+every event occurrence. The anchor owns its duration even after an
+instantaneous delivery completes or a projectile/grenade object is destroyed;
+a moving anchor follows its source and freezes at the last valid position if
+that source disappears. Target Rules and layer masks still decide what it may
+acquire.
+
+This is the compatibility bridge for combinations such as a persistent gravity
+grenade, vacuum melee arc, moving projectile aura, mine healing field,
+trip-wire slow corridor, point reflect zone, and caster-centered force or
+parry field. They all use the same acquisition, geometry, lifetime, and
+presence contracts; no pairing is hard coded.
+
 ## Relocate Actor destination targeting
 
 Relocate Actor's **Aimed Point** destination uses a secondary destination
@@ -172,6 +214,13 @@ world-space outline matching the configured Range and Cone Angle. A 360-degree
 cone renders as a circle. Cone hits remain instantaneous and do not instantiate
 the moving Projectile Prefab.
 
+Grenade throw distance comes from the selected **Player Targeting** asset's
+Maximum Range, with the spell's Placement Rules able to make that range stricter.
+Grenade Speed is only travel rate, and the fuse determines whether it has enough
+time to reach the chosen point. The spell Inspector displays all three values
+together and warns when a short-range targeting asset, such as a melee aim,
+limits an otherwise fast grenade to a very short throw.
+
 Spatial Force can move actor rigidbodies and projectile motion owners. Legacy
 player/enemy projectiles, moving Skill V2 projectiles, ricochet projectiles,
 and grenades keep their normal forward motion while the force adds a separate
@@ -190,6 +239,22 @@ added curve velocity alongside its normal flight, while actor momentum is
 returned to `Rigidbody2D` physics when the field releases control. The authored
 Black Hole enables this mode while the reusable Spatial Force effect keeps it
 off by default for backward compatibility.
+
+Reflect Projectile exposes a per-spell **Motion Mode**. **Reverse Direction**
+keeps the traditional parry behavior and is the backward-compatible default.
+**Preserve Velocity (Allegiance Only)** changes an enemy projectile to the
+player team, updates its owner/layer/collision rules and reflected-damage
+behavior, but does not rotate it, negate its stored direction, or overwrite its
+live Rigidbody velocity. The projectile therefore continues along the path it
+already had while becoming friendly.
+
+Delivery Anchor filters govern admission, not the continued lifetime of an
+exact **While Present** effect. Once Spatial Force, Stat Modifier, or Movement
+Speed owns presence on a target, changing that target's team or layer does not
+remove the effect. It remains until the target physically leaves the anchor or
+the anchor expires. This lets allegiance-only reflection coexist with a curved
+gravity trajectory even though reflection changes `Projectile` to the
+`PlayerProjectile` layer.
 
 ## Event Effect Recipes
 

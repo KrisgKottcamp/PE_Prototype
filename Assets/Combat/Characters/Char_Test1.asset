@@ -30,6 +30,9 @@ MonoBehaviour:
   useSkillSystemV2Loadout: 1
   skillSystemV2BasicAttack: {fileID: 0}
   equippedSpellsV2:
+  - {fileID: 11400000, guid: 05500951ada2d574ea246ea592270170, type: 2}
+  - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
+  - {fileID: 11400000, guid: 1cb3bcb1c0841204eaca8643a3150b92, type: 2}
   - {fileID: 11400000, guid: 456a1cac69bafee4694371cbe8ebacb7, type: 2}
   - {fileID: 11400000, guid: 96403a7af77f0514db5cc0d2174459e8, type: 2}
   - {fileID: 11400000, guid: 913db217198e5be4e873011c10e17a7c, type: 2}

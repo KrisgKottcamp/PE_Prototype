@@ -188,6 +188,11 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
             return false;
         }
 
+        // Targeting is a sustained time owner. End a short hitstop before it
+        // captures a baseline so a 0.01-0.08 hit scale can never be restored
+        // as normal gameplay speed after targeting ends.
+        HitstopManager.ReleaseForExternalTimeControl();
+
         if (!targetingController.BeginTargeting(
                 spell,
                 out PlayerTargetingFailure targetingFailure))

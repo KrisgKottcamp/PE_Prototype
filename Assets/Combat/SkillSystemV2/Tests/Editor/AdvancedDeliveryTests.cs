@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -529,6 +530,48 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void GrenadeValidation_ExplainsShortTargetingRange()
+        {
+            var targeting = ScriptableObject.CreateInstance<
+                DirectionTargetingDefinition>();
+            var serializedTargeting = new SerializedObject(targeting);
+            serializedTargeting.FindProperty("displayName").stringValue =
+                "Short Melee Aim";
+            serializedTargeting.FindProperty("maximumRange").floatValue =
+                1.75f;
+            serializedTargeting.ApplyModifiedPropertiesWithoutUndo();
+
+            var delivery = ScriptableObject.CreateInstance<
+                GrenadeDeliveryDefinition>();
+            var settings = new GrenadeDeliverySettings(
+                targeting,
+                null,
+                8f,
+                1.5f,
+                0.1f,
+                2f,
+                ~0,
+                GrenadeCollisionMode.Regular,
+                0.8f,
+                4,
+                32);
+            var issues = new List<SpellValidationIssue>();
+
+            delivery.CollectValidationIssues(issues, settings);
+
+            Assert.That(
+                issues.Exists(issue =>
+                    issue.Severity == SpellValidationSeverity.Info &&
+                    issue.Message.Contains("1.75") &&
+                    issue.Message.Contains("Speed 8") &&
+                    issue.Message.Contains("not throw range")),
+                Is.True);
+
+            Object.DestroyImmediate(delivery);
+            Object.DestroyImmediate(targeting);
+        }
+
+        [Test]
         public void RicochetProjectile_DeflectionCanBeEnabledOrDisabled()
         {
             var delivery = ScriptableObject.CreateInstance<
@@ -553,6 +596,85 @@ namespace ProjectEri.SkillSystemV2.Tests
             Object.DestroyImmediate(secondCaster);
             Object.DestroyImmediate(spell);
             Object.DestroyImmediate(delivery);
+        }
+
+        [Test]
+        public void ReflectProjectile_PreserveVelocityChangesOnlyAllegiance()
+        {
+            System.Type projectileType = FindLoadedType("Projectile");
+            System.Type teamType = projectileType?.GetNestedType(
+                "ProjectileTeam");
+            System.Type trackerType = FindLoadedType("ReflectDamageTracker");
+            Assert.That(projectileType, Is.Not.Null);
+            Assert.That(teamType, Is.Not.Null);
+            Assert.That(trackerType, Is.Not.Null);
+
+            var projectileObject = new GameObject(
+                "Allegiance-Only Projectile");
+            Rigidbody2D body = projectileObject.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            Component projectile = projectileObject.AddComponent(
+                projectileType);
+            InitializeLegacyProjectile(
+                projectile,
+                projectileType,
+                teamType);
+            Vector2 velocityBefore = GetBodyVelocity(body);
+            System.Reflection.MethodInfo reflect = GetLegacyReflectMethod(
+                projectileType,
+                trackerType);
+            reflect.Invoke(
+                projectile,
+                new object[] { caster.transform, -1, null, false });
+
+            Assert.That(
+                projectileType.GetProperty("Team")?.GetValue(projectile)
+                    ?.ToString(),
+                Is.EqualTo("Player"));
+            Assert.That(GetBodyVelocity(body), Is.EqualTo(velocityBefore));
+
+            Object.DestroyImmediate(projectileObject);
+        }
+
+        [Test]
+        public void ReflectProjectile_DefaultModeStillReversesDirection()
+        {
+            System.Type projectileType = FindLoadedType("Projectile");
+            System.Type teamType = projectileType?.GetNestedType(
+                "ProjectileTeam");
+            System.Type trackerType = FindLoadedType("ReflectDamageTracker");
+            Assert.That(projectileType, Is.Not.Null);
+            Assert.That(teamType, Is.Not.Null);
+            Assert.That(trackerType, Is.Not.Null);
+
+            var projectileObject = new GameObject(
+                "Traditional Reflection Projectile");
+            Rigidbody2D body = projectileObject.AddComponent<Rigidbody2D>();
+            body.gravityScale = 0f;
+            Component projectile = projectileObject.AddComponent(
+                projectileType);
+            InitializeLegacyProjectile(
+                projectile,
+                projectileType,
+                teamType);
+            System.Reflection.MethodInfo reflect = GetLegacyReflectMethod(
+                projectileType,
+                trackerType);
+
+            Assert.That(
+                reflect.GetParameters()[3].DefaultValue,
+                Is.EqualTo(true));
+            reflect.Invoke(
+                projectile,
+                new object[] { caster.transform, -1, null, true });
+
+            Assert.That(
+                projectileType.GetProperty("Team")?.GetValue(projectile)
+                    ?.ToString(),
+                Is.EqualTo("Player"));
+            Assert.That(GetBodyVelocity(body).x, Is.LessThan(0f));
+
+            Object.DestroyImmediate(projectileObject);
         }
 
         [Test]
@@ -664,6 +786,16 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(SpellEventSupport.DeliveryReports(
                 mine, SpellEventType.ProximityTriggered), Is.True);
             Assert.That(SpellEventSupport.DeliveryReports(
+                mine, SpellEventType.Detonated), Is.True);
+            Assert.That(SpellEventSupport.DeliveryReports(
+                mine, SpellEventType.DeliveryExpired), Is.True);
+            Assert.That(SpellEventSupport.DeliveryReports(
+                mine, SpellEventType.DeliveryStopped), Is.True);
+            Assert.That(SpellEventSupport.DeliveryReports(
+                trip, SpellEventType.DeliveryExpired), Is.True);
+            Assert.That(SpellEventSupport.DeliveryReports(
+                trip, SpellEventType.DeliveryStopped), Is.True);
+            Assert.That(SpellEventSupport.DeliveryReports(
                 grenade, SpellEventType.Detonated), Is.True);
             Assert.That(SpellEventSupport.DeliveryReports(
                 ricochet, SpellEventType.Deflected), Is.True);
@@ -706,6 +838,67 @@ namespace ProjectEri.SkillSystemV2.Tests
                 damage,
                 new DamageEffectSettings(10f)));
             return spell;
+        }
+
+        private static Vector2 GetBodyVelocity(Rigidbody2D body)
+        {
+#if UNITY_6000_0_OR_NEWER
+            return body.linearVelocity;
+#else
+            return body.velocity;
+#endif
+        }
+
+        private static System.Type FindLoadedType(string fullName)
+        {
+            System.Reflection.Assembly[] assemblies =
+                System.AppDomain.CurrentDomain.GetAssemblies();
+            for (int i = 0; i < assemblies.Length; i++)
+            {
+                System.Type type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                    return type;
+            }
+
+            return null;
+        }
+
+        private static void InitializeLegacyProjectile(
+            Component projectile,
+            System.Type projectileType,
+            System.Type teamType)
+        {
+            System.Reflection.MethodInfo initialize = projectileType.GetMethod(
+                "Initialize",
+                new[]
+                {
+                    typeof(Vector2),
+                    typeof(float),
+                    typeof(GameObject),
+                    teamType
+                });
+            Assert.That(initialize, Is.Not.Null);
+            object enemyTeam = System.Enum.Parse(teamType, "Enemy");
+            initialize.Invoke(
+                projectile,
+                new object[] { Vector2.right, 7f, null, enemyTeam });
+        }
+
+        private static System.Reflection.MethodInfo GetLegacyReflectMethod(
+            System.Type projectileType,
+            System.Type trackerType)
+        {
+            System.Reflection.MethodInfo reflect = projectileType.GetMethod(
+                "Reflect",
+                new[]
+                {
+                    typeof(Transform),
+                    typeof(int),
+                    trackerType,
+                    typeof(bool)
+                });
+            Assert.That(reflect, Is.Not.Null);
+            return reflect;
         }
 
         private static void DestroyAll<T>() where T : Component

@@ -56,11 +56,16 @@ namespace ProjectEri.SkillSystemV2
             public void Begin()
             {
                 GameObject caster = context.Cast.Caster;
+                Vector2 anchorPoint = context.Cast.HasTargetPoint
+                    ? context.Cast.TargetPoint
+                    : context.Cast.Origin;
+                SpellDeliveryGeometry geometry =
+                    SpellDeliveryGeometry.Point(anchorPoint);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,
-                    context.Cast.Origin,
-                    context.Cast.AimDirection));
+                    anchorPoint,
+                    context.Cast.AimDirection).WithGeometry(geometry));
                 if (caster != null && context.Cast.HasTargetPoint)
                 {
                     Vector2 destination = context.Cast.TargetPoint;
@@ -73,7 +78,7 @@ namespace ProjectEri.SkillSystemV2
                         SpellEventType.PointReached,
                         null,
                         destination,
-                        direction));
+                        direction).WithGeometry(geometry));
                     context.ApplyEffects(
                         caster,
                         destination,

@@ -15,12 +15,19 @@ namespace ProjectEri.SkillSystemV2
     {
         private readonly Dictionary<object, float> requests =
             new Dictionary<object, float>();
+        private readonly List<object> staleOwners = new List<object>();
 
         private float capturedTimeScale = 1f;
         private float capturedFixedDeltaTime = 0.02f;
+        private float appliedTimeScale = 1f;
         private bool ownsTimeScale;
 
         public bool HasRequests => requests.Count > 0;
+
+        private void Update()
+        {
+            PruneStaleOwners();
+        }
 
         public void Acquire(object owner, float requestedTimeScale)
         {
@@ -59,7 +66,8 @@ namespace ProjectEri.SkillSystemV2
             foreach (float request in requests.Values)
                 lowest = Mathf.Min(lowest, request);
 
-            Time.timeScale = Mathf.Min(capturedTimeScale, lowest);
+            appliedTimeScale = Mathf.Min(capturedTimeScale, lowest);
+            Time.timeScale = appliedTimeScale;
 
             if (capturedTimeScale > 0.0001f)
             {
@@ -73,10 +81,54 @@ namespace ProjectEri.SkillSystemV2
             if (!ownsTimeScale)
                 return;
 
-            Time.timeScale = capturedTimeScale;
-            Time.fixedDeltaTime = capturedFixedDeltaTime;
+            // Normal release and a stronger transient slowdown (hitstop) may
+            // restore the captured baseline. If time is already faster than
+            // the scale we applied, an outer owner such as the skill menu has
+            // restored first; never write our older slow baseline over it.
+            if (Time.timeScale <= appliedTimeScale + 0.0001f)
+            {
+                Time.timeScale = capturedTimeScale;
+                Time.fixedDeltaTime = capturedFixedDeltaTime;
+            }
+
             requests.Clear();
             ownsTimeScale = false;
+            appliedTimeScale = Time.timeScale;
+        }
+
+        private void PruneStaleOwners()
+        {
+            if (requests.Count == 0)
+                return;
+
+            staleOwners.Clear();
+            foreach (KeyValuePair<object, float> request in requests)
+            {
+                object owner = request.Key;
+                if (owner is Object unityOwner && unityOwner == null)
+                {
+                    staleOwners.Add(owner);
+                    continue;
+                }
+
+                if (owner is PlayerSpellTargetingController targeting &&
+                    !targeting.IsTargeting)
+                {
+                    staleOwners.Add(owner);
+                }
+            }
+
+            if (staleOwners.Count == 0)
+                return;
+
+            for (int i = 0; i < staleOwners.Count; i++)
+                requests.Remove(staleOwners[i]);
+
+            staleOwners.Clear();
+            if (requests.Count > 0)
+                ApplyLowestRequest();
+            else
+                RestoreCapturedTime();
         }
 
         private void OnDisable()

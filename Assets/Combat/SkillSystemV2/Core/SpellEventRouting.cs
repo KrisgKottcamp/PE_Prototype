@@ -61,13 +61,17 @@ namespace ProjectEri.SkillSystemV2
         public Vector2 Point { get; }
         public Vector2 Normal { get; }
         public Component DeliveryRuntime { get; }
+        public SpellDeliveryGeometry Geometry { get; }
+        public bool HasGeometry { get; }
 
         public SpellEventOccurrence(
             SpellEventType type,
             GameObject subject,
             Vector2 point,
             Vector2 normal,
-            Component deliveryRuntime = null)
+            Component deliveryRuntime = null,
+            SpellDeliveryGeometry geometry = default,
+            bool hasGeometry = false)
         {
             Type = type;
             Subject = subject;
@@ -76,6 +80,21 @@ namespace ProjectEri.SkillSystemV2
                 ? normal.normalized
                 : Vector2.zero;
             DeliveryRuntime = deliveryRuntime;
+            Geometry = geometry;
+            HasGeometry = hasGeometry;
+        }
+
+        public SpellEventOccurrence WithGeometry(
+            in SpellDeliveryGeometry geometry)
+        {
+            return new SpellEventOccurrence(
+                Type,
+                Subject,
+                Point,
+                Normal,
+                DeliveryRuntime,
+                geometry,
+                hasGeometry: true);
         }
     }
 
@@ -278,10 +297,14 @@ namespace ProjectEri.SkillSystemV2
             if (eventType == SpellEventType.ProximityTriggered)
                 return delivery is ProximityMineDeliveryDefinition;
             if (eventType == SpellEventType.TimerExpired ||
-                eventType == SpellEventType.Detonated ||
                 eventType == SpellEventType.Stuck)
             {
                 return delivery is GrenadeDeliveryDefinition;
+            }
+            if (eventType == SpellEventType.Detonated)
+            {
+                return delivery is GrenadeDeliveryDefinition ||
+                       delivery is ProximityMineDeliveryDefinition;
             }
             if (eventType == SpellEventType.Bounced)
             {
@@ -290,18 +313,30 @@ namespace ProjectEri.SkillSystemV2
             }
             if (eventType == SpellEventType.Deflected)
                 return delivery is RicochetProjectileDeliveryDefinition;
-            if (eventType == SpellEventType.BlockingHit ||
-                eventType == SpellEventType.DeliveryStopped)
+            if (eventType == SpellEventType.BlockingHit)
             {
                 return delivery is ProjectileDeliveryDefinition ||
                        delivery is GrenadeDeliveryDefinition ||
                        delivery is RicochetProjectileDeliveryDefinition;
             }
+            if (eventType == SpellEventType.DeliveryStopped)
+            {
+                return delivery is ProjectileDeliveryDefinition ||
+                       delivery is GrenadeDeliveryDefinition ||
+                       delivery is RicochetProjectileDeliveryDefinition ||
+                       delivery is ProximityMineDeliveryDefinition ||
+                       delivery is TripWireDeliveryDefinition;
+            }
             if (eventType == SpellEventType.TargetEnteredArea ||
-                eventType == SpellEventType.TargetExitedArea ||
-                eventType == SpellEventType.DeliveryExpired)
+                eventType == SpellEventType.TargetExitedArea)
             {
                 return delivery is LingeringAreaDeliveryDefinition;
+            }
+            if (eventType == SpellEventType.DeliveryExpired)
+            {
+                return delivery is LingeringAreaDeliveryDefinition ||
+                       delivery is ProximityMineDeliveryDefinition ||
+                       delivery is TripWireDeliveryDefinition;
             }
             if (eventType == SpellEventType.AreaCreated ||
                 eventType == SpellEventType.AreaPulse)

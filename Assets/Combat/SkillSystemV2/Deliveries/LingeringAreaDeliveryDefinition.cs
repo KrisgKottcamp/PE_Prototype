@@ -175,7 +175,9 @@ namespace ProjectEri.SkillSystemV2
     public sealed class SpellLingeringArea2D :
         MonoBehaviour,
         ISpellDeliveryInteractionVolume,
-        ISpellDeliveryReactionHost
+        ISpellDeliveryReactionHost,
+        ISpellDeliveryGeometryProvider,
+        ISpellDeliveryRadiusProvider
     {
         private sealed class ReactionRuntimeState
         {
@@ -235,6 +237,14 @@ namespace ProjectEri.SkillSystemV2
         public Vector2 InteractionCenter => transform.position;
         public float InteractionRadius => radius;
         public bool InteractionActive => interactionActive;
+        public float DeliveryRadius => radius;
+
+        public bool TryGetDeliveryGeometry(
+            out SpellDeliveryGeometry geometry)
+        {
+            geometry = SpellDeliveryGeometry.FollowCircle(transform, radius);
+            return initialized;
+        }
 
         public void Initialize(
             in SpellExecutionContext executionContext,
@@ -283,13 +293,15 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 context.Cast.AimDirection,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(transform, radius)));
             context.DispatchEvent(new SpellEventOccurrence(
                 SpellEventType.AreaCreated,
                 null,
                 transform.position,
                 Vector2.zero,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(transform, radius)));
 
             if (interactionActive)
                 PulseEffectsOnOccupants();
@@ -479,7 +491,10 @@ namespace ProjectEri.SkillSystemV2
                     interaction.Source.Cast.HasAimDirection
                         ? interaction.Source.Cast.AimDirection
                         : Vector2.zero,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            radius)));
         }
 
         public void DestroyDelivery()
@@ -541,7 +556,10 @@ namespace ProjectEri.SkillSystemV2
                     target,
                     point,
                     normal,
-                    this));
+                    this).WithGeometry(
+                        SpellDeliveryGeometry.FollowCircle(
+                            transform,
+                            radius)));
             }
 
             for (int groupIndex = 0;
@@ -559,7 +577,8 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 Vector2.zero,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(transform, radius)));
         }
 
         private void RefreshPresenceEffects()
@@ -593,7 +612,10 @@ namespace ProjectEri.SkillSystemV2
                             target,
                             enterPoint,
                             enterPoint - (Vector2)transform.position,
-                            this));
+                            this).WithGeometry(
+                                SpellDeliveryGeometry.FollowCircle(
+                                    transform,
+                                    radius)));
                     }
                 }
 
@@ -650,7 +672,10 @@ namespace ProjectEri.SkillSystemV2
                             ? (Vector2)target.transform.position
                             : (Vector2)transform.position,
                         Vector2.zero,
-                        this));
+                        this).WithGeometry(
+                            SpellDeliveryGeometry.FollowCircle(
+                                transform,
+                                radius)));
                 }
                 eventPresenceTargets.Remove(id);
             }
@@ -847,6 +872,11 @@ namespace ProjectEri.SkillSystemV2
             for (int i = 0; i < effects.Count; i++)
             {
                 SpellEffectSlot slot = effects[i];
+                if (slot?.DeliveryBinding ==
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+                {
+                    continue;
+                }
                 if (slot?.Effect is
                     IAreaPresenceEffectDefinition presence)
                 {
@@ -877,6 +907,11 @@ namespace ProjectEri.SkillSystemV2
             for (int i = 0; i < effects.Count; i++)
             {
                 SpellEffectSlot slot = effects[i];
+                if (slot?.DeliveryBinding ==
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+                {
+                    continue;
+                }
                 if (slot?.Effect is
                     IAreaPresenceEffectDefinition presence)
                 {
@@ -957,6 +992,11 @@ namespace ProjectEri.SkillSystemV2
             for (int i = 0; i < effects.Count; i++)
             {
                 SpellEffectSlot slot = effects[i];
+                if (slot?.DeliveryBinding ==
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+                {
+                    continue;
+                }
                 EffectDefinition effect = slot?.Effect;
                 if (effect is IAreaPresenceEffectDefinition presence)
                 {
@@ -984,6 +1024,11 @@ namespace ProjectEri.SkillSystemV2
             for (int i = 0; i < effects.Count; i++)
             {
                 SpellEffectSlot slot = effects[i];
+                if (slot?.DeliveryBinding ==
+                    SpellEffectDeliveryBinding.DeliveryAnchor)
+                {
+                    continue;
+                }
                 EffectDefinition effect = slot?.Effect;
                 if (effect is IAreaPresenceEffectDefinition presence)
                 {
@@ -1023,7 +1068,10 @@ namespace ProjectEri.SkillSystemV2
                 null,
                 transform.position,
                 Vector2.zero,
-                this));
+                this).WithGeometry(
+                    SpellDeliveryGeometry.Circle(
+                        transform.position,
+                        radius)));
         }
 
         private static Sprite GetCircleSprite()

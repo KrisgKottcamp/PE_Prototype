@@ -85,7 +85,9 @@ namespace ProjectEri.SkillSystemV2
             bool skipped = diagnostic.Status ==
                            SpellEffectSlotStatus.EmptySlot ||
                            diagnostic.Status ==
-                           SpellEffectSlotStatus.PresenceEffectSkipped;
+                           SpellEffectSlotStatus.PresenceEffectSkipped ||
+                           diagnostic.Status ==
+                           SpellEffectSlotStatus.DeliveryAnchorDeferred;
 
             if ((!rejected || !logRejectedEffectSlots) &&
                 (!skipped || !logSkippedEffectSlots) &&
