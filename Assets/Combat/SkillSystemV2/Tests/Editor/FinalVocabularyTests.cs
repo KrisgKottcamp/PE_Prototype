@@ -79,15 +79,27 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(
                 SpellActionPointPickupUtility.ResolveParticleCount(
                     baseReward,
+                    baseReward,
                     4,
                     6),
                 Is.EqualTo(1));
             Assert.That(
                 SpellActionPointPickupUtility.ResolveParticleCount(
+                    baseReward,
                     adjustedReward,
                     4,
                     6),
                 Is.EqualTo(2));
+
+            Assert.That(
+                SpellActionPointPickupUtility.ResolveParticleCount(
+                    5,
+                    6,
+                    4,
+                    6),
+                Is.EqualTo(3),
+                "A modest AP increase must still add a visible particle " +
+                "instead of remaining in the same four-AP bucket.");
         }
 
         [Test]
@@ -202,9 +214,17 @@ namespace ProjectEri.SkillSystemV2.Tests
             SpellActorMotionController2D controller =
                 target.GetComponent<SpellActorMotionController2D>();
             Assert.That(controller.IsControllingMotion, Is.True);
+            Assert.That(
+                SpellActorMotionUtility.IsControllingMotion(target),
+                Is.True,
+                "Every mover sharing this Rigidbody2D must be able to see " +
+                "that Spatial Force currently owns actor movement.");
 
             effect.RemovePresence(target, source, settings);
             Assert.That(controller.IsControllingMotion, Is.False);
+            Assert.That(
+                SpellActorMotionUtility.IsControllingMotion(target),
+                Is.False);
         }
 
         [Test]

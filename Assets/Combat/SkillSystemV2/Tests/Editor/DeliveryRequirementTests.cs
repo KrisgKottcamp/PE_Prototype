@@ -228,7 +228,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
-        public void DirectTarget_SelfProxyAppliesStatModifierToLiveCaster()
+        public void DirectTarget_SelfProxyKeepsModifierOnSelectedMember()
         {
             targetAlias = new GameObject("Caster Party Target Proxy");
             TestRepresentedSpellTarget alias =
@@ -275,11 +275,137 @@ namespace ProjectEri.SkillSystemV2.Tests
                 Is.EqualTo(0.5f).Within(0.001f));
             Assert.That(
                 targetAlias.GetComponent<SpellStatModifierController>(),
+                Is.Not.Null);
+            Assert.That(
+                caster.GetComponent<SpellStatModifierController>(),
                 Is.Null);
+
+            alias.SetActiveForRepresentedActor(false);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                targetAlias.GetComponent<SpellStatModifierController>()
+                    .ActiveModifierCount,
+                Is.EqualTo(1));
+
+            alias.SetActiveForRepresentedActor(true);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(0.5f).Within(0.001f));
 
             Object.DestroyImmediate(spell);
             Object.DestroyImmediate(effect);
             Object.DestroyImmediate(delivery);
+        }
+
+        [Test]
+        public void StatModifier_ResetToggleRemovesEffectOnSwitchOut()
+        {
+            targetAlias = new GameObject("Resetting Party Target Proxy");
+            targetAlias.transform.SetParent(caster.transform);
+            TestRepresentedSpellTarget alias =
+                targetAlias.AddComponent<TestRepresentedSpellTarget>();
+            alias.Configure(caster);
+            SpellStatModifierController controller =
+                targetAlias.AddComponent<SpellStatModifierController>();
+            var source = ScriptableObject.CreateInstance<
+                SpellStatModifierEffectDefinition>();
+            controller.SetPersistent(
+                source,
+                "reset-on-switch",
+                new SpellStatModifierSettings(
+                    SpellActorStat.DamageReceived,
+                    SpellStatOperation.Multiply,
+                    0.5f,
+                    5f,
+                    resetOnInactive: true));
+
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(0.5f).Within(0.001f));
+
+            alias.SetActiveForRepresentedActor(false);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(controller.ActiveModifierCount, Is.Zero);
+
+            alias.SetActiveForRepresentedActor(true);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+
+            Object.DestroyImmediate(source);
+        }
+
+        [Test]
+        public void StatModifier_TargetRouterRequiresExplicitAllPartyScope()
+        {
+            targetAlias = new GameObject("Routed Party Target Proxy");
+            TestRepresentedSpellTarget alias =
+                targetAlias.AddComponent<TestRepresentedSpellTarget>();
+            alias.Configure(caster);
+            TestStatModifierTargetRouter router =
+                caster.AddComponent<TestStatModifierTargetRouter>();
+            router.Configure(targetAlias);
+            var specificEffect = ScriptableObject.CreateInstance<
+                SpellStatModifierEffectDefinition>();
+            var allPartyEffect = ScriptableObject.CreateInstance<
+                SpellStatModifierEffectDefinition>();
+            var context = new SpellEffectContext(
+                null,
+                CastContext.ForTarget(
+                    caster,
+                    caster.transform.position,
+                    caster),
+                caster,
+                caster.transform.position,
+                Vector2.zero,
+                1f);
+
+            Assert.That(
+                specificEffect.Apply(
+                    context,
+                    new SpellStatModifierSettings(
+                        SpellActorStat.DamageReceived,
+                        SpellStatOperation.Multiply,
+                        0.5f,
+                        5f)),
+                Is.True);
+            Assert.That(
+                targetAlias.GetComponent<SpellStatModifierController>(),
+                Is.Not.Null);
+            Assert.That(
+                caster.GetComponent<SpellStatModifierController>(),
+                Is.Null);
+
+            Assert.That(
+                allPartyEffect.Apply(
+                    context,
+                    new SpellStatModifierSettings(
+                        SpellActorStat.MovementSpeed,
+                        SpellStatOperation.Multiply,
+                        1.5f,
+                        5f,
+                        applyToAllParty: true)),
+                Is.True);
+            Assert.That(
+                caster.GetComponent<SpellStatModifierController>(),
+                Is.Not.Null);
+
+            Object.DestroyImmediate(allPartyEffect);
+            Object.DestroyImmediate(specificEffect);
         }
 
         [Test]
@@ -399,6 +525,8 @@ namespace ProjectEri.SkillSystemV2.Tests
                 settings.Operation,
                 Is.EqualTo(SpellStatOperation.Multiply));
             Assert.That(settings.Value, Is.EqualTo(0.75f).Within(0.001f));
+            Assert.That(settings.ResetWhenTargetBecomesInactive, Is.False);
+            Assert.That(settings.ApplyToAllPartyMembers, Is.False);
         }
 
         private static SpellDefinition CreateSpell(
@@ -450,6 +578,23 @@ namespace ProjectEri.SkillSystemV2.Tests
                     other.transform.IsChildOf(
                         representedObject.transform) ||
                     representedObject.transform.IsChildOf(other.transform));
+        }
+    }
+
+    public sealed class TestStatModifierTargetRouter : MonoBehaviour,
+        ISpellStatModifierTargetRouter
+    {
+        private GameObject memberTarget;
+
+        public void Configure(GameObject target)
+        {
+            memberTarget = target;
+        }
+
+        public GameObject ResolveStatModifierTarget(
+            bool applyToAllPartyMembers)
+        {
+            return applyToAllPartyMembers ? gameObject : memberTarget;
         }
     }
 }

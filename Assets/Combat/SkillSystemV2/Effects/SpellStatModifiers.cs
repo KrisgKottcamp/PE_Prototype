@@ -59,12 +59,21 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Maximum simultaneous stacks when Stacking is set to Stack.")]
         [SerializeField, Min(1)] private int maximumStacks = 1;
 
+        [Tooltip("When enabled, remove this modifier when its specifically targeted party member switches out. When disabled, its duration continues while that member is inactive and it resumes only if that same member becomes active again.")]
+        [SerializeField] private bool resetWhenTargetBecomesInactive;
+
+        [Tooltip("Apply this modifier through the shared party pawn so every active party member receives it. Leave disabled for effects intended for one selected member.")]
+        [SerializeField] private bool applyToAllPartyMembers;
+
         public SpellActorStat Stat => stat;
         public SpellStatOperation Operation => operation;
         public float Value => value;
         public float Duration => Mathf.Max(0.02f, duration);
         public SpellStatStackingPolicy Stacking => stacking;
         public int MaximumStacks => Mathf.Max(1, maximumStacks);
+        public bool ResetWhenTargetBecomesInactive =>
+            resetWhenTargetBecomesInactive;
+        public bool ApplyToAllPartyMembers => applyToAllPartyMembers;
 
         public SpellStatModifierSettings() { }
 
@@ -75,7 +84,9 @@ namespace ProjectEri.SkillSystemV2
             float modifierDuration,
             SpellStatStackingPolicy stackingPolicy =
                 SpellStatStackingPolicy.RefreshFromSameSource,
-            int maxStacks = 1)
+            int maxStacks = 1,
+            bool resetOnInactive = false,
+            bool applyToAllParty = false)
         {
             stat = modifiedStat;
             operation = modifierOperation;
@@ -83,6 +94,8 @@ namespace ProjectEri.SkillSystemV2
             duration = Mathf.Max(0.02f, modifierDuration);
             stacking = stackingPolicy;
             maximumStacks = Mathf.Max(1, maxStacks);
+            resetWhenTargetBecomesInactive = resetOnInactive;
+            applyToAllPartyMembers = applyToAllParty;
         }
     }
 
@@ -111,6 +124,12 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Default stack limit when stacking is enabled.")]
         [SerializeField, Min(1)] private int maximumStacks = 1;
 
+        [Tooltip("Default behavior when a specifically targeted party member switches out. Enable to remove the modifier; disable to let its duration continue while inactive.")]
+        [SerializeField] private bool resetWhenTargetBecomesInactive;
+
+        [Tooltip("Default party scope. Enable only for modifiers intentionally shared by every active party member.")]
+        [SerializeField] private bool applyToAllPartyMembers;
+
         public override Type SettingsType =>
             typeof(SpellStatModifierSettings);
 
@@ -122,7 +141,9 @@ namespace ProjectEri.SkillSystemV2
                 value,
                 duration,
                 stacking,
-                maximumStacks);
+                maximumStacks,
+                resetWhenTargetBecomesInactive,
+                applyToAllPartyMembers);
         }
 
         public override bool Apply(in SpellEffectContext context)
@@ -135,8 +156,11 @@ namespace ProjectEri.SkillSystemV2
             SpellEffectSettings settings)
         {
             SpellStatModifierSettings resolved = Resolve(settings);
+            GameObject modifierTarget = ResolveModifierTarget(
+                context.Target,
+                resolved);
             SpellStatModifierController controller =
-                SpellStatModifierUtility.GetOrAddController(context.Target);
+                SpellStatModifierUtility.GetOrAddController(modifierTarget);
             if (controller == null)
                 return false;
 
@@ -158,12 +182,15 @@ namespace ProjectEri.SkillSystemV2
             Component source,
             SpellEffectSettings settings)
         {
+            SpellStatModifierSettings resolved = Resolve(settings);
+            GameObject modifierTarget = ResolveModifierTarget(
+                context.Target,
+                resolved);
             SpellStatModifierController controller =
-                SpellStatModifierUtility.GetOrAddController(context.Target);
+                SpellStatModifierUtility.GetOrAddController(modifierTarget);
             if (controller == null || source == null)
                 return false;
 
-            SpellStatModifierSettings resolved = Resolve(settings);
             controller.SetPersistent(
                 source,
                 BuildPresenceKey(source, resolved),
@@ -176,12 +203,15 @@ namespace ProjectEri.SkillSystemV2
             Component source,
             SpellEffectSettings settings)
         {
+            SpellStatModifierSettings resolved = Resolve(settings);
+            GameObject modifierTarget = ResolveModifierTarget(
+                target,
+                resolved);
             SpellStatModifierController controller =
-                SpellStatModifierUtility.FindController(target);
+                SpellStatModifierUtility.FindController(modifierTarget);
             if (controller == null || source == null)
                 return;
 
-            SpellStatModifierSettings resolved = Resolve(settings);
             controller.Remove(
                 source,
                 BuildPresenceKey(source, resolved));
@@ -217,6 +247,41 @@ namespace ProjectEri.SkillSystemV2
         {
             return settings as SpellStatModifierSettings ??
                    (SpellStatModifierSettings)CreateDefaultSettings();
+        }
+
+        private static GameObject ResolveModifierTarget(
+            GameObject target,
+            SpellStatModifierSettings settings)
+        {
+            if (target == null)
+                return null;
+
+            GameObject resolved =
+                SpellTargetResolver.Resolve(target) ?? target;
+            if (settings != null &&
+                !settings.ApplyToAllPartyMembers &&
+                SpellTargetResolver.HasExplicitIdentity(resolved))
+            {
+                return resolved;
+            }
+
+            MonoBehaviour[] behaviours =
+                resolved.GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (!(behaviours[i] is
+                        ISpellStatModifierTargetRouter router))
+                {
+                    continue;
+                }
+
+                GameObject routed = router.ResolveStatModifierTarget(
+                    settings != null &&
+                    settings.ApplyToAllPartyMembers);
+                return routed != null ? routed : resolved;
+            }
+
+            return resolved;
         }
 
         private string BuildSourceKey(
@@ -258,14 +323,18 @@ namespace ProjectEri.SkillSystemV2
             public float ExpiresAt;
             public bool Persistent;
             public bool Unscaled;
+            public bool ResetWhenTargetBecomesInactive;
         }
 
         private readonly List<Entry> entries = new List<Entry>();
+        private bool activationStateInitialized;
+        private bool previousActivationState;
 
         public int ActiveModifierCount
         {
             get
             {
+                RefreshActivationState();
                 Prune();
                 return entries.Count;
             }
@@ -298,6 +367,7 @@ namespace ProjectEri.SkillSystemV2
             ref bool hasOverride,
             ref float overrideValue)
         {
+            RefreshActivationState();
             Prune();
 
             for (int i = 0; i < entries.Count; i++)
@@ -352,6 +422,8 @@ namespace ProjectEri.SkillSystemV2
         {
             if (source == null || settings == null)
                 return;
+
+            CaptureActivationState();
 
             string safeKey = string.IsNullOrWhiteSpace(key)
                 ? source.GetInstanceID().ToString()
@@ -421,6 +493,8 @@ namespace ProjectEri.SkillSystemV2
             if (source == null || settings == null)
                 return;
 
+            CaptureActivationState();
+
             int sourceId = source.GetInstanceID();
             string safeKey = key ?? sourceId.ToString();
             Entry entry = Find(sourceId, safeKey);
@@ -458,18 +532,85 @@ namespace ProjectEri.SkillSystemV2
 
         private void Update()
         {
+            RefreshActivationState();
             Prune();
         }
 
         private void OnEnable()
         {
+            activationStateInitialized = false;
             if (!registeredControllers.Contains(this))
                 registeredControllers.Add(this);
         }
 
         private void OnDisable()
         {
+            activationStateInitialized = false;
             registeredControllers.Remove(this);
+        }
+
+        internal void RefreshActivationState()
+        {
+            if (!TryResolveActivationState(out bool isActive))
+            {
+                activationStateInitialized = false;
+                return;
+            }
+
+            if (!activationStateInitialized)
+            {
+                previousActivationState = isActive;
+                activationStateInitialized = true;
+                return;
+            }
+
+            if (previousActivationState && !isActive)
+                RemoveResetOnInactiveEntries();
+
+            previousActivationState = isActive;
+        }
+
+        private void CaptureActivationState()
+        {
+            if (activationStateInitialized ||
+                !TryResolveActivationState(out bool isActive))
+            {
+                return;
+            }
+
+            previousActivationState = isActive;
+            activationStateInitialized = true;
+        }
+
+        private bool TryResolveActivationState(out bool isActive)
+        {
+            isActive = true;
+            bool foundGate = false;
+            MonoBehaviour[] behaviours =
+                GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (!(behaviours[i] is
+                        ISpellStatModifierActivationGate gate))
+                {
+                    continue;
+                }
+
+                foundGate = true;
+                if (!gate.AreSpellStatModifiersActive)
+                    isActive = false;
+            }
+
+            return foundGate;
+        }
+
+        private void RemoveResetOnInactiveEntries()
+        {
+            for (int i = entries.Count - 1; i >= 0; i--)
+            {
+                if (entries[i].ResetWhenTargetBecomesInactive)
+                    entries.RemoveAt(i);
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(
@@ -558,6 +699,8 @@ namespace ProjectEri.SkillSystemV2
             entry.Stat = settings.Stat;
             entry.Operation = settings.Operation;
             entry.Value = settings.Value;
+            entry.ResetWhenTargetBecomesInactive =
+                settings.ResetWhenTargetBecomesInactive;
         }
 
         private static bool IsStronger(
@@ -603,7 +746,11 @@ namespace ProjectEri.SkillSystemV2
             {
                 SpellStatModifierController controller =
                     SpellStatModifierController.GetRegisteredController(i);
-                if (controller == null || controller == primary ||
+                if (controller == null)
+                    continue;
+
+                controller.RefreshActivationState();
+                if (controller == primary ||
                     !SpellTargetResolver.IsSameHierarchy(
                         resolvedActor,
                         controller.gameObject))
@@ -634,7 +781,11 @@ namespace ProjectEri.SkillSystemV2
             ref bool hasOverride,
             ref float overrideValue)
         {
-            if (controller == null || !IsContributionActive(controller))
+            if (controller == null)
+                return;
+
+            controller.RefreshActivationState();
+            if (!IsContributionActive(controller))
                 return;
 
             controller.Accumulate(
@@ -717,18 +868,43 @@ namespace ProjectEri.SkillSystemV2
         }
 
         public static int ResolveParticleCount(
-            int totalAP,
+            int baseTotalAP,
+            int resolvedTotalAP,
             int preferredAPPerParticle,
             int maximumParticles)
         {
-            if (totalAP <= 0)
+            if (resolvedTotalAP <= 0)
                 return 0;
 
             int preferredValue = Mathf.Max(1, preferredAPPerParticle);
-            return Mathf.Clamp(
-                Mathf.CeilToInt(totalAP / (float)preferredValue),
+            int maximumCount = Mathf.Min(
+                Mathf.Max(1, maximumParticles),
+                resolvedTotalAP);
+            if (baseTotalAP <= 0)
+            {
+                return Mathf.Clamp(
+                    Mathf.CeilToInt(
+                        resolvedTotalAP / (float)preferredValue),
+                    1,
+                    maximumCount);
+            }
+
+            int baseParticleCount = Mathf.Clamp(
+                Mathf.CeilToInt(
+                    baseTotalAP / (float)preferredValue),
                 1,
-                Mathf.Max(1, maximumParticles));
+                Mathf.Min(
+                    Mathf.Max(1, maximumParticles),
+                    baseTotalAP));
+            if (resolvedTotalAP == baseTotalAP)
+                return Mathf.Min(baseParticleCount, maximumCount);
+
+            float scaledCount = baseParticleCount *
+                (resolvedTotalAP / (float)baseTotalAP);
+            int resolvedCount = resolvedTotalAP > baseTotalAP
+                ? Mathf.CeilToInt(scaledCount)
+                : Mathf.FloorToInt(scaledCount);
+            return Mathf.Clamp(resolvedCount, 1, maximumCount);
         }
     }
 }

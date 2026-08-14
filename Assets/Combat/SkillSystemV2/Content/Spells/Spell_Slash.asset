@@ -104,7 +104,7 @@ MonoBehaviour:
       type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 0}
-        amount: 100
+        amount: 30
         ignoreInvulnerability: 0
     - rid: 1819652408774492306
       type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}

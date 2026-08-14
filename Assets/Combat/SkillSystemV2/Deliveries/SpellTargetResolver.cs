@@ -39,30 +39,13 @@ namespace ProjectEri.SkillSystemV2
 
         /// <summary>
         /// Resolves a selected target for an immediate delivery. Player party
-        /// menus use proxy objects so inactive roster members remain
-        /// addressable. When that proxy represents the caster, effects must
-        /// run on the live caster object because actor-scoped runtimes such as
-        /// stat modifiers are read from that object during gameplay.
+        /// menus use proxy objects so every roster member remains independently
+        /// addressable even though the live combat pawn is shared.
         /// </summary>
         public static GameObject ResolveImmediateTarget(
-            GameObject selectedTarget,
-            GameObject caster)
+            GameObject selectedTarget)
         {
-            GameObject resolved = Resolve(selectedTarget);
-            if (resolved == null || caster == null)
-                return resolved;
-
-            GameObject resolvedCaster = Resolve(caster) ?? caster;
-            if (resolved == resolvedCaster ||
-                Represents(resolved, resolvedCaster))
-            {
-                return resolvedCaster;
-            }
-
-            // Party target proxies are parented beneath the shared pawn for
-            // positioning. Transform hierarchy alone must not make every
-            // inactive roster entry resolve to the currently active actor.
-            return resolved;
+            return Resolve(selectedTarget);
         }
 
         public static bool TryResolveValidTarget(

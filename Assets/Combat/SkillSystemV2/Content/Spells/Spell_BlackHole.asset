@@ -38,11 +38,11 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 4
+    relationship: 0
     useLayerMask: 1
     allowedLayers:
       serializedVersion: 2
-      m_Bits: 1536
+      m_Bits: 1792
     requireSpellTarget: 0
   placementRules:
     maximumDistance: 0
@@ -96,7 +96,7 @@ MonoBehaviour:
         applicationInterval: 0.25
         hitMask:
           serializedVersion: 2
-          m_Bits: 1536
+          m_Bits: 1792
         maximumColliders: 32
         zoneColor: {r: 0.62892497, g: 0, b: 0.6603774, a: 0.24}
         sortingOrderOffset: 20

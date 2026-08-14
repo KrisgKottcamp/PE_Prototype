@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using ProjectEri.SkillSystemV2;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(Collider2D))]
@@ -22,6 +23,9 @@ public class TopDownMover : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logBinding = true;
 
+    [Tooltip("Runtime owner for Spatial Force and relocation movement. While active, this legacy mover must not overwrite its Rigidbody2D movement.")]
+    [SerializeField] private SpellActorMotionController2D forcedMotion;
+
     private Rigidbody2D rb;
     private Vector2 moveInput;
 
@@ -39,6 +43,9 @@ public class TopDownMover : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
+
+        if (forcedMotion == null)
+            forcedMotion = GetComponent<SpellActorMotionController2D>();
 
         castFilter = new ContactFilter2D
         {
@@ -117,6 +124,12 @@ public class TopDownMover : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (forcedMotion == null)
+            forcedMotion = GetComponent<SpellActorMotionController2D>();
+
+        if (forcedMotion != null && forcedMotion.IsControllingMotion)
+            return;
+
         Vector2 currentPos = rb.position;
 
         if (moveInput == Vector2.zero)

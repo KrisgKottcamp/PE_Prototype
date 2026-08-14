@@ -22,6 +22,16 @@ namespace ProjectEri.SkillSystemV2
         bool AreSpellStatModifiersActive { get; }
     }
 
+    /// <summary>
+    /// Redirects actor-scoped stat modifiers from a shared scene pawn to the
+    /// stable object representing the current roster member. Explicit
+    /// all-party modifiers may remain on the shared pawn instead.
+    /// </summary>
+    public interface ISpellStatModifierTargetRouter
+    {
+        GameObject ResolveStatModifierTarget(bool applyToAllPartyMembers);
+    }
+
     public interface ISpellTargetDisplay
     {
         string TargetDisplayName { get; }

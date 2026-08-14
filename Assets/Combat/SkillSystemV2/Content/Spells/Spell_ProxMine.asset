@@ -23,6 +23,16 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
     resourceId: 
@@ -34,6 +44,29 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 4294967295
     requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 3
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: 37cb6caddea3bd149a8f72bd9ea260cb, type: 2}

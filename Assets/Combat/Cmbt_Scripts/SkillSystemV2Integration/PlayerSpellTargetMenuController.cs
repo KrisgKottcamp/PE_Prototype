@@ -3,7 +3,8 @@ using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 [DisallowMultipleComponent]
-public sealed class PlayerSpellTargetMenuController : MonoBehaviour
+public sealed class PlayerSpellTargetMenuController : MonoBehaviour,
+    ISpellStatModifierTargetRouter
 {
     [Header("Resolution-Aware Menu Display")]
     [Tooltip("Menu width at a 1080p game resolution. The menu scales automatically with screen height.")]
@@ -36,6 +37,29 @@ public sealed class PlayerSpellTargetMenuController : MonoBehaviour
     public GameObject SelectedTarget => entries.Count > 0
         ? entries[Mathf.Clamp(selectedIndex, 0, entries.Count - 1)].Target
         : null;
+
+    public GameObject ResolveStatModifierTarget(
+        bool applyToAllPartyMembers)
+    {
+        if (applyToAllPartyMembers)
+            return gameObject;
+
+        PartyManager party = PartyManager.Instance;
+        if (party == null || party.party == null ||
+            party.activeIndex < 0 || party.activeIndex >= party.party.Count)
+        {
+            return gameObject;
+        }
+
+        EnsurePartyProxyCount(party.party.Count);
+        PartyMemberSpellTargetProxy proxy =
+            partyProxies[party.activeIndex];
+        proxy.Configure(
+            party.activeIndex,
+            gameObject,
+            includeDefeated: false);
+        return proxy.gameObject;
+    }
 
     public void OpenOrRefresh(MenuSelectTargetingDefinition definition)
     {

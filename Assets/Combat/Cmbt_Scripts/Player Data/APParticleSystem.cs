@@ -92,6 +92,7 @@ public class APParticleSystem : MonoBehaviour
 
         SpawnResolvedReward(
             origin,
+            totalAP,
             resolvedTotalAP,
             outwardDirection,
             sourceEnemy
@@ -118,8 +119,9 @@ public class APParticleSystem : MonoBehaviour
         if (validCount <= 0)
             return;
 
-        int remainingAP = ResolveRewardValue(totalAP);
-        if (remainingAP <= 0)
+        int remainingBaseAP = totalAP;
+        int remainingResolvedAP = ResolveRewardValue(totalAP);
+        if (remainingResolvedAP <= 0)
             return;
 
         int remainingEnemies = validCount;
@@ -131,11 +133,15 @@ public class APParticleSystem : MonoBehaviour
             if (enemy == null)
                 continue;
 
-            int share = Mathf.CeilToInt(
-                remainingAP / (float)remainingEnemies
+            int baseShare = Mathf.CeilToInt(
+                remainingBaseAP / (float)remainingEnemies
+            );
+            int resolvedShare = Mathf.CeilToInt(
+                remainingResolvedAP / (float)remainingEnemies
             );
 
-            remainingAP -= share;
+            remainingBaseAP -= baseShare;
+            remainingResolvedAP -= resolvedShare;
             remainingEnemies--;
 
             Vector2 enemyPosition = enemy.transform.position;
@@ -143,7 +149,8 @@ public class APParticleSystem : MonoBehaviour
 
             SpawnResolvedReward(
                 enemyPosition,
-                share,
+                baseShare,
+                resolvedShare,
                 outward,
                 enemy
             );
@@ -163,6 +170,7 @@ public class APParticleSystem : MonoBehaviour
 
     private static void SpawnResolvedReward(
         Vector2 origin,
+        int baseTotalAP,
         int resolvedTotalAP,
         Vector2 outwardDirection,
         EnemyHealth sourceEnemy)
@@ -172,6 +180,7 @@ public class APParticleSystem : MonoBehaviour
 
         EnsureInstance().SpawnBurst(
             origin,
+            baseTotalAP,
             resolvedTotalAP,
             outwardDirection,
             sourceEnemy
@@ -269,12 +278,14 @@ public class APParticleSystem : MonoBehaviour
 
     private void SpawnBurst(
         Vector2 origin,
+        int baseTotalAP,
         int totalAP,
         Vector2 outwardDirection,
         EnemyHealth sourceEnemy)
     {
         int particleCount =
             SpellActionPointPickupUtility.ResolveParticleCount(
+                baseTotalAP,
                 totalAP,
                 preferredAPPerParticle,
                 maximumParticlesPerBurst);

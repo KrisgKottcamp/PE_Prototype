@@ -1017,6 +1017,13 @@ namespace ProjectEri.SkillSystemV2
 
     public static class SpellActorMotionUtility
     {
+        public static bool IsControllingMotion(GameObject actor)
+        {
+            SpellActorMotionController2D controller =
+                FindController(actor);
+            return controller != null && controller.IsControllingMotion;
+        }
+
         public static Rigidbody2D FindBody(GameObject actor)
         {
             if (actor == null)
