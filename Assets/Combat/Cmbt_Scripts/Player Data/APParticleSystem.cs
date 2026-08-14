@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 /// <summary>
@@ -85,12 +86,13 @@ public class APParticleSystem : MonoBehaviour
         Vector2 outwardDirection,
         EnemyHealth sourceEnemy = null)
     {
-        if (totalAP <= 0)
+        int resolvedTotalAP = ResolveRewardValue(totalAP);
+        if (resolvedTotalAP <= 0)
             return;
 
-        EnsureInstance().SpawnBurst(
+        SpawnResolvedReward(
             origin,
-            totalAP,
+            resolvedTotalAP,
             outwardDirection,
             sourceEnemy
         );
@@ -116,7 +118,10 @@ public class APParticleSystem : MonoBehaviour
         if (validCount <= 0)
             return;
 
-        int remainingAP = totalAP;
+        int remainingAP = ResolveRewardValue(totalAP);
+        if (remainingAP <= 0)
+            return;
+
         int remainingEnemies = validCount;
 
         for (int i = 0; i < enemyCount && i < enemies.Length; i++)
@@ -136,13 +141,41 @@ public class APParticleSystem : MonoBehaviour
             Vector2 enemyPosition = enemy.transform.position;
             Vector2 outward = enemyPosition - attackOrigin;
 
-            SpawnReward(
+            SpawnResolvedReward(
                 enemyPosition,
                 share,
                 outward,
                 enemy
             );
         }
+    }
+
+    private static int ResolveRewardValue(int totalAP)
+    {
+        if (totalAP <= 0)
+            return 0;
+
+        APParticleCollector collector = APParticleCollector.Current;
+        return collector != null
+            ? collector.ResolvePickupValue(totalAP)
+            : totalAP;
+    }
+
+    private static void SpawnResolvedReward(
+        Vector2 origin,
+        int resolvedTotalAP,
+        Vector2 outwardDirection,
+        EnemyHealth sourceEnemy)
+    {
+        if (resolvedTotalAP <= 0)
+            return;
+
+        EnsureInstance().SpawnBurst(
+            origin,
+            resolvedTotalAP,
+            outwardDirection,
+            sourceEnemy
+        );
     }
 
     /// <summary>
@@ -240,12 +273,11 @@ public class APParticleSystem : MonoBehaviour
         Vector2 outwardDirection,
         EnemyHealth sourceEnemy)
     {
-        int preferredValue = Mathf.Max(1, preferredAPPerParticle);
-        int particleCount = Mathf.Clamp(
-            Mathf.CeilToInt(totalAP / (float)preferredValue),
-            1,
-            Mathf.Max(1, maximumParticlesPerBurst)
-        );
+        int particleCount =
+            SpellActionPointPickupUtility.ResolveParticleCount(
+                totalAP,
+                preferredAPPerParticle,
+                maximumParticlesPerBurst);
 
         int baseValue = totalAP / particleCount;
         int remainder = totalAP % particleCount;

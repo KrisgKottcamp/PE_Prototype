@@ -37,6 +37,34 @@ namespace ProjectEri.SkillSystemV2
             return candidate;
         }
 
+        /// <summary>
+        /// Resolves a selected target for an immediate delivery. Player party
+        /// menus use proxy objects so inactive roster members remain
+        /// addressable. When that proxy represents the caster, effects must
+        /// run on the live caster object because actor-scoped runtimes such as
+        /// stat modifiers are read from that object during gameplay.
+        /// </summary>
+        public static GameObject ResolveImmediateTarget(
+            GameObject selectedTarget,
+            GameObject caster)
+        {
+            GameObject resolved = Resolve(selectedTarget);
+            if (resolved == null || caster == null)
+                return resolved;
+
+            GameObject resolvedCaster = Resolve(caster) ?? caster;
+            if (resolved == resolvedCaster ||
+                Represents(resolved, resolvedCaster))
+            {
+                return resolvedCaster;
+            }
+
+            // Party target proxies are parented beneath the shared pawn for
+            // positioning. Transform hierarchy alone must not make every
+            // inactive roster entry resolve to the currently active actor.
+            return resolved;
+        }
+
         public static bool TryResolveValidTarget(
             in SpellExecutionContext context,
             GameObject detectedObject,
@@ -95,15 +123,35 @@ namespace ProjectEri.SkillSystemV2
 
             Transform firstTransform = resolvedFirst.transform;
             Transform secondTransform = resolvedSecond.transform;
-            if (firstTransform == secondTransform ||
-                firstTransform.IsChildOf(secondTransform) ||
-                secondTransform.IsChildOf(firstTransform))
-            {
+            if (firstTransform == secondTransform)
                 return true;
+
+            bool firstHasIdentity = HasExplicitIdentity(resolvedFirst);
+            bool secondHasIdentity = HasExplicitIdentity(resolvedSecond);
+            if (firstHasIdentity || secondHasIdentity)
+            {
+                return Represents(resolvedFirst, resolvedSecond) ||
+                       Represents(resolvedSecond, resolvedFirst);
             }
 
-            return Represents(resolvedFirst, resolvedSecond) ||
-                   Represents(resolvedSecond, resolvedFirst);
+            return firstTransform.IsChildOf(secondTransform) ||
+                   secondTransform.IsChildOf(firstTransform);
+        }
+
+        internal static bool HasExplicitIdentity(GameObject candidate)
+        {
+            if (candidate == null)
+                return false;
+
+            MonoBehaviour[] behaviours =
+                candidate.GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is ISpellTargetIdentity)
+                    return true;
+            }
+
+            return false;
         }
 
         public static int GetTargetId(GameObject candidate)

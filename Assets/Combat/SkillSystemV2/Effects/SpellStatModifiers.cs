@@ -244,6 +244,10 @@ namespace ProjectEri.SkillSystemV2
     [DisallowMultipleComponent]
     public sealed class SpellStatModifierController : MonoBehaviour
     {
+        private static readonly List<SpellStatModifierController>
+            registeredControllers =
+                new List<SpellStatModifierController>();
+
         private sealed class Entry
         {
             public int SourceId;
@@ -269,11 +273,32 @@ namespace ProjectEri.SkillSystemV2
 
         public float Evaluate(SpellActorStat stat, float baseValue = 1f)
         {
-            Prune();
             float additive = 0f;
             float multiplier = 1f;
             bool hasOverride = false;
             float overrideValue = baseValue;
+
+            Accumulate(
+                stat,
+                baseValue,
+                ref additive,
+                ref multiplier,
+                ref hasOverride,
+                ref overrideValue);
+
+            float resolvedBase = hasOverride ? overrideValue : baseValue;
+            return Mathf.Max(0f, (resolvedBase + additive) * multiplier);
+        }
+
+        internal void Accumulate(
+            SpellActorStat stat,
+            float baseValue,
+            ref float additive,
+            ref float multiplier,
+            ref bool hasOverride,
+            ref float overrideValue)
+        {
+            Prune();
 
             for (int i = 0; i < entries.Count; i++)
             {
@@ -299,9 +324,23 @@ namespace ProjectEri.SkillSystemV2
                         break;
                 }
             }
+        }
 
-            float resolvedBase = hasOverride ? overrideValue : baseValue;
-            return Mathf.Max(0f, (resolvedBase + additive) * multiplier);
+        internal static int RegisteredControllerCount
+        {
+            get
+            {
+                PruneRegisteredControllers();
+                return registeredControllers.Count;
+            }
+        }
+
+        internal static SpellStatModifierController GetRegisteredController(
+            int index)
+        {
+            return index >= 0 && index < registeredControllers.Count
+                ? registeredControllers[index]
+                : null;
         }
 
         public void ApplyTimed(
@@ -422,6 +461,33 @@ namespace ProjectEri.SkillSystemV2
             Prune();
         }
 
+        private void OnEnable()
+        {
+            if (!registeredControllers.Contains(this))
+                registeredControllers.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            registeredControllers.Remove(this);
+        }
+
+        [RuntimeInitializeOnLoadMethod(
+            RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRegisteredControllers()
+        {
+            registeredControllers.Clear();
+        }
+
+        private static void PruneRegisteredControllers()
+        {
+            for (int i = registeredControllers.Count - 1; i >= 0; i--)
+            {
+                if (registeredControllers[i] == null)
+                    registeredControllers.RemoveAt(i);
+            }
+        }
+
         private void Prune()
         {
             for (int i = entries.Count - 1; i >= 0; i--)
@@ -511,10 +577,91 @@ namespace ProjectEri.SkillSystemV2
             SpellActorStat stat,
             float baseValue = 1f)
         {
-            SpellStatModifierController controller = FindController(actor);
-            return controller != null
-                ? controller.Evaluate(stat, baseValue)
-                : Mathf.Max(0f, baseValue);
+            if (actor == null)
+                return Mathf.Max(0f, baseValue);
+
+            GameObject resolvedActor =
+                SpellTargetResolver.Resolve(actor) ?? actor;
+            SpellStatModifierController primary = FindController(actor);
+            float additive = 0f;
+            float multiplier = 1f;
+            bool hasOverride = false;
+            float overrideValue = baseValue;
+
+            AccumulateIfActive(
+                primary,
+                stat,
+                baseValue,
+                ref additive,
+                ref multiplier,
+                ref hasOverride,
+                ref overrideValue);
+
+            int controllerCount =
+                SpellStatModifierController.RegisteredControllerCount;
+            for (int i = 0; i < controllerCount; i++)
+            {
+                SpellStatModifierController controller =
+                    SpellStatModifierController.GetRegisteredController(i);
+                if (controller == null || controller == primary ||
+                    !SpellTargetResolver.IsSameHierarchy(
+                        resolvedActor,
+                        controller.gameObject))
+                {
+                    continue;
+                }
+
+                AccumulateIfActive(
+                    controller,
+                    stat,
+                    baseValue,
+                    ref additive,
+                    ref multiplier,
+                    ref hasOverride,
+                    ref overrideValue);
+            }
+
+            float resolvedBase = hasOverride ? overrideValue : baseValue;
+            return Mathf.Max(0f, (resolvedBase + additive) * multiplier);
+        }
+
+        private static void AccumulateIfActive(
+            SpellStatModifierController controller,
+            SpellActorStat stat,
+            float baseValue,
+            ref float additive,
+            ref float multiplier,
+            ref bool hasOverride,
+            ref float overrideValue)
+        {
+            if (controller == null || !IsContributionActive(controller))
+                return;
+
+            controller.Accumulate(
+                stat,
+                baseValue,
+                ref additive,
+                ref multiplier,
+                ref hasOverride,
+                ref overrideValue);
+        }
+
+        private static bool IsContributionActive(
+            SpellStatModifierController controller)
+        {
+            MonoBehaviour[] behaviours =
+                controller.GetComponentsInParent<MonoBehaviour>(true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                if (behaviours[i] is
+                        ISpellStatModifierActivationGate gate &&
+                    !gate.AreSpellStatModifiersActive)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public static SpellStatModifierController FindController(
@@ -524,9 +671,16 @@ namespace ProjectEri.SkillSystemV2
                 return null;
 
             GameObject resolved = SpellTargetResolver.Resolve(actor) ?? actor;
-            return resolved.GetComponent<SpellStatModifierController>() ??
-                   resolved.GetComponentInParent<
-                       SpellStatModifierController>(true);
+            SpellStatModifierController direct =
+                resolved.GetComponent<SpellStatModifierController>();
+            if (direct != null ||
+                SpellTargetResolver.HasExplicitIdentity(resolved))
+            {
+                return direct;
+            }
+
+            return resolved.GetComponentInParent<
+                SpellStatModifierController>(true);
         }
 
         public static SpellStatModifierController GetOrAddController(
@@ -541,6 +695,40 @@ namespace ProjectEri.SkillSystemV2
             return controller != null
                 ? controller
                 : resolved.AddComponent<SpellStatModifierController>();
+        }
+    }
+
+    public static class SpellActionPointPickupUtility
+    {
+        public static int ResolveRewardValue(
+            GameObject actor,
+            int baseAmount)
+        {
+            if (baseAmount <= 0)
+                return 0;
+
+            float multiplier = SpellStatModifierUtility.Evaluate(
+                actor,
+                SpellActorStat.ActionPointPickupValue,
+                1f);
+            return Mathf.Max(
+                0,
+                Mathf.RoundToInt(baseAmount * multiplier));
+        }
+
+        public static int ResolveParticleCount(
+            int totalAP,
+            int preferredAPPerParticle,
+            int maximumParticles)
+        {
+            if (totalAP <= 0)
+                return 0;
+
+            int preferredValue = Mathf.Max(1, preferredAPPerParticle);
+            return Mathf.Clamp(
+                Mathf.CeilToInt(totalAP / (float)preferredValue),
+                1,
+                Mathf.Max(1, maximumParticles));
         }
     }
 }

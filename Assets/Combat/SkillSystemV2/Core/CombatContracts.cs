@@ -13,6 +13,15 @@ namespace ProjectEri.SkillSystemV2
         bool Represents(GameObject other);
     }
 
+    /// <summary>
+    /// Allows a stable actor proxy to keep stat modifiers while deciding
+    /// whether those modifiers currently contribute to gameplay evaluation.
+    /// </summary>
+    public interface ISpellStatModifierActivationGate
+    {
+        bool AreSpellStatModifiersActive { get; }
+    }
+
     public interface ISpellTargetDisplay
     {
         string TargetDisplayName { get; }

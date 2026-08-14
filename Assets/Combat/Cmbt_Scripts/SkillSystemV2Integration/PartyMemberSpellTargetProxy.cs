@@ -11,6 +11,7 @@ using UnityEngine;
 public sealed class PartyMemberSpellTargetProxy : MonoBehaviour,
     ISpellTarget,
     ISpellTargetIdentity,
+    ISpellStatModifierActivationGate,
     ISpellTargetDisplay,
     ISpellDamageReceiver,
     ISpellHealingReceiver,
@@ -44,6 +45,14 @@ public sealed class PartyMemberSpellTargetProxy : MonoBehaviour,
     }
 
     public int PartyIndex => partyIndex;
+    public bool AreSpellStatModifiersActive
+    {
+        get
+        {
+            PartyManager party = PartyManager.Instance;
+            return party != null && party.activeIndex == partyIndex;
+        }
+    }
     public int CurrentHP => ResolveState()?.currentHP ?? 0;
     public int MaximumHP => ResolveState()?.def != null
         ? Mathf.Max(0, ResolveState().def.maxHP)

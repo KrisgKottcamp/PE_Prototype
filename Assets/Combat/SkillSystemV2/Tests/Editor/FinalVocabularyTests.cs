@@ -55,6 +55,42 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void ActionPointPickupValue_AdjustsRewardParticleCount()
+        {
+            SpellStatModifierEffectDefinition source =
+                Track(ScriptableObject.CreateInstance<
+                    SpellStatModifierEffectDefinition>());
+            caster.AddComponent<SpellStatModifierController>().SetPersistent(
+                source,
+                "ap-pickup-value",
+                new SpellStatModifierSettings(
+                    SpellActorStat.ActionPointPickupValue,
+                    SpellStatOperation.Multiply,
+                    2f,
+                    10f));
+
+            const int baseReward = 4;
+            int adjustedReward =
+                SpellActionPointPickupUtility.ResolveRewardValue(
+                    caster,
+                    baseReward);
+
+            Assert.That(adjustedReward, Is.EqualTo(8));
+            Assert.That(
+                SpellActionPointPickupUtility.ResolveParticleCount(
+                    baseReward,
+                    4,
+                    6),
+                Is.EqualTo(1));
+            Assert.That(
+                SpellActionPointPickupUtility.ResolveParticleCount(
+                    adjustedReward,
+                    4,
+                    6),
+                Is.EqualTo(2));
+        }
+
+        [Test]
         public void DamageEffect_UsesDealtAndReceivedStatModifiers()
         {
             SpellVitality vitality = target.AddComponent<SpellVitality>();

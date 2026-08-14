@@ -60,15 +60,21 @@ public class APParticleCollector : MonoBehaviour
     public int Collect(int amount)
     {
         PartyManager manager = PartyManager.Instance;
-        float multiplier = SpellStatModifierUtility.Evaluate(
-            gameObject,
-            SpellActorStat.ActionPointPickupValue,
-            1f);
-        int resolvedAmount = Mathf.Max(
-            0,
-            Mathf.RoundToInt(amount * multiplier));
+        int resolvedAmount = Mathf.Max(0, amount);
         return manager != null
             ? manager.AddAPToActive(resolvedAmount)
             : 0;
+    }
+
+    /// <summary>
+    /// Resolves the total AP represented by a newly spawned reward. Applying
+    /// the pickup-value modifier before splitting the reward keeps the visible
+    /// particle count synchronized with the AP those particles will grant.
+    /// </summary>
+    public int ResolvePickupValue(int amount)
+    {
+        return SpellActionPointPickupUtility.ResolveRewardValue(
+            gameObject,
+            amount);
     }
 }

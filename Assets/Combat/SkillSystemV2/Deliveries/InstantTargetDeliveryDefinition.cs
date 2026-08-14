@@ -49,8 +49,10 @@ namespace ProjectEri.SkillSystemV2
 
             public void Begin()
             {
-                GameObject target = SpellTargetResolver.Resolve(
-                    context.Cast.SelectedTarget);
+                GameObject target =
+                    SpellTargetResolver.ResolveImmediateTarget(
+                        context.Cast.SelectedTarget,
+                        context.Cast.Caster);
                 context.DispatchEvent(new SpellEventOccurrence(
                     SpellEventType.DeliveryStarted,
                     null,

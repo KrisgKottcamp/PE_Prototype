@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 4
+    relationship: 3
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -96,7 +96,7 @@ MonoBehaviour:
       data:
         stat: 1
         operation: 1
-        value: 1.75
+        value: 0.75
         duration: 10
         stacking: 0
         maximumStacks: 1

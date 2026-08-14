@@ -7,6 +7,7 @@ namespace ProjectEri.SkillSystemV2.Tests
     public sealed class DeliveryRequirementTests
     {
         private GameObject caster;
+        private GameObject targetAlias;
 
         [SetUp]
         public void SetUp()
@@ -17,6 +18,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         [TearDown]
         public void TearDown()
         {
+            Object.DestroyImmediate(targetAlias);
             Object.DestroyImmediate(caster);
         }
 
@@ -225,6 +227,180 @@ namespace ProjectEri.SkillSystemV2.Tests
             Object.DestroyImmediate(delivery);
         }
 
+        [Test]
+        public void DirectTarget_SelfProxyAppliesStatModifierToLiveCaster()
+        {
+            targetAlias = new GameObject("Caster Party Target Proxy");
+            TestRepresentedSpellTarget alias =
+                targetAlias.AddComponent<TestRepresentedSpellTarget>();
+            alias.Configure(caster);
+
+            var delivery = ScriptableObject.CreateInstance<
+                InstantTargetDeliveryDefinition>();
+            var effect = ScriptableObject.CreateInstance<
+                SpellStatModifierEffectDefinition>();
+            SpellDefinition spell = CreateSpell(
+                delivery,
+                "direct-target-self-proxy");
+            var serialized = new SerializedObject(spell);
+            serialized.FindProperty("targetFilter")
+                .FindPropertyRelative("relationship")
+                .enumValueIndex = (int)TargetRelationship.Self;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            spell.ReplaceDelivery(new SpellDeliverySlot(delivery));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(
+                effect,
+                new SpellStatModifierSettings(
+                    SpellActorStat.DamageReceived,
+                    SpellStatOperation.Multiply,
+                    0.5f,
+                    5f)));
+
+            SpellRunner runner = caster.AddComponent<SpellRunner>();
+            Assert.That(
+                runner.TryCast(
+                    spell,
+                    CastContext.ForTarget(
+                        caster,
+                        caster.transform.position,
+                        targetAlias),
+                    out SpellCastFailure failure),
+                Is.True,
+                failure.ToString());
+
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(
+                targetAlias.GetComponent<SpellStatModifierController>(),
+                Is.Null);
+
+            Object.DestroyImmediate(spell);
+            Object.DestroyImmediate(effect);
+            Object.DestroyImmediate(delivery);
+        }
+
+        [Test]
+        public void DirectTarget_InactivePartyMemberModifierFollowsActiveState()
+        {
+            caster.AddComponent<CombatTeamMember>()
+                .SetTeam(CombatTeam.Player);
+            targetAlias = new GameObject("Inactive Party Target Proxy");
+            targetAlias.transform.SetParent(caster.transform);
+            TestRepresentedSpellTarget alias =
+                targetAlias.AddComponent<TestRepresentedSpellTarget>();
+            alias.Configure(caster);
+            alias.SetActiveForRepresentedActor(false);
+            targetAlias.AddComponent<CombatTeamMember>()
+                .SetTeam(CombatTeam.Player);
+            Assert.That(
+                SpellTargetResolver.IsSameHierarchy(caster, targetAlias),
+                Is.False);
+
+            var delivery = ScriptableObject.CreateInstance<
+                InstantTargetDeliveryDefinition>();
+            var effect = ScriptableObject.CreateInstance<
+                SpellStatModifierEffectDefinition>();
+            SpellDefinition spell = CreateSpell(
+                delivery,
+                "direct-target-inactive-party-member");
+            var serialized = new SerializedObject(spell);
+            serialized.FindProperty("targetFilter")
+                .FindPropertyRelative("relationship")
+                .enumValueIndex =
+                    (int)TargetRelationship.AlliesAndSelf;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            spell.ReplaceDelivery(new SpellDeliverySlot(delivery));
+            spell.ReplaceEffectSlots(new SpellEffectSlot(
+                effect,
+                new SpellStatModifierSettings(
+                    SpellActorStat.DamageReceived,
+                    SpellStatOperation.Multiply,
+                    0.5f,
+                    5f)));
+
+            SpellRunner runner = caster.AddComponent<SpellRunner>();
+            Assert.That(
+                runner.TryCast(
+                    spell,
+                    CastContext.ForTarget(
+                        caster,
+                        caster.transform.position,
+                        targetAlias),
+                    out SpellCastFailure failure),
+                Is.True,
+                failure.ToString());
+
+            Assert.That(
+                targetAlias.GetComponent<SpellStatModifierController>(),
+                Is.Not.Null);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    targetAlias,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+
+            alias.SetActiveForRepresentedActor(true);
+            Assert.That(
+                SpellTargetResolver.IsSameHierarchy(caster, targetAlias),
+                Is.True);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(0.5f).Within(0.001f));
+
+            alias.SetActiveForRepresentedActor(false);
+            Assert.That(
+                SpellStatModifierUtility.Evaluate(
+                    caster,
+                    SpellActorStat.DamageReceived),
+                Is.EqualTo(1f).Within(0.001f));
+
+            Object.DestroyImmediate(spell);
+            Object.DestroyImmediate(effect);
+            Object.DestroyImmediate(delivery);
+        }
+
+        [Test]
+        public void TakeLessDamageAsset_TargetsPartyAndReducesIncomingDamage()
+        {
+            const string path =
+                "Assets/Combat/SkillSystemV2/Content/Spells/" +
+                "Spell_TakeLessDamage.asset";
+            SpellDefinition spell =
+                AssetDatabase.LoadAssetAtPath<SpellDefinition>(path);
+
+            Assert.That(spell, Is.Not.Null);
+            Assert.That(
+                spell.Delivery,
+                Is.TypeOf<InstantTargetDeliveryDefinition>());
+            Assert.That(
+                spell.TargetFilter.Relationship,
+                Is.EqualTo(TargetRelationship.AlliesAndSelf));
+            Assert.That(spell.EffectSlots.Count, Is.EqualTo(1));
+            Assert.That(
+                spell.EffectSlots[0].Settings,
+                Is.TypeOf<SpellStatModifierSettings>());
+
+            var settings =
+                (SpellStatModifierSettings)spell.EffectSlots[0].Settings;
+            Assert.That(
+                settings.Stat,
+                Is.EqualTo(SpellActorStat.DamageReceived));
+            Assert.That(
+                settings.Operation,
+                Is.EqualTo(SpellStatOperation.Multiply));
+            Assert.That(settings.Value, Is.EqualTo(0.75f).Within(0.001f));
+        }
+
         private static SpellDefinition CreateSpell(
             DeliveryDefinition delivery,
             string stableId)
@@ -242,5 +418,38 @@ namespace ProjectEri.SkillSystemV2.Tests
 
     public sealed class TestLegacyProjectileBehaviour : MonoBehaviour
     {
+    }
+
+    public sealed class TestRepresentedSpellTarget : MonoBehaviour,
+        ISpellTarget,
+        ISpellTargetIdentity,
+        ISpellStatModifierActivationGate
+    {
+        private GameObject representedObject;
+        private bool activeForRepresentedActor = true;
+
+        public GameObject TargetObject => gameObject;
+        public bool IsTargetable => true;
+        public bool AreSpellStatModifiersActive => activeForRepresentedActor;
+
+        public void Configure(GameObject represented)
+        {
+            representedObject = represented;
+        }
+
+        public void SetActiveForRepresentedActor(bool active)
+        {
+            activeForRepresentedActor = active;
+        }
+
+        public bool Represents(GameObject other)
+        {
+            return activeForRepresentedActor &&
+                   representedObject != null && other != null &&
+                   (other == representedObject ||
+                    other.transform.IsChildOf(
+                        representedObject.transform) ||
+                    representedObject.transform.IsChildOf(other.transform));
+        }
     }
 }

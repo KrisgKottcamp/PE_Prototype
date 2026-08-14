@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
   m_Name: Spell_Teleport Enemy
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: New Spell
-  stableId: 
+  displayName: Teleport Enemy
+  stableId: 24ee89af32ac4ba5b8500c78c06f000c
   description: 
   icon: {fileID: 0}
   category: Skill
@@ -69,12 +69,15 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 0}
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
     settings:
-      rid: -2
+      rid: 1819652478116036692
   deliverySlotMigrated: 1
   effects: []
-  effectSlots: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: faade918748d5cb4e81f23af2fce273f, type: 2}
+    settings:
+      rid: 1819652478116036693
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -84,5 +87,22 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: -2
-      type: {class: , ns: , asm: }
+    - rid: 1819652478116036692
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}
+    - rid: 1819652478116036693
+      type: {class: ActorRelocationEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        mode: 1
+        destination: 4
+        speed: 10
+        maximumDistance: 8
+        destinationOffset: {x: 0, y: 0}
+        requireLineOfSight: 1
+        obstacleMask:
+          serializedVersion: 2
+          m_Bits: 128
+        clampToObstacles: 1
+        obstacleSkin: 0.03
+        preserveVelocity: 0
