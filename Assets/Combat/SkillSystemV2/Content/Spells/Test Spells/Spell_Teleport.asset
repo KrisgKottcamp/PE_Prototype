@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 0
+    relationship: 1
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -69,9 +69,9 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
+    delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
     settings:
-      rid: 1819652482963603528
+      rid: 1819652482963603537
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
@@ -146,7 +146,39 @@ MonoBehaviour:
           m_Bits: 1152
         keepOutsideHitSurface: 1
         extraSurfaceClearance: 0.05
-    - rid: 1819652482963603528
-      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652482963603537
+      type: {class: ProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 11400000, guid: e257aecef18a3724e9c8273cb366d89f, type: 2}
+        playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
+        projectilePrefab: {fileID: 0}
+        allowPrefabGameplayComponents: 0
+        speed: 15
+        range: 10
+        collisionRadius: 0.08
+        collisionMask:
+          serializedVersion: 2
+          m_Bits: 1152
+        pierceTargets: 0
+        maximumTargetHits: 1
+        stopOnBlockedCollider: 1
+        castBufferSize: 16
+        emission:
+          pattern: 0
+          projectileCount: 1
+          spreadAngle: 30
+          shotInterval: 0
+          reAimSequentialShots: 0
+        motion:
+          pattern: 0
+          homingAcquireRadius: 6
+          homingTurnRate: 180
+          returnAtRangeFraction: 0.5
+          returnCatchRadius: 0.25
+        shotShape:
+          hitShape: 0
+          beamWidth: 0.12
+          coneAngle: 45
+        falloff:
+          mode: 0
+          minimumPotency: 0.5
+          curveExponent: 1

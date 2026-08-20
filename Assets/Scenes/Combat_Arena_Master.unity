@@ -639,10 +639,6 @@ MonoBehaviour:
   debugWinKey: 107
   debugLoseKey: 108
   logRankBreakdown: 1
-  normalizeTimeOnCombatStart: 1
-  recoverOrphanedTimeScale: 1
-  orphanedTimeScaleGrace: 0.35
-  logTimeScaleRecovery: 1
 --- !u!114 &142555496
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1498,7 +1494,7 @@ MonoBehaviour:
   downKey: 115
   altUpKey: 119
   altDownKey: 115
-  slowTimeScale: 0.26
+  slowTimeScale: 0.01
   skillPanelRoot: {fileID: 1937567685}
   listText: {fileID: 1700314454}
   showNoApTag: 1
