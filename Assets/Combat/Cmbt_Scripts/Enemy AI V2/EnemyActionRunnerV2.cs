@@ -9,6 +9,7 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private EnemyAgentV2 owner;
         [SerializeField] private EnemyLocomotionV2 locomotion;
         [SerializeField] private EnemyCombatExecutorV2 combatExecutor;
+        [SerializeField] private EnemySkillExecutorV2 skillExecutor;
 
         [Header("Runtime Debug")]
         [SerializeField] private EnemyActionKindV2 debugAction = EnemyActionKindV2.None;
@@ -36,6 +37,9 @@ namespace ProjectEri.EnemyAI.V2
 
             if (combatExecutor == null)
                 combatExecutor = GetComponent<EnemyCombatExecutorV2>();
+
+            if (skillExecutor == null)
+                skillExecutor = GetComponent<EnemySkillExecutorV2>();
         }
 
         private void Update()
@@ -59,6 +63,10 @@ namespace ProjectEri.EnemyAI.V2
 
                 case EnemyActionKindV2.AttackPattern:
                     TickAttack();
+                    break;
+
+                case EnemyActionKindV2.CastSkill:
+                    TickSkill();
                     break;
 
                 case EnemyActionKindV2.FluidPressure:
@@ -155,6 +163,22 @@ namespace ProjectEri.EnemyAI.V2
                     break;
                 }
 
+                case EnemyActionKindV2.CastSkill:
+                    locomotion?.ClearDestination("Casting SkillSystemV2 skill");
+                    if (skillExecutor == null ||
+                        !skillExecutor.BeginSkill(
+                            currentOrder.skillSpell,
+                            currentOrder.skillCast))
+                    {
+                        Finish(
+                            EnemyActionStatusV2.Failed,
+                            skillExecutor != null
+                                ? skillExecutor.DebugResult
+                                : "Skill executor missing");
+                        return false;
+                    }
+                    break;
+
                 case EnemyActionKindV2.HoldLane:
                 case EnemyActionKindV2.Guard:
                 case EnemyActionKindV2.Recover:
@@ -169,6 +193,7 @@ namespace ProjectEri.EnemyAI.V2
         {
             locomotion?.ClearDestination(reason);
             combatExecutor?.CancelAttack(reason);
+            skillExecutor?.CancelSkill(reason);
 
             if (debugStatus == EnemyActionStatusV2.Running)
                 debugStatus = EnemyActionStatusV2.Cancelled;
@@ -225,6 +250,24 @@ namespace ProjectEri.EnemyAI.V2
                 Finish(result, combatExecutor.DebugResult);
             else if (result == EnemyActionStatusV2.Failed)
                 Finish(result, combatExecutor.DebugResult);
+        }
+
+        private void TickSkill()
+        {
+            if (skillExecutor == null)
+            {
+                Finish(EnemyActionStatusV2.Failed, "Skill executor missing");
+                return;
+            }
+
+            EnemyActionStatusV2 result = skillExecutor.TickSkill(
+                currentOrder.timeoutSeconds,
+                Time.time - actionStartedAt);
+            if (result == EnemyActionStatusV2.Succeeded ||
+                result == EnemyActionStatusV2.Failed)
+            {
+                Finish(result, skillExecutor.DebugResult);
+            }
         }
 
 
@@ -322,6 +365,12 @@ namespace ProjectEri.EnemyAI.V2
 
             if (status != EnemyActionStatusV2.Running)
                 combatExecutor?.CancelAttack(reason);
+
+            if (status != EnemyActionStatusV2.Running &&
+                status != EnemyActionStatusV2.Succeeded)
+            {
+                skillExecutor?.CancelSkill(reason);
+            }
 
             debugStatus = status;
             debugReason = reason;

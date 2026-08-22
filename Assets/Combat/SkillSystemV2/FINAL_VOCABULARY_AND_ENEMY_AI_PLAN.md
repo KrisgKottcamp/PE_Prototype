@@ -43,6 +43,13 @@ or target rules, then returns the highest-utility skill. The loadout's Basic
 Attack remains separate, so the current attack-pattern system is never removed
 or treated as a spell cooldown filler.
 
+The first vertical slice now adds an opt-in `CastSkill` action,
+`EnemySkillExecutorV2`, and `EnemySpellTargetingSolverV2`. Existing profiles
+leave Skill Actions disabled. Once enabled, the current director may replace a
+scheduled attack with an equipped AI-enabled spell whose validated utility
+clears the profile threshold. Initial targeting supports self, actor,
+directional, and single-point casts with bounded movement prediction.
+
 The EnemySkillAI branch should connect it in this order:
 
 1. The `SquadDirectorV2` continues assigning tactical roles and phrase slots.

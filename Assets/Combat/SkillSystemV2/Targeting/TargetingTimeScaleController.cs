@@ -26,6 +26,16 @@ namespace ProjectEri.SkillSystemV2
 
         private void Update()
         {
+            PruneInactiveOwnersNow();
+        }
+
+        /// <summary>
+        /// Immediately removes destroyed or inactive targeting owners.
+        /// Exposed so diagnostics and deterministic EditMode tests do not
+        /// need to invoke Unity's private Update message indirectly.
+        /// </summary>
+        public void PruneInactiveOwnersNow()
+        {
             PruneStaleOwners();
         }
 

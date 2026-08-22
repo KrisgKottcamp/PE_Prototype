@@ -13,12 +13,15 @@ namespace ProjectEri.EnemyAI.V2
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpellLoadout))]
     [RequireComponent(typeof(SpellRunner))]
+    [RequireComponent(typeof(EnemySpellTargetingSolverV2))]
     public sealed class EnemySpellAIDecisionSupportV2 : MonoBehaviour
     {
         [SerializeField] private SpellLoadout loadout;
         [SerializeField] private SpellRunner spellRunner;
+        [SerializeField] private EnemySpellTargetingSolverV2 targetingSolver;
         [SerializeField] private string debugBestSpell = "None";
         [SerializeField] private float debugBestScore;
+        [SerializeField] private string debugTargetSolution = "Not evaluated";
         [SerializeField] private string debugRejection = "Not evaluated";
 
         public SpellDefinition BasicAttack =>
@@ -30,6 +33,8 @@ namespace ProjectEri.EnemyAI.V2
                 loadout = GetComponent<SpellLoadout>();
             if (spellRunner == null)
                 spellRunner = GetComponent<SpellRunner>();
+            if (targetingSolver == null)
+                targetingSolver = GetComponent<EnemySpellTargetingSolverV2>();
         }
 
         public bool TryChooseSkill(
@@ -62,17 +67,23 @@ namespace ProjectEri.EnemyAI.V2
                 if (candidate == null || candidate.Delivery == null)
                     continue;
                 string rejection = string.Empty;
-                bool built = TryBuildCandidateContext(
+                CastContext resolved = default;
+                float targetingScore = 0f;
+                bool validated = false;
+                if (targetingSolver != null)
+                {
+                    validated = targetingSolver.TryResolveBestContext(
                         candidate,
                         preferredTarget,
                         preferredGroundPoint,
-                        origin,
-                        out CastContext requested);
-                CastContext resolved = default;
-                bool validated = built && candidate.TryResolveContext(
-                        requested,
                         out resolved,
+                        out targetingScore,
                         out rejection);
+                }
+                else
+                {
+                    rejection = "Missing EnemySpellTargetingSolverV2";
+                }
                 if (validated && spellRunner != null)
                 {
                     CastContext contextToCheck = resolved;
@@ -111,12 +122,15 @@ namespace ProjectEri.EnemyAI.V2
                     activeComboTags);
                 float candidateScore =
                     SpellAIDecisionUtility.Score(candidate, decision);
+                if (!float.IsNegativeInfinity(candidateScore))
+                    candidateScore *= Mathf.Max(0.1f, targetingScore);
                 if (candidateScore <= score)
                     continue;
 
                 score = candidateScore;
                 spell = candidate;
                 cast = resolved;
+                debugTargetSolution = targetingSolver.DebugSolution;
             }
 
             debugBestSpell = spell != null ? spell.DisplayName : "None";
@@ -124,46 +138,6 @@ namespace ProjectEri.EnemyAI.V2
             if (spell != null)
                 debugRejection = "Candidate validated";
             return spell != null;
-        }
-
-        private bool TryBuildCandidateContext(
-            SpellDefinition spell,
-            GameObject target,
-            Vector2 groundPoint,
-            Vector2 origin,
-            out CastContext context)
-        {
-            CastTargetingRequirement requirements =
-                spell.Delivery.TargetingRequirement;
-            if ((requirements &
-                 CastTargetingRequirement.MultipleTargetPoints) != 0)
-            {
-                context = default;
-                return false;
-            }
-
-            bool needsTarget = (requirements &
-                CastTargetingRequirement.SelectedTarget) != 0;
-            if (needsTarget && target == null)
-            {
-                context = default;
-                return false;
-            }
-
-            Vector2 targetPoint = target != null && needsTarget
-                ? target.transform.position
-                : groundPoint;
-            Vector2 direction = targetPoint - origin;
-            context = new CastContext(
-                gameObject,
-                CombatTeamMember.ResolveTeam(gameObject),
-                origin,
-                direction,
-                direction.sqrMagnitude > 0.000001f,
-                targetPoint,
-                (requirements & CastTargetingRequirement.TargetPoint) != 0,
-                needsTarget ? target : null);
-            return true;
         }
     }
 }

@@ -31,6 +31,18 @@ namespace ProjectEri.SkillSystemV2
         EscapeGround
     }
 
+    public enum SpellAIPlacementIntent
+    {
+        Auto,
+        DirectHit,
+        LeadMovingTarget,
+        ControlEscapeRoute,
+        ProtectSelf,
+        ProtectAlly,
+        AffectCluster,
+        ComboLocation
+    }
+
     [Flags]
     public enum SpellAIReaction
     {
@@ -56,6 +68,10 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("The kind of target or ground point the AI should search for first.")]
         [SerializeField] private SpellAITargetPreference targetPreference =
             SpellAITargetPreference.CurrentTarget;
+
+        [Tooltip("How a point-placement solver should use the chosen target. Auto infers a sensible approach from the spell's intent and delivery.")]
+        [SerializeField] private SpellAIPlacementIntent placementIntent =
+            SpellAIPlacementIntent.Auto;
 
         [Tooltip("Closest distance at which this spell is normally useful. This is a preference, not a replacement for cast validation.")]
         [SerializeField, Min(0f)] private float preferredMinimumRange;
@@ -100,6 +116,7 @@ namespace ProjectEri.SkillSystemV2
         public bool UsableByAI => usableByAI;
         public SpellAIIntent Intents => intents;
         public SpellAITargetPreference TargetPreference => targetPreference;
+        public SpellAIPlacementIntent PlacementIntent => placementIntent;
         public float PreferredMinimumRange => Mathf.Max(0f, preferredMinimumRange);
         public float PreferredMaximumRange => Mathf.Max(0f, preferredMaximumRange);
         public int MinimumUsefulTargets => Mathf.Max(1, minimumUsefulTargets);

@@ -44,6 +44,30 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 1
+    intents: 2
+    targetPreference: 0
+    placementIntent: 3
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: a50297c7662cdb24ea65c1e9d0869b48, type: 2}
@@ -55,6 +79,14 @@ MonoBehaviour:
   - effect: {fileID: 11400000, guid: 115ba60585abfe94ab254dce73d5fd97, type: 2}
     settings:
       rid: 1819652408774492308
+    deliveryBinding: 0
+    anchorTrigger: 2
+    anchorApplication: 2
+    anchorMultiplicity: 1
+    anchorDuration: 1
+    anchorInterval: 0.25
+    anchorSizeOverride: 0
+    reapplyAfterExit: 1
   eventEffectRoutes: []
   reactiveEffectGroups:
   - displayName: Projectile Burn
@@ -72,6 +104,14 @@ MonoBehaviour:
     - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
       settings:
         rid: 1819652408774492309
+      deliveryBinding: 0
+      anchorTrigger: 2
+      anchorApplication: 2
+      anchorMultiplicity: 1
+      anchorDuration: 1
+      anchorInterval: 0.25
+      anchorSizeOverride: 0
+      reapplyAfterExit: 1
   effectSlotsMigrated: 1
   reactionSlots:
   - enabled: 1

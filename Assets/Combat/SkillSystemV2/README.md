@@ -80,6 +80,28 @@ Enemy AI does not use `PlayerSpellTargetingController`. It evaluates targets
 and supplies a valid `CastContext` directly to `SpellRunner.TryCast`, so player
 confirmation rules never slow or block enemy casts.
 
+### Enemy skill vertical slice
+
+The first opt-in integration keeps the existing Enemy AI V2 squad phrases and
+lets a scheduled attack become a validated SkillSystemV2 cast:
+
+1. Select an existing `EnemyAgentV2` object and run **Tools > Project Eri >
+   Skill System V2 > Enemy AI > Configure Selected Enemy**.
+2. Assign the enemy's skill assets under `SpellLoadout > Equipped Skills`.
+3. On each intended spell, enable **Enemy AI Guidance > Usable By AI**, set its
+   intent/range/base utility, and choose an optional Placement Intent.
+4. Run **Validate Selected Enemy** from the same menu.
+5. On the scene's `EnemyAIV2Profile`, enable **Skill Actions**. Existing profile
+   assets default this off, so importing the feature cannot change combat by
+   itself.
+
+`EnemySpellTargetingSolverV2` currently handles self, selected-target,
+direction, and one-point deliveries. Moving targets are led using authored
+build-up plus projectile/grenade travel time, then every candidate still passes
+through normal placement, line-of-sight, target, cooldown, and resource
+validation. Two-point placement, navigation choke scoring, shared combo state,
+and threat reactions are intentionally reserved for later milestones.
+
 ### Recommended starter combinations
 
 - Quick Shot: Direction Targeting + Projectile Delivery.

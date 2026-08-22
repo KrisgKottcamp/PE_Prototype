@@ -1,0 +1,104 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
+  m_Name: Spell_TakeLessDamage
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
+  displayName: Take Less Damage
+  stableId: 1a0c6a2c1b36477f8a35d2194d95a627
+  description: 
+  icon: {fileID: 0}
+  category: Skill
+  timing:
+    buildUpDuration: 0
+    firingDuration: 0
+    channelDuration: 0
+    recoveryDuration: 0
+    timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
+  cooldown: 0
+  resourceCost:
+    resourceId: 
+    amount: 0
+  targetFilter:
+    relationship: 3
+    useLayerMask: 0
+    allowedLayers:
+      serializedVersion: 2
+      m_Bits: 0
+    requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
+  delivery: {fileID: 0}
+  deliverySlot:
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
+    settings:
+      rid: 1819652478116036688
+  deliverySlotMigrated: 1
+  effects: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: 8546d8692e456e541824b5f706ee413e, type: 2}
+    settings:
+      rid: 1819652478116036690
+  eventEffectRoutes: []
+  reactiveEffectGroups: []
+  effectSlotsMigrated: 1
+  reactionSlots: []
+  maximumChainDepth: 3
+  maximumRootActivations: 32
+  references:
+    version: 2
+    RefIds:
+    - rid: 1819652478116036688
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: a752629118ebe6e4aa9d3e24e7d102da, type: 2}
+    - rid: 1819652478116036690
+      type: {class: SpellStatModifierSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        stat: 1
+        operation: 1
+        value: 0.75
+        duration: 10
+        stacking: 0
+        maximumStacks: 1
+        resetWhenTargetBecomesInactive: 0
+        applyToAllPartyMembers: 0

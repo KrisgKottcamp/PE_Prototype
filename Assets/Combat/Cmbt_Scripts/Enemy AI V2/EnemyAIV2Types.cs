@@ -1,4 +1,5 @@
 using System;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 namespace ProjectEri.EnemyAI.V2
@@ -57,7 +58,11 @@ namespace ProjectEri.EnemyAI.V2
         // Stage 3.5: one action that keeps locomotion and attack pressure
         // active at the same time. This is the intentional version of the
         // fast V1/V2 mixed-control feeling, without two brains fighting.
-        FluidPressure = 6
+        FluidPressure = 6,
+
+        // Generic SkillSystemV2 cast. The order carries a fully validated
+        // CastContext, so execution never needs the player's targeting UI.
+        CastSkill = 7
     }
 
     public enum EnemyActionStatusV2
@@ -144,6 +149,9 @@ namespace ProjectEri.EnemyAI.V2
         public float fanArcDegrees = 40f;
         public int ringBullets = 8;
         public float angularSpeedDegPerTick = 12f;
+
+        [NonSerialized] public SpellDefinition skillSpell;
+        [NonSerialized] public CastContext skillCast;
 
         public string reason = "None";
 

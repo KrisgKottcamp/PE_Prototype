@@ -195,6 +195,8 @@ namespace ProjectEri.SkillSystemV2.Editor
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative("targetPreference"));
                 EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative("placementIntent"));
+                EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative(
                         "preferredMinimumRange"));
                 EditorGUILayout.PropertyField(

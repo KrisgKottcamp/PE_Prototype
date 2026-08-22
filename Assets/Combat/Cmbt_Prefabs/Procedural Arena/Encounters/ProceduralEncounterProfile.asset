@@ -39,28 +39,28 @@ MonoBehaviour:
     footprintRadius: 0.05
     minimumPlayerDistance: 3
   - enemy: {fileID: 11400000, guid: e2a96c588f883a84d911f1ba2eedd5c6, type: 2}
-    weight: 3
+    weight: 0
     difficultyCost: 2
     minimumCount: 0
     maximumCount: 2
     footprintRadius: 0.5
     minimumPlayerDistance: 4
   - enemy: {fileID: 11400000, guid: f510c66bbd35f164a8271745cedf5476, type: 2}
-    weight: 7
+    weight: 0
     difficultyCost: 1
     minimumCount: 0
     maximumCount: 4
     footprintRadius: 0.5
     minimumPlayerDistance: 0
   - enemy: {fileID: 11400000, guid: f1e00082caee08d4fa5101b8c84b44a3, type: 2}
-    weight: 1
+    weight: 0
     difficultyCost: 3
     minimumCount: 0
     maximumCount: 1
     footprintRadius: 0.8
     minimumPlayerDistance: 4
   - enemy: {fileID: 11400000, guid: 20c4d7a6ffbdf1f4da0b3d6122f1c200, type: 2}
-    weight: 1
+    weight: 0
     difficultyCost: 1
     minimumCount: 0
     maximumCount: 1

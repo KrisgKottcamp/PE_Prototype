@@ -548,7 +548,7 @@ namespace ProjectEri.SkillSystemV2.Tests
                 Assert.That(inactiveTargeting.IsTargeting, Is.False);
                 controller.Acquire(inactiveTargeting, 0.15f);
                 Assert.That(controller.HasRequests, Is.True);
-                controller.SendMessage("Update");
+                controller.PruneInactiveOwnersNow();
 
                 Assert.That(controller.HasRequests, Is.False);
                 Assert.That(Time.timeScale,
@@ -1174,6 +1174,89 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(
                 SpellAIDecisionUtility.Score(spell, combo),
                 Is.GreaterThan(SpellAIDecisionUtility.Score(spell, plain)));
+        }
+
+        [Test]
+        public void AITargetPrediction_ClampsLeadDistance()
+        {
+            Vector2 predicted = SpellAITargetingUtility.PredictTargetPoint(
+                Vector2.zero,
+                new Vector2(10f, 0f),
+                1f,
+                3f);
+
+            Assert.That(predicted, Is.EqualTo(new Vector2(3f, 0f)));
+        }
+
+        [Test]
+        public void AITargetCandidates_ControlIntentIncludesEscapeCutoff()
+        {
+            var candidates = new List<Vector2>();
+            SpellAITargetingUtility.BuildPointCandidates(
+                candidates,
+                Vector2.zero,
+                new Vector2(1f, 0f),
+                Vector2.right,
+                0.75f,
+                4,
+                SpellAIPlacementIntent.ControlEscapeRoute);
+
+            Assert.That(candidates, Does.Contain(new Vector2(1.75f, 0f)));
+            Assert.That(candidates.Count, Is.GreaterThanOrEqualTo(6));
+        }
+
+        [Test]
+        public void AITargetPrediction_UsesProjectileTravelTime()
+        {
+            ProjectileDeliveryDefinition delivery = Track(
+                ScriptableObject.CreateInstance<ProjectileDeliveryDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                delivery,
+                new ProjectileDeliverySettings(
+                    null,
+                    null,
+                    false,
+                    4f,
+                    20f,
+                    0.1f,
+                    ~0,
+                    false,
+                    1,
+                    true,
+                    16)));
+
+            float delay = SpellAITargetingUtility.EstimateArrivalDelay(
+                spell,
+                Vector2.zero,
+                new Vector2(8f, 0f),
+                5f);
+
+            Assert.That(delay, Is.EqualTo(2f).Within(0.001f));
+        }
+
+        [Test]
+        public void EnemySkillVerticalSlice_RuntimeTypesAreAvailable()
+        {
+            System.Type actionKind = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyActionKindV2, Assembly-CSharp");
+            System.Type solver = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemySpellTargetingSolverV2, Assembly-CSharp");
+            System.Type executor = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemySkillExecutorV2, Assembly-CSharp");
+            System.Type resourceProvider = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemySpellResourceProviderV2, Assembly-CSharp");
+
+            Assert.That(actionKind, Is.Not.Null);
+            Assert.That(System.Enum.IsDefined(actionKind, "CastSkill"), Is.True);
+            Assert.That(solver, Is.Not.Null);
+            Assert.That(executor, Is.Not.Null);
+            Assert.That(resourceProvider, Is.Not.Null);
+            Assert.That(
+                typeof(ISpellResourceProvider).IsAssignableFrom(
+                    resourceProvider),
+                Is.True);
         }
 
         private SpellDefinition CreatePointSpell()

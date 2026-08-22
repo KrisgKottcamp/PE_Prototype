@@ -44,12 +44,35 @@ MonoBehaviour:
   oneAtATimeCountsFluidPressureAsAttack: 1
   oneAtATimeGapAfterAttack: 0.08
   oneAtATimeSentinelAttacksAfterFlanker: 1
+  usePressurePacing: 1
+  minimumSecondsBetweenAttackStarts: 0.18
+  usePhraseBreathingRoom: 0
+  phraseBreatherSeconds: 0
+  soloPhraseBreatherSeconds: 0
+  extraBreatherAfterSentinelPhrase: 0
+  pressurePacingRecoveryMultiplier: 1.05
+  logPressurePacing: 0
+  useCombatTempoScaling: 1
+  enemyMovementTempoMultiplier: 0.85
+  attackCadenceTempoMultiplier: 1.18
+  recoveryTempoMultiplier: 1.1
+  attackStartGapTempoMultiplier: 1
+  respectSlowZones: 1
+  slowZoneClampVelocity: 1
+  slowZoneEntryBrake: 70
+  slowZoneVelocityOvershootAllowance: 1.1
+  slowZoneCoastBrakeMultiplier: 2.75
+  logSlowZoneEffects: 0
   controllerAttackTimeout: 2.5
   flankerAttackTimeout: 2.5
   flankerAttackDelayAfterController: 0.22
   standardRecoverySeconds: 0.65
   soloRecoverySeconds: 0.55
   holdLaneMaximumSeconds: 0.75
+  enableSkillActions: 1
+  minimumSkillUtility: 1.15
+  skillCastTimeoutPadding: 1
+  skillsMayReplaceFluidPressure: 1
   controllerPattern: PetalFan
   controllerShotsPerBurst: 1
   controllerIntraBurstInterval: 0.13

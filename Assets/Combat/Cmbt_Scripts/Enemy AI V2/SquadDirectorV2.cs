@@ -796,6 +796,7 @@ namespace ProjectEri.EnemyAI.V2
 
                 EnemyActionKindV2 kind = candidate.ActionRunner.CurrentKind;
                 bool countsAsAttack = kind == EnemyActionKindV2.AttackPattern ||
+                                      kind == EnemyActionKindV2.CastSkill ||
                                       (profile != null && profile.oneAtATimeCountsFluidPressureAsAttack &&
                                        kind == EnemyActionKindV2.FluidPressure);
 
@@ -1224,7 +1225,11 @@ namespace ProjectEri.EnemyAI.V2
                 if (HasLineOfSight(candidate.transform.position, player.position))
                     score += 2f;
 
-                if (candidate.ActionRunner != null && candidate.ActionRunner.CurrentKind == EnemyActionKindV2.AttackPattern)
+                if (candidate.ActionRunner != null &&
+                    (candidate.ActionRunner.CurrentKind ==
+                         EnemyActionKindV2.AttackPattern ||
+                     candidate.ActionRunner.CurrentKind ==
+                         EnemyActionKindV2.CastSkill))
                     score += 0.35f;
 
                 if (score > bestControllerScore)
@@ -1663,6 +1668,12 @@ namespace ProjectEri.EnemyAI.V2
             if (agent == null || agent.ActionRunner == null)
                 return false;
 
+            if (profile != null && profile.skillsMayReplaceFluidPressure &&
+                TryIssueSkill(agent, role, reason + " (skill candidate)"))
+            {
+                return true;
+            }
+
             string legacyPattern;
             int shots;
             float interval;
@@ -1759,6 +1770,9 @@ namespace ProjectEri.EnemyAI.V2
             if (agent == null || agent.ActionRunner == null)
                 return false;
 
+            if (TryIssueSkill(agent, role, reason + " (skill candidate)"))
+                return true;
+
             string legacyPattern;
             int shots;
             float interval;
@@ -1842,6 +1856,85 @@ namespace ProjectEri.EnemyAI.V2
             }
 
             return issued;
+        }
+
+        private bool TryIssueSkill(
+            EnemyAgentV2 agent,
+            EnemyRoleV2 role,
+            string reason)
+        {
+            if (profile == null || !profile.enableSkillActions ||
+                agent == null || agent.ActionRunner == null ||
+                agent.PlayerTarget == null)
+            {
+                return false;
+            }
+
+            EnemySpellAIDecisionSupportV2 decisionSupport =
+                agent.GetComponent<EnemySpellAIDecisionSupportV2>();
+            EnemySkillExecutorV2 executor =
+                agent.GetComponent<EnemySkillExecutorV2>();
+            if (decisionSupport == null || executor == null)
+            {
+                debugLastAttackSelection =
+                    $"{agent.name}: skill actions enabled but Skill AI components are missing";
+                return false;
+            }
+
+            EnemyHealth health = agent.GetComponent<EnemyHealth>();
+            float casterHealth = health != null
+                ? health.CurrentHP / (float)Mathf.Max(1, health.MaxHP)
+                : 1f;
+            GameObject target = agent.PlayerTarget.gameObject;
+            Vector2 targetPoint = agent.PlayerTarget.position;
+
+            bool chose = decisionSupport.TryChooseSkill(
+                target,
+                targetPoint,
+                usefulTargetCount: 1,
+                casterHealthFraction: casterHealth,
+                targetHealthFraction: 1f,
+                incomingDanger: 0f,
+                commitmentCost: 0f,
+                activeComboTags: null,
+                out ProjectEri.SkillSystemV2.SpellDefinition spell,
+                out ProjectEri.SkillSystemV2.CastContext cast,
+                out float score);
+            if (!chose || spell == null ||
+                score < Mathf.Max(0f, profile.minimumSkillUtility))
+            {
+                return false;
+            }
+
+            float timeout = Mathf.Max(
+                0.25f,
+                spell.Timing.TotalDuration + profile.skillCastTimeoutPadding);
+            bool issued = agent.ActionRunner.AssignOrder(new EnemyActionOrderV2
+            {
+                orderId = nextOrderId++,
+                kind = EnemyActionKindV2.CastSkill,
+                timeoutSeconds = timeout,
+                skillSpell = spell,
+                skillCast = cast,
+                reason =
+                    $"{reason}: {role} chose {spell.DisplayName} (utility {score:0.00})"
+            });
+
+            if (!issued)
+                return false;
+
+            lastAnyAttackStartedAt = Time.time;
+            debugLastAttackSelection =
+                $"{agent.name}: SkillSystemV2 {spell.DisplayName}, utility {score:0.00}";
+            if (role == EnemyRoleV2.Controller)
+                debugControllerAttackSelection = debugLastAttackSelection;
+            else if (role == EnemyRoleV2.Flanker)
+                debugFlankerAttackSelection = debugLastAttackSelection;
+            else if (role == EnemyRoleV2.Sentinel)
+                debugSentinelAttackSelection = debugLastAttackSelection;
+            else if (role == EnemyRoleV2.SoloDuelist)
+                debugSoloAttackSelection = debugLastAttackSelection;
+            return true;
         }
 
         private void ApplyAttackSelectionOverrides(

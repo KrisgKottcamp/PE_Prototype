@@ -1,0 +1,122 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
+  m_Name: Spell_BlackHole
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
+  displayName: Black Hole
+  stableId: b61f11837fc14201a1d48bedc7ff4065
+  description: 
+  icon: {fileID: 0}
+  category: Skill
+  timing:
+    buildUpDuration: 0
+    firingDuration: 0
+    channelDuration: 0
+    recoveryDuration: 0
+    timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
+  cooldown: 0
+  resourceCost:
+    resourceId: 
+    amount: 0
+  targetFilter:
+    relationship: 0
+    useLayerMask: 1
+    allowedLayers:
+      serializedVersion: 2
+      m_Bits: 3840
+    requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 1
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 128
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
+  delivery: {fileID: 0}
+  deliverySlot:
+    delivery: {fileID: 11400000, guid: a50297c7662cdb24ea65c1e9d0869b48, type: 2}
+    settings:
+      rid: 1819652475389476963
+  deliverySlotMigrated: 1
+  effects: []
+  effectSlots:
+  - effect: {fileID: 11400000, guid: 2bd7657bec7f16349a8d42d4fcebdef4, type: 2}
+    settings:
+      rid: 1819652478116036612
+  eventEffectRoutes: []
+  reactiveEffectGroups: []
+  effectSlotsMigrated: 1
+  reactionSlots: []
+  maximumChainDepth: 3
+  maximumRootActivations: 32
+  references:
+    version: 2
+    RefIds:
+    - rid: 1819652475389476963
+      type: {class: LingeringAreaDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
+        radius: 2
+        duration: 4
+        applicationInterval: 0.25
+        hitMask:
+          serializedVersion: 2
+          m_Bits: 3840
+        maximumColliders: 32
+        zoneColor: {r: 0.62892497, g: 0, b: 0.6603774, a: 0.24}
+        sortingOrderOffset: 20
+        startsActive: 1
+    - rid: 1819652478116036612
+      type: {class: SpatialForceEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        direction: 0
+        center: 0
+        strength: 5
+        maximumSpeed: 8
+        useSpatialCurve: 1
+        gravityExponent: 2
+        gravitySofteningDistance: 0.25
+        preserveCurveMomentumAfterExit: 1
+        falloff: 0
+        falloffDistance: 0
+        stopDistance: 0.12
+        duration: 0.25
+        respectObstacles: 1
+        obstacleMask:
+          serializedVersion: 2
+          m_Bits: 128

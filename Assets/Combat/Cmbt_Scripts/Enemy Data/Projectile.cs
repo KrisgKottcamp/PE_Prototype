@@ -200,7 +200,14 @@ public class Projectile : MonoBehaviour, ISpellSpatialForceTarget
 
     private void ApplyVelocity()
     {
-        if (rb == null) return;
+        // Initialize/Reflect can be called immediately after AddComponent in
+        // EditMode tests, factories, or pooling code before Awake has cached
+        // the Rigidbody2D. Resolve it here as well so the authoritative live
+        // trajectory always follows the stored projectile direction.
+        if (rb == null)
+            rb = GetComponent<Rigidbody2D>();
+        if (rb == null)
+            return;
 
         float moveSpeed = speed * GetSpeedMultiplier();
 

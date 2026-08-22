@@ -26,6 +26,11 @@ GameObject:
   - component: {fileID: 889431934497075718}
   - component: {fileID: 6010973497524430864}
   - component: {fileID: 5115181037909754810}
+  - component: {fileID: -4771669693608532639}
+  - component: {fileID: 5765512021955163310}
+  - component: {fileID: 7320715239226938214}
+  - component: {fileID: -1098699091129503964}
+  - component: {fileID: 7551269063446772972}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -454,6 +459,7 @@ MonoBehaviour:
   shooter: {fileID: 3715463728703913041}
   rb: {fileID: 9072718850780085983}
   stunnable: {fileID: 0}
+  knockbackReceiver: {fileID: 0}
   autoFindPlayerByTag: 1
   playerTag: PlayerCombatPawn
   playerSearchInterval: 0.2
@@ -703,6 +709,8 @@ MonoBehaviour:
   owner: {fileID: 0}
   profile: {fileID: 0}
   slowReceiver: {fileID: 0}
+  knockbackReceiver: {fileID: 0}
+  forcedMotion: {fileID: 0}
   hasDestination: 0
   destination: {x: 0, y: 0}
   debugPathStatus: Idle
@@ -764,6 +772,7 @@ MonoBehaviour:
   owner: {fileID: 0}
   locomotion: {fileID: 0}
   combatExecutor: {fileID: 0}
+  skillExecutor: {fileID: 0}
   debugAction: 0
   debugStatus: 0
   debugReason: Idle
@@ -827,11 +836,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySlowReceiverV2
   minimumMovementMultiplier: 0.05
+  maximumMovementMultiplier: 5
   logApplications: 0
   debugIsSlowed: 0
+  debugHasSpeedBoost: 0
   debugMovementMultiplier: 1
+  debugSpeedBoostMultiplier: 1
   debugActiveSources: 0
   debugStrongestSource: None
+  debugStrongestBoostSource: None
 --- !u!114 &5115181037909754810
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -859,6 +872,88 @@ MonoBehaviour:
   debugLastRestore: Captured 1
   debugLastScaleRestore: Captured scale state
   debugFirstProtectedScale: {x: 1, y: 1, z: 1}
+--- !u!114 &-4771669693608532639
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000011, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellLoadout
+  basicAttack: {fileID: 0}
+  equippedSkills:
+  - {fileID: 11400000, guid: 83edc2a1d710e364fa4f124e9ba80d18, type: 2}
+--- !u!114 &5765512021955163310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2010000000000000000000000000013, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellRunner
+  logRejectedCasts: 0
+  maximumQueuedTriggeredCasts: 16
+--- !u!114 &7320715239226938214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 462d3546f1944b8d966948bf38f86e4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellTargetingSolverV2
+  maximumPredictionSeconds: 1.25
+  maximumLeadDistance: 3
+  pointSampleRadius: 0.75
+  radialSampleCount: 6
+  debugSolution: Not evaluated
+  debugChosenPoint: {x: 0, y: 0}
+  debugCandidateCount: 0
+--- !u!114 &-1098699091129503964
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47f10ef1bf65455fa7f93125dba1d99d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellAIDecisionSupportV2
+  loadout: {fileID: 0}
+  spellRunner: {fileID: 0}
+  targetingSolver: {fileID: 0}
+  debugBestSpell: None
+  debugBestScore: 0
+  debugTargetSolution: Not evaluated
+  debugRejection: Not evaluated
+--- !u!114 &7551269063446772972
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9b327d0c8ec4929a5743a62b4e80d28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySkillExecutorV2
+  spellRunner: {fileID: 0}
+  debugSpell: None
+  debugResult: Idle
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0

@@ -151,6 +151,19 @@ namespace ProjectEri.EnemyAI.V2
         [Min(0.05f)] public float soloRecoverySeconds = 0.55f;
         [Min(0.1f)] public float holdLaneMaximumSeconds = 0.75f;
 
+        [Header("SkillSystemV2 Vertical Slice")]
+        [Tooltip("Opt-in safety switch. When enabled, AI V2 may replace a scheduled legacy attack with an equipped SkillSystemV2 spell whose AI utility clears the threshold below.")]
+        public bool enableSkillActions = false;
+
+        [Tooltip("Minimum final utility required before a skill may replace the reliable legacy basic attack. Keep above one until each enemy spell's AI Guidance is tuned.")]
+        [Min(0f)] public float minimumSkillUtility = 1.15f;
+
+        [Tooltip("Extra time added after the spell's authored phase durations before the action watchdog treats the cast as stuck.")]
+        [Min(0.1f)] public float skillCastTimeoutPadding = 1f;
+
+        [Tooltip("When enabled, skills can replace a moving FluidPressure shot. The first vertical slice stops locomotion for the skill cast so authored build-up and recovery remain readable.")]
+        public bool skillsMayReplaceFluidPressure = true;
+
         [Header("Controller Attack")]
         public string controllerPattern = "PetalFan";
         [Min(1)] public int controllerShotsPerBurst = 1;
