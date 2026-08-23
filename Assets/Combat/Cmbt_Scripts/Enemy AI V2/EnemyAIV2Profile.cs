@@ -173,6 +173,16 @@ namespace ProjectEri.EnemyAI.V2
         [Tooltip("Hard safety cap on consecutive skill actions. One creates a readable skill/basic cadence even when a skill has very high utility.")]
         [Min(1)] public int maximumConsecutiveSkillActions = 1;
 
+        [Header("SkillSystemV2 Threat Reactions")]
+        [Tooltip("Allow configured EnemySpellThreatPerceptionV2 components to read hostile delivery geometry and issue bounded avoidance orders.")]
+        public bool enableSpellThreatReactions = true;
+
+        [Tooltip("Maximum enemies allowed to run a non-emergency threat reaction simultaneously. Zero means unlimited.")]
+        [Min(0)] public int maximumConcurrentThreatReactions = 2;
+
+        [Tooltip("Threat scores at or above this value may bypass squad reaction capacity and ordinary avoidance cooldowns.")]
+        [Range(0f, 1f)] public float emergencyThreatScore = 0.9f;
+
         [Header("Controller Attack")]
         public string controllerPattern = "PetalFan";
         [Min(1)] public int controllerShotsPerBurst = 1;

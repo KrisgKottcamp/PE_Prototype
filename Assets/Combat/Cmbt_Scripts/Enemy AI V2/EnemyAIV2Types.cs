@@ -62,7 +62,12 @@ namespace ProjectEri.EnemyAI.V2
 
         // Generic SkillSystemV2 cast. The order carries a fully validated
         // CastContext, so execution never needs the player's targeting UI.
-        CastSkill = 7
+        CastSkill = 7,
+
+        // Short, obstacle-aware movement order issued by generic spell threat
+        // perception. Keeping it distinct makes reactions visible in runtime
+        // diagnostics without introducing a second movement controller.
+        EvadeThreat = 8
     }
 
     public enum EnemyActionStatusV2

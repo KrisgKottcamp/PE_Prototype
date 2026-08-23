@@ -33,6 +33,7 @@ namespace ProjectEri.SkillSystemV2
             if (Spell == null)
                 return 0;
 
+            SpellAIThreatService.ReportDeliveryEvent(this, occurrence);
             SpellRuntimeDiagnostics.ReportDeliveryEvent(
                 Spell,
                 Cast,

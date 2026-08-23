@@ -52,6 +52,7 @@ namespace ProjectEri.EnemyAI.V2
             switch (currentOrder.kind)
             {
                 case EnemyActionKindV2.MoveToSlot:
+                case EnemyActionKindV2.EvadeThreat:
                     TickMoveToSlot();
                     break;
 
@@ -84,6 +85,16 @@ namespace ProjectEri.EnemyAI.V2
             if (order == null)
                 return false;
 
+            // Threat avoidance is a short, deliberate commitment. The normal
+            // squad planning tick must not replace it immediately, otherwise
+            // an enemy can jitter at a hazard edge without ever completing
+            // the safe route selected by its perception component.
+            if (IsBusy && CurrentKind == EnemyActionKindV2.EvadeThreat &&
+                order.kind != EnemyActionKindV2.EvadeThreat)
+            {
+                return false;
+            }
+
             CancelCurrent("Replaced by new order");
 
             currentOrder = order.Clone();
@@ -97,6 +108,7 @@ namespace ProjectEri.EnemyAI.V2
             switch (currentOrder.kind)
             {
                 case EnemyActionKindV2.MoveToSlot:
+                case EnemyActionKindV2.EvadeThreat:
                     if (locomotion == null ||
                         !locomotion.SetDestination(currentOrder.targetPosition))
                     {

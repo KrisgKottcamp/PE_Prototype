@@ -75,6 +75,7 @@ namespace ProjectEri.EnemyAI.V2
         public EnemyAIV2Profile Profile => runtimeProfile;
         public EnemyActionRunnerV2 ActionRunner => actionRunner;
         public EnemyLocomotionV2 Locomotion => locomotion;
+        public ArenaNavigationGrid NavigationGrid => runtimeGrid;
         public Vector2 CurrentPosition => transform.position;
         public string DebugAssignmentReason => debugAssignmentReason;
         public EnemyRoleV2 CurrentRole => currentRole;

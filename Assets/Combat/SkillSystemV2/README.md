@@ -115,10 +115,58 @@ Slow Orb starting point, use **Placement Lookahead = 0.45-0.70**, **Minimum AI
 Recast = 2-4 seconds**, **Maximum Active Per Caster = 1**, **Maximum Active Per
 Squad = 2**, and leave equivalent overlap disabled.
 
-Two-point placement, navigation choke scoring, shared combo state, and threat
-reactions are intentionally reserved for later milestones. This patch improves
-skill selection cadence and placement prediction; it does not add threat
-perception or dodge reactions yet.
+Two-point placement, navigation choke scoring, and shared combo state remain
+later milestones. Skill selection cadence and placement prediction are kept
+independent from the threat-reaction layer below.
+
+### Generic delivery threat perception
+
+`SpellAIThreatService` listens to the normalized delivery event stream. It
+tracks delivery geometry rather than spell names, so the same query works for
+projectiles, ricochets, grenades, one-shot and lingering areas, mines,
+tripwires, beams, cones, melee arcs, and future deliveries that report
+`SpellDeliveryGeometry`.
+
+For each enemy, `EnemySpellThreatPerceptionV2` evaluates whether its body is
+inside the geometry, whether its current route will enter it, time to impact,
+authored urgency/reactions, and all other relevant hazards near each candidate
+escape point. A chosen response becomes a bounded `EvadeThreat` action through
+the existing action runner and navigation grid. This keeps ordinary movement
+and squad planning as the single source of locomotion.
+
+Setup and authoring:
+
+1. Run **Tools > Project Eri > Skill System V2 > Enemy AI > Configure Selected
+   Enemy** again for each enemy prefab or scene object. This adds
+   `EnemySpellThreatPerceptionV2`; the built-in Humanoid preset works without a
+   new asset.
+2. For reusable personalities, create **Project Eri > Enemy AI V2 > Threat
+   Response Profile** and assign it to the perception component. The built-in
+   Reckless, Humanoid, Elite, and Boss presets remain available as fallbacks.
+3. In every hazardous spell's **Enemy AI Guidance > How should opponents read
+   it?**, choose `Suggested Reactions`, `Reaction Urgency`, and the real visible
+   `Telegraph Duration`. `Danger Radius = 0` uses delivery geometry; set a
+   positive value only when the readable danger footprint intentionally differs
+   from the gameplay footprint.
+4. `Usable By AI` controls whether enemies cast a spell. It is not required for
+   enemies to perceive a player-cast spell.
+5. Leave **Enable Spell Threat Reactions** enabled on the active
+   `EnemyAIV2Profile`. `Maximum Concurrent Threat Reactions` limits squad-wide
+   evasions, while `Emergency Threat Score` permits truly urgent exposure to
+   bypass that limit.
+
+Personality controls cover hazard awareness, readable reaction delay, risk
+tolerance, avoidance strength, attack-interrupt willingness, hidden-trap
+recognition, deliberate charge-through behavior, mistake chance, reaction
+opportunity count, minimum readable warning, and avoidance cooldown. The
+reaction order is sticky until arrival, timeout, or immediate threat expiry,
+which prevents the normal squad tick from creating boundary oscillation.
+
+This milestone supplies generic safe routing, sidestepping, leaving areas,
+deliberate risk acceptance, and charge-through decisions. Literal jump actions,
+destroying a trap, active projectile deflection, and semantic cover search need
+their own body/action capabilities before those authored reaction flags can do
+more than select the safest reachable movement destination.
 
 ### Recommended starter combinations
 

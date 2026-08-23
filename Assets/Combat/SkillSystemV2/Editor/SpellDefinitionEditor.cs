@@ -182,9 +182,10 @@ namespace ProjectEri.SkillSystemV2.Editor
                 if (!usable.boolValue)
                 {
                     EditorGUILayout.HelpBox(
-                        "Enemies will not equip or cast this spell. Player use is unchanged.",
+                        "Enemies will not equip or cast this spell. The " +
+                        "opponent-readable threat guidance below still " +
+                        "applies to player-cast deliveries.",
                         MessageType.None);
-                    return;
                 }
 
                 EditorGUILayout.LabelField(
@@ -261,6 +262,11 @@ namespace ProjectEri.SkillSystemV2.Editor
                 EditorGUILayout.LabelField(
                     "How should opponents read it?",
                     EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Threat perception reads these fields from generic " +
+                    "delivery geometry. Usable By AI is not required for " +
+                    "player-cast hazards to be perceived.",
+                    MessageType.None);
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative(
                         "suggestedReactions"));

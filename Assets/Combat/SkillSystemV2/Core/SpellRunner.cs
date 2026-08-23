@@ -301,6 +301,9 @@ namespace ProjectEri.SkillSystemV2
                 string.IsNullOrWhiteSpace(reason)
                     ? "The cast was interrupted."
                     : reason);
+            SpellAIThreatService.CancelCast(
+                interruptedSpell,
+                interruptedContext);
             CancelDelivery(reason);
             ClearActiveCast();
 
@@ -757,6 +760,10 @@ namespace ProjectEri.SkillSystemV2
                 completedContext,
                 SpellDeliveryLifecycleStage.CastCompleted,
                 "The cast completed every phase normally.");
+
+            SpellAIThreatService.CancelCast(
+                completedSpell,
+                completedContext);
 
             ClearActiveCast();
 

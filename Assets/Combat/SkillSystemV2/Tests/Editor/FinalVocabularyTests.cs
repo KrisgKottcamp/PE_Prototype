@@ -15,6 +15,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         public void SetUp()
         {
             SpellAITacticalMemory.ClearAll();
+            SpellAIThreatService.ClearAll();
             caster = Track(new GameObject("Vocabulary Caster"));
             target = Track(new GameObject("Vocabulary Target"));
         }
@@ -23,6 +24,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         public void TearDown()
         {
             SpellAITacticalMemory.ClearAll();
+            SpellAIThreatService.ClearAll();
             for (int i = created.Count - 1; i >= 0; i--)
             {
                 if (created[i] != null)
@@ -1336,6 +1338,180 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void AIThreatPerception_StandingInsideAreaRequestsLeaveArea()
+        {
+            PrepareOpposingTeams();
+            SpellDefinition spell = CreateAreaThreatSpell(2f);
+            target.transform.position = new Vector2(3f, 0f);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                caster.transform.position,
+                target.transform.position);
+            RegisterRuntimeThreat(
+                spell,
+                cast,
+                target.transform.position,
+                2f,
+                out _);
+
+            bool found = SpellAIThreatService.TryFindMostRelevantThreat(
+                target,
+                target.transform.position,
+                Vector2.zero,
+                6f,
+                0.35f,
+                1f,
+                out SpellAIThreatEvaluation threat);
+
+            Assert.That(found, Is.True);
+            Assert.That(threat.IsInside, Is.True);
+            Assert.That(
+                threat.SuggestedReactions & SpellAIReaction.LeaveArea,
+                Is.Not.EqualTo(SpellAIReaction.None));
+            Assert.That(threat.TimeToImpact, Is.Zero.Within(0.001f));
+        }
+
+        [Test]
+        public void AIThreatPerception_PlannedPathDetectsAreaBeforeEntry()
+        {
+            PrepareOpposingTeams();
+            SpellDefinition spell = CreateAreaThreatSpell(1f);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                new Vector2(3f, 0f));
+            RegisterRuntimeThreat(
+                spell,
+                cast,
+                new Vector2(3f, 0f),
+                1f,
+                out _);
+
+            bool found = SpellAIThreatService.TryFindMostRelevantThreat(
+                target,
+                Vector2.zero,
+                new Vector2(3f, 0f),
+                6f,
+                0.25f,
+                1.5f,
+                out SpellAIThreatEvaluation threat);
+
+            Assert.That(found, Is.True);
+            Assert.That(threat.IsInside, Is.False);
+            Assert.That(threat.TimeToImpact, Is.LessThan(1.5f));
+            Assert.That(threat.Clearance, Is.LessThanOrEqualTo(0f));
+        }
+
+        [Test]
+        public void AIThreatPerception_FriendlyTargetRulesIgnoreThreat()
+        {
+            caster.AddComponent<CombatTeamMember>().SetTeam(
+                CombatTeam.Enemy);
+            target.AddComponent<CombatTeamMember>().SetTeam(
+                CombatTeam.Enemy);
+            SpellDefinition spell = CreateAreaThreatSpell(2f);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                target.transform.position);
+            RegisterRuntimeThreat(
+                spell,
+                cast,
+                target.transform.position,
+                2f,
+                out _);
+
+            Assert.That(
+                SpellAIThreatService.TryFindMostRelevantThreat(
+                    target,
+                    target.transform.position,
+                    Vector2.zero,
+                    6f,
+                    0.35f,
+                    1f,
+                    out _),
+                Is.False);
+        }
+
+        [Test]
+        public void AIThreatPerception_DeliveryStoppedImmediatelyForgetsRuntime()
+        {
+            PrepareOpposingTeams();
+            SpellDefinition spell = CreateAreaThreatSpell(2f);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                target.transform.position);
+            RegisterRuntimeThreat(
+                spell,
+                cast,
+                target.transform.position,
+                2f,
+                out Component runtime);
+            Assert.That(SpellAIThreatService.ActiveThreatCount, Is.EqualTo(1));
+
+            var context = new SpellExecutionContext(spell, cast);
+            context.DispatchEvent(new SpellEventOccurrence(
+                SpellEventType.DeliveryStopped,
+                null,
+                target.transform.position,
+                Vector2.zero,
+                runtime));
+
+            Assert.That(SpellAIThreatService.ActiveThreatCount, Is.Zero);
+        }
+
+        [Test]
+        public void AIThreatPerception_ZeroLengthTelegraphIsNotRegistered()
+        {
+            PrepareOpposingTeams();
+            SpellDefinition spell = CreateAreaThreatSpell(2f);
+            SpellAIAffordance guidance = spell.AIAffordance;
+            SetField(guidance, "telegraphDuration", 1f);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                Vector2.zero,
+                target.transform.position);
+
+            new SpellExecutionContext(spell, cast).DispatchEvent(
+                new SpellEventOccurrence(
+                    SpellEventType.CastStarted,
+                    null,
+                    cast.TargetPoint,
+                    Vector2.zero));
+
+            Assert.That(
+                SpellAIThreatService.ActiveThreatCount,
+                Is.Zero,
+                "A zero-build-up cast has no visible pre-activation window " +
+                "and must not grant frame-perfect foreknowledge.");
+        }
+
+        [Test]
+        public void AIThreatGeometry_SegmentFootprintUsesAuthoredWidth()
+        {
+            SpellDeliveryGeometry wire = SpellDeliveryGeometry.Segment(
+                new Vector2(-2f, 0f),
+                new Vector2(2f, 0f),
+                0.2f);
+
+            float inside = SpellAIThreatService.SignedClearance(
+                wire,
+                new Vector2(0f, 0.15f),
+                0.1f,
+                out Vector2 away);
+            float outside = SpellAIThreatService.SignedClearance(
+                wire,
+                new Vector2(0f, 1f),
+                0.1f,
+                out _);
+
+            Assert.That(inside, Is.LessThanOrEqualTo(0f));
+            Assert.That(outside, Is.GreaterThan(0f));
+            Assert.That(away.y, Is.GreaterThan(0f));
+        }
+
+        [Test]
         public void EnemySkillVerticalSlice_RuntimeTypesAreAvailable()
         {
             System.Type actionKind = System.Type.GetType(
@@ -1348,13 +1524,22 @@ namespace ProjectEri.SkillSystemV2.Tests
                 "ProjectEri.EnemyAI.V2.EnemySpellResourceProviderV2, Assembly-CSharp");
             System.Type profile = System.Type.GetType(
                 "ProjectEri.EnemyAI.V2.EnemyAIV2Profile, Assembly-CSharp");
+            System.Type threatPerception = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemySpellThreatPerceptionV2, Assembly-CSharp");
+            System.Type threatProfile = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyThreatResponseProfileV2, Assembly-CSharp");
 
             Assert.That(actionKind, Is.Not.Null);
             Assert.That(System.Enum.IsDefined(actionKind, "CastSkill"), Is.True);
+            Assert.That(
+                System.Enum.IsDefined(actionKind, "EvadeThreat"),
+                Is.True);
             Assert.That(solver, Is.Not.Null);
             Assert.That(executor, Is.Not.Null);
             Assert.That(resourceProvider, Is.Not.Null);
             Assert.That(profile, Is.Not.Null);
+            Assert.That(threatPerception, Is.Not.Null);
+            Assert.That(threatProfile, Is.Not.Null);
             Assert.That(
                 profile.GetField("minimumSecondsBetweenSkillStarts"),
                 Is.Not.Null);
@@ -1363,6 +1548,15 @@ namespace ProjectEri.SkillSystemV2.Tests
                 Is.Not.Null);
             Assert.That(
                 profile.GetField("maximumConsecutiveSkillActions"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("enableSpellThreatReactions"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("maximumConcurrentThreatReactions"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("emergencyThreatScore"),
                 Is.Not.Null);
             Assert.That(
                 typeof(ISpellResourceProvider).IsAssignableFrom(
@@ -1402,6 +1596,71 @@ namespace ProjectEri.SkillSystemV2.Tests
                     Color.cyan,
                     0)));
             return spell;
+        }
+
+        private SpellDefinition CreateAreaThreatSpell(float radius)
+        {
+            LingeringAreaDeliveryDefinition delivery = Track(
+                ScriptableObject.CreateInstance<
+                    LingeringAreaDeliveryDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                delivery,
+                new LingeringAreaDeliverySettings(
+                    null,
+                    radius,
+                    4f,
+                    0.25f,
+                    ~0,
+                    16,
+                    Color.cyan,
+                    0)));
+            SetField(
+                spell,
+                "targetFilter",
+                new TargetFilter(TargetRelationship.Enemies));
+            SpellAIAffordance guidance = new SpellAIAffordance();
+            SetField(guidance, "intents", SpellAIIntent.Control);
+            SetField(
+                guidance,
+                "suggestedReactions",
+                SpellAIReaction.LeaveArea |
+                SpellAIReaction.DodgeSideways);
+            SetField(guidance, "reactionUrgency", 1f);
+            SetField(spell, "aiAffordance", guidance);
+            return spell;
+        }
+
+        private void RegisterRuntimeThreat(
+            SpellDefinition spell,
+            in CastContext cast,
+            Vector2 center,
+            float radius,
+            out Component runtime)
+        {
+            GameObject runtimeObject = Track(
+                new GameObject("Vocabulary Delivery Runtime"));
+            runtimeObject.transform.position = center;
+            runtime = runtimeObject.AddComponent<CircleCollider2D>();
+            var context = new SpellExecutionContext(spell, cast);
+            context.DispatchEvent(new SpellEventOccurrence(
+                SpellEventType.DeliveryStarted,
+                null,
+                center,
+                Vector2.zero,
+                runtime).WithGeometry(
+                    SpellDeliveryGeometry.FollowCircle(
+                        runtime.transform,
+                        radius)));
+        }
+
+        private void PrepareOpposingTeams()
+        {
+            caster.AddComponent<CombatTeamMember>().SetTeam(
+                CombatTeam.Player);
+            target.AddComponent<CombatTeamMember>().SetTeam(
+                CombatTeam.Enemy);
         }
 
         private T Track<T>(T instance) where T : Object

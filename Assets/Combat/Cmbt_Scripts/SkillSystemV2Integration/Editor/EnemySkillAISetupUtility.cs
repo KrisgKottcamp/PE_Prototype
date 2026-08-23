@@ -34,6 +34,7 @@ public static class EnemySkillAISetupUtility
         EnsureComponent<EnemySpellTargetingSolverV2>(selected);
         EnsureComponent<EnemySpellAIDecisionSupportV2>(selected);
         EnsureComponent<EnemySkillExecutorV2>(selected);
+        EnsureComponent<EnemySpellThreatPerceptionV2>(selected);
 
         Undo.CollapseUndoOperations(group);
         EditorUtility.SetDirty(selected);
@@ -42,7 +43,7 @@ public static class EnemySkillAISetupUtility
 
         EditorUtility.DisplayDialog(
             "Enemy Skill AI configured",
-            "The runtime components are present. Assign Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile > Enable Skill Actions. Tune the profile's Skill Cadence fields and each spell's Placement Lookahead / AI Recast / Active Instance fields before playtesting.",
+            "The runtime components are present. Assign Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile. Threat perception uses the Humanoid fallback preset until you assign an Enemy Threat Response Profile. Tune each spell's Suggested Reactions, Danger Radius, Reaction Urgency, and Telegraph Duration.",
             "OK");
     }
 
@@ -71,6 +72,7 @@ public static class EnemySkillAISetupUtility
             Require<EnemySpellTargetingSolverV2>(selected, problems);
             Require<EnemySpellAIDecisionSupportV2>(selected, problems);
             Require<EnemySkillExecutorV2>(selected, problems);
+            Require<EnemySpellThreatPerceptionV2>(selected, problems);
 
             SpellLoadout loadout = selected.GetComponent<SpellLoadout>();
             if (loadout != null)
@@ -97,7 +99,7 @@ public static class EnemySkillAISetupUtility
         }
 
         string message = problems.Count == 0
-            ? "Ready for enemy skill cadence and predictive placement. Confirm the active EnemyAIV2Profile has Enable Skill Actions checked. For a Slow Orb starting point, use Placement Lookahead 0.45-0.70, Minimum AI Recast 2-4 seconds, one active instance per caster, two per squad, and leave equivalent overlap disabled."
+            ? "Ready for enemy skill cadence, predictive placement, and generic threat reactions. Confirm the active EnemyAIV2Profile enables both Skill Actions and Spell Threat Reactions. Slow Orb should permit Leave Area, expose its real radius, and use a readable urgency/telegraph. Assign a Threat Response Profile for non-Humanoid personalities."
             : "Fix the following before enabling skill actions:\n\n- " +
               string.Join("\n- ", problems);
         EditorUtility.DisplayDialog(

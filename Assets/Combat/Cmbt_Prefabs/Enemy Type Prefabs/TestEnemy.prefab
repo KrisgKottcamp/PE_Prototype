@@ -32,6 +32,7 @@ GameObject:
   - component: {fileID: -1098699091129503964}
   - component: {fileID: 7551269063446772972}
   - component: {fileID: 8200652904887801920}
+  - component: {fileID: -4017769951211098156}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -914,13 +915,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 462d3546f1944b8d966948bf38f86e4d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellTargetingSolverV2
+  agent: {fileID: 0}
   maximumPredictionSeconds: 1.25
   maximumLeadDistance: 3
+  defaultInstantLookaheadSeconds: 0.45
+  velocitySmoothing: 0.45
+  maximumObservedSpeed: 20
   pointSampleRadius: 0.75
   radialSampleCount: 6
   debugSolution: Not evaluated
   debugChosenPoint: {x: 0, y: 0}
   debugCandidateCount: 0
+  debugObservedVelocity: {x: 0, y: 0}
+  debugPredictionSeconds: 0
+  debugPredictedPoint: {x: 0, y: 0}
 --- !u!114 &-1098699091129503964
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -940,6 +948,8 @@ MonoBehaviour:
   debugBestScore: 0
   debugTargetSolution: Not evaluated
   debugRejection: Not evaluated
+  debugTacticalMultiplier: 1
+  debugRememberedActiveInstances: 0
 --- !u!114 &7551269063446772972
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -968,6 +978,41 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellResourceProviderV2
   debugLastWaivedCost: None
+--- !u!114 &-4017769951211098156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16d7f2098c1745dbb7848bc263bc0296, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellThreatPerceptionV2
+  responseProfile: {fileID: 0}
+  fallbackPreset: 1
+  availableReactions: 111
+  basePerceptionRadius: 6
+  bodyRadius: 0.35
+  baseAnticipationSeconds: 1.1
+  perceptionInterval: 0.08
+  reactionMoveDistance: 2
+  hazardClearanceMargin: 0.45
+  reactionArrivalRadius: 0.18
+  reactionTimeout: 1.6
+  debugPerception: Not evaluated
+  debugDecision: None
+  debugThreat: None
+  debugReaction: 0
+  debugThreatScore: 0
+  debugTimeToImpact: 0
+  debugRelevantThreats: 0
+  debugSafestDestination: {x: 0, y: 0}
+  debugNextReactionIn: 0
+  agent: {fileID: 889431934497075718}
+  locomotion: {fileID: -5411453713712291072}
+  actionRunner: {fileID: 5243475557449673624}
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0
