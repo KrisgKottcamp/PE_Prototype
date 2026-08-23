@@ -56,11 +56,17 @@ MonoBehaviour:
     intents: 2
     targetPreference: 0
     placementIntent: 3
+    placementLookaheadSeconds: 0.5
     preferredMinimumRange: 0
     preferredMaximumRange: 8
     minimumUsefulTargets: 1
     baseUtility: 1
     commitmentRisk: 0
+    minimumAIRecastInterval: 2
+    maximumActiveInstancesPerCaster: 1
+    maximumActiveInstancesPerSquad: 2
+    allowEquivalentOverlap: 0
+    equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
     producesComboTags: []
     consumesComboTags: []

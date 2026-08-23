@@ -89,18 +89,36 @@ lets a scheduled attack become a validated SkillSystemV2 cast:
    Skill System V2 > Enemy AI > Configure Selected Enemy**.
 2. Assign the enemy's skill assets under `SpellLoadout > Equipped Skills`.
 3. On each intended spell, enable **Enemy AI Guidance > Usable By AI**, set its
-   intent/range/base utility, and choose an optional Placement Intent.
+   intent/range/base utility, choose an optional Placement Intent, and tune
+   Placement Lookahead plus the per-spell cadence/active-placement limits.
 4. Run **Validate Selected Enemy** from the same menu.
 5. On the scene's `EnemyAIV2Profile`, enable **Skill Actions**. Existing profile
    assets default this off, so importing the feature cannot change combat by
    itself.
+6. Start with **Minimum Seconds Between Skill Starts = 1.25**, **Minimum Legacy
+   Attacks Between Skills = 1**, and **Maximum Consecutive Skill Actions = 1**.
+   These values produce a readable skill/basic-attack cadence without tying it
+   to a named enemy or spell.
 
 `EnemySpellTargetingSolverV2` currently handles self, selected-target,
 direction, and one-point deliveries. Moving targets are led using authored
-build-up plus projectile/grenade travel time, then every candidate still passes
-through normal placement, line-of-sight, target, cooldown, and resource
-validation. Two-point placement, navigation choke scoring, shared combo state,
-and threat reactions are intentionally reserved for later milestones.
+build-up, projectile/grenade travel time, and the spell's extra Placement
+Lookahead. It can estimate velocity from either Rigidbody2D motion or observed
+transform movement. Every candidate still passes through normal placement,
+line-of-sight, target, cooldown, and resource validation.
+
+`SpellAITacticalMemory` prevents the same caster from repeatedly selecting the
+same spell before its AI recast interval. For lingering areas, mines, and trip
+wires it also remembers approximate active footprints, enforces per-caster and
+per-squad instance limits, and rejects (or devalues) equivalent overlap. For a
+Slow Orb starting point, use **Placement Lookahead = 0.45-0.70**, **Minimum AI
+Recast = 2-4 seconds**, **Maximum Active Per Caster = 1**, **Maximum Active Per
+Squad = 2**, and leave equivalent overlap disabled.
+
+Two-point placement, navigation choke scoring, shared combo state, and threat
+reactions are intentionally reserved for later milestones. This patch improves
+skill selection cadence and placement prediction; it does not add threat
+perception or dodge reactions yet.
 
 ### Recommended starter combinations
 

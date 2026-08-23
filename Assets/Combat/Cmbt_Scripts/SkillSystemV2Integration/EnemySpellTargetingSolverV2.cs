@@ -11,9 +11,18 @@ namespace ProjectEri.EnemyAI.V2
     [DisallowMultipleComponent]
     public sealed class EnemySpellTargetingSolverV2 : MonoBehaviour
     {
+        [Header("References")]
+        [SerializeField] private EnemyAgentV2 agent;
+
         [Header("Prediction")]
         [SerializeField, Min(0f)] private float maximumPredictionSeconds = 1.25f;
         [SerializeField, Min(0f)] private float maximumLeadDistance = 3f;
+        [Tooltip("Fallback lead time for instant point/area spells whose authored lookahead is zero.")]
+        [SerializeField, Min(0f)] private float defaultInstantLookaheadSeconds =
+            0.45f;
+        [SerializeField, Range(0.01f, 1f)] private float velocitySmoothing =
+            0.45f;
+        [SerializeField, Min(0.1f)] private float maximumObservedSpeed = 20f;
 
         [Header("Point Candidate Sampling")]
         [SerializeField, Min(0f)] private float pointSampleRadius = 0.75f;
@@ -23,10 +32,30 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private string debugSolution = "Not evaluated";
         [SerializeField] private Vector2 debugChosenPoint;
         [SerializeField] private int debugCandidateCount;
+        [SerializeField] private Vector2 debugObservedVelocity;
+        [SerializeField] private float debugPredictionSeconds;
+        [SerializeField] private Vector2 debugPredictedPoint;
 
         private readonly List<Vector2> pointCandidates = new List<Vector2>(20);
+        private Transform observedTarget;
+        private Vector2 lastObservedPosition;
+        private float lastObservationTime = -1f;
+        private Vector2 sampledVelocity;
 
         public string DebugSolution => debugSolution;
+
+        private void Awake()
+        {
+            if (agent == null)
+                agent = GetComponent<EnemyAgentV2>();
+        }
+
+        private void Update()
+        {
+            if (agent == null)
+                agent = GetComponent<EnemyAgentV2>();
+            SampleTarget(agent != null ? agent.PlayerTarget : null);
+        }
 
         public bool TryResolveBestContext(
             SpellDefinition spell,
@@ -81,17 +110,41 @@ namespace ProjectEri.EnemyAI.V2
             Vector2 currentTargetPoint = target != null
                 ? (Vector2)target.transform.position
                 : fallbackGroundPoint;
+            if (preferredTarget != null)
+                SampleTarget(preferredTarget.transform);
             Vector2 targetVelocity = ResolveVelocity(target);
+            SpellAIPlacementIntent intent = ResolvePlacementIntent(spell);
             float arrivalDelay = SpellAITargetingUtility.EstimateArrivalDelay(
                 spell,
                 origin,
                 currentTargetPoint,
                 maximumPredictionSeconds);
+            float authoredLookahead =
+                spell.AIAffordance.PlacementLookaheadSeconds;
+            if (authoredLookahead <= 0f && arrivalDelay <= 0.01f &&
+                (intent == SpellAIPlacementIntent.LeadMovingTarget ||
+                 intent == SpellAIPlacementIntent.ControlEscapeRoute ||
+                 intent == SpellAIPlacementIntent.AffectCluster))
+            {
+                authoredLookahead = defaultInstantLookaheadSeconds;
+            }
+            if (intent == SpellAIPlacementIntent.DirectHit ||
+                intent == SpellAIPlacementIntent.ProtectSelf)
+            {
+                authoredLookahead = 0f;
+            }
+            float predictionSeconds = Mathf.Clamp(
+                arrivalDelay + authoredLookahead,
+                0f,
+                Mathf.Max(0f, maximumPredictionSeconds));
             Vector2 predictedPoint = SpellAITargetingUtility.PredictTargetPoint(
                 currentTargetPoint,
                 targetVelocity,
-                arrivalDelay,
+                predictionSeconds,
                 maximumLeadDistance);
+            debugObservedVelocity = targetVelocity;
+            debugPredictionSeconds = predictionSeconds;
+            debugPredictedPoint = predictedPoint;
 
             bool needsPoint =
                 (requirements & CastTargetingRequirement.TargetPoint) != 0;
@@ -118,13 +171,16 @@ namespace ProjectEri.EnemyAI.V2
                 return true;
             }
 
-            SpellAIPlacementIntent intent = ResolvePlacementIntent(spell);
+            float effectiveSampleRadius = Mathf.Max(
+                pointSampleRadius,
+                SpellAITacticalMemory.EstimatePersistentRadius(spell) *
+                0.65f);
             SpellAITargetingUtility.BuildPointCandidates(
                 pointCandidates,
                 currentTargetPoint,
                 predictedPoint,
                 targetVelocity,
-                pointSampleRadius,
+                effectiveSampleRadius,
                 radialSampleCount,
                 intent);
             debugCandidateCount = pointCandidates.Count;
@@ -153,7 +209,7 @@ namespace ProjectEri.EnemyAI.V2
                     predictedPoint,
                     targetVelocity,
                     intent,
-                    pointSampleRadius);
+                    effectiveSampleRadius);
                 if (score <= solutionScore)
                     continue;
 
@@ -188,12 +244,66 @@ namespace ProjectEri.EnemyAI.V2
             return preferredTarget;
         }
 
-        private static Vector2 ResolveVelocity(GameObject target)
+        private Vector2 ResolveVelocity(GameObject target)
         {
             if (target == null)
                 return Vector2.zero;
             Rigidbody2D body = target.GetComponentInParent<Rigidbody2D>();
-            return body != null ? body.linearVelocity : Vector2.zero;
+            if (body == null)
+                body = target.GetComponentInChildren<Rigidbody2D>();
+            Vector2 physicsVelocity = body != null
+                ? body.linearVelocity
+                : Vector2.zero;
+            if (physicsVelocity.sqrMagnitude > 0.0001f)
+                return Vector2.ClampMagnitude(
+                    physicsVelocity,
+                    maximumObservedSpeed);
+
+            Transform targetTransform = target.transform;
+            bool sameObservedHierarchy = observedTarget != null &&
+                (observedTarget == targetTransform ||
+                 observedTarget.IsChildOf(targetTransform) ||
+                 targetTransform.IsChildOf(observedTarget));
+            return sameObservedHierarchy
+                ? sampledVelocity
+                : Vector2.zero;
+        }
+
+        private void SampleTarget(Transform target)
+        {
+            if (target == null)
+            {
+                observedTarget = null;
+                lastObservationTime = -1f;
+                sampledVelocity = Vector2.zero;
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            Vector2 position = target.position;
+            if (observedTarget != target || lastObservationTime < 0f)
+            {
+                observedTarget = target;
+                lastObservedPosition = position;
+                lastObservationTime = now;
+                sampledVelocity = Vector2.zero;
+                return;
+            }
+
+            float elapsed = now - lastObservationTime;
+            if (elapsed <= 0.0001f)
+                return;
+
+            Vector2 measured = (position - lastObservedPosition) / elapsed;
+            measured = Vector2.ClampMagnitude(
+                measured,
+                maximumObservedSpeed);
+            sampledVelocity = Vector2.Lerp(
+                sampledVelocity,
+                measured,
+                velocitySmoothing);
+            lastObservedPosition = position;
+            lastObservationTime = now;
         }
 
         private static CastContext BuildContext(

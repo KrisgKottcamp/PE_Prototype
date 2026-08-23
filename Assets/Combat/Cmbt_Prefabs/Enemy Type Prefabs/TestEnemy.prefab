@@ -31,6 +31,7 @@ GameObject:
   - component: {fileID: 7320715239226938214}
   - component: {fileID: -1098699091129503964}
   - component: {fileID: 7551269063446772972}
+  - component: {fileID: 8200652904887801920}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -932,8 +933,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47f10ef1bf65455fa7f93125dba1d99d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellAIDecisionSupportV2
-  loadout: {fileID: 0}
-  spellRunner: {fileID: 0}
+  loadout: {fileID: -4771669693608532639}
+  spellRunner: {fileID: 5765512021955163310}
   targetingSolver: {fileID: 0}
   debugBestSpell: None
   debugBestScore: 0
@@ -951,9 +952,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9b327d0c8ec4929a5743a62b4e80d28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySkillExecutorV2
-  spellRunner: {fileID: 0}
+  spellRunner: {fileID: 5765512021955163310}
   debugSpell: None
   debugResult: Idle
+--- !u!114 &8200652904887801920
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71bb5e1a3f944b95a3e786e6097ca165, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectEri.EnemyAI.V2.EnemySpellResourceProviderV2
+  debugLastWaivedCost: None
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0

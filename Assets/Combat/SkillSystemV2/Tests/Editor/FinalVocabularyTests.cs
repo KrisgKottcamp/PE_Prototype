@@ -14,6 +14,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         [SetUp]
         public void SetUp()
         {
+            SpellAITacticalMemory.ClearAll();
             caster = Track(new GameObject("Vocabulary Caster"));
             target = Track(new GameObject("Vocabulary Target"));
         }
@@ -21,6 +22,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         [TearDown]
         public void TearDown()
         {
+            SpellAITacticalMemory.ClearAll();
             for (int i = created.Count - 1; i >= 0; i--)
             {
                 if (created[i] != null)
@@ -1237,6 +1239,103 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void AITargetPrediction_ExposesAuthoredPlacementLookahead()
+        {
+            SpellAIAffordance guidance = new SpellAIAffordance();
+            SetField(guidance, "placementLookaheadSeconds", 0.65f);
+
+            Assert.That(
+                guidance.PlacementLookaheadSeconds,
+                Is.EqualTo(0.65f).Within(0.001f));
+            Vector2 predicted = SpellAITargetingUtility.PredictTargetPoint(
+                Vector2.zero,
+                new Vector2(2f, 0f),
+                guidance.PlacementLookaheadSeconds,
+                3f);
+            Assert.That(predicted.x, Is.EqualTo(1.3f).Within(0.001f));
+            Assert.That(predicted.y, Is.Zero.Within(0.001f));
+        }
+
+        [Test]
+        public void AITacticalMemory_EnforcesPerSpellRecastCadence()
+        {
+            SpellDefinition spell = CreateLingeringAreaSpell();
+            SpellAIAffordance guidance = new SpellAIAffordance();
+            SetField(guidance, "minimumAIRecastInterval", 10f);
+            SetField(guidance, "maximumActiveInstancesPerCaster", 0);
+            SetField(guidance, "maximumActiveInstancesPerSquad", 0);
+            SetField(spell, "aiAffordance", guidance);
+            CastContext cast = CastContext.ForPoint(
+                caster,
+                caster.transform.position,
+                new Vector2(2f, 0f));
+
+            Assert.That(
+                SpellAITacticalMemory.TryEvaluate(
+                    spell,
+                    caster,
+                    cast,
+                    out _,
+                    out _),
+                Is.True);
+            SpellAITacticalMemory.RecordCast(spell, caster, cast);
+
+            Assert.That(
+                SpellAITacticalMemory.TryEvaluate(
+                    spell,
+                    caster,
+                    cast,
+                    out _,
+                    out string rejection),
+                Is.False);
+            Assert.That(rejection, Does.Contain("recast cadence"));
+        }
+
+        [Test]
+        public void AITacticalMemory_RejectsEquivalentPersistentOverlap()
+        {
+            SpellDefinition spell = CreateLingeringAreaSpell();
+            SpellAIAffordance guidance = new SpellAIAffordance();
+            SetField(guidance, "minimumAIRecastInterval", 0f);
+            SetField(guidance, "maximumActiveInstancesPerCaster", 0);
+            SetField(guidance, "maximumActiveInstancesPerSquad", 0);
+            SetField(guidance, "allowEquivalentOverlap", false);
+            SetField(spell, "aiAffordance", guidance);
+            CastContext first = CastContext.ForPoint(
+                caster,
+                caster.transform.position,
+                new Vector2(2f, 0f));
+            SpellAITacticalMemory.RecordCast(spell, caster, first);
+            CastContext overlap = CastContext.ForPoint(
+                caster,
+                caster.transform.position,
+                new Vector2(2.25f, 0f));
+            CastContext separate = CastContext.ForPoint(
+                caster,
+                caster.transform.position,
+                new Vector2(8f, 0f));
+
+            Assert.That(
+                SpellAITacticalMemory.TryEvaluate(
+                    spell,
+                    caster,
+                    overlap,
+                    out _,
+                    out string rejection),
+                Is.False);
+            Assert.That(rejection, Does.Contain("already covers"));
+            Assert.That(
+                SpellAITacticalMemory.TryEvaluate(
+                    spell,
+                    caster,
+                    separate,
+                    out float multiplier,
+                    out _),
+                Is.True);
+            Assert.That(multiplier, Is.EqualTo(1f));
+        }
+
+        [Test]
         public void EnemySkillVerticalSlice_RuntimeTypesAreAvailable()
         {
             System.Type actionKind = System.Type.GetType(
@@ -1247,12 +1346,24 @@ namespace ProjectEri.SkillSystemV2.Tests
                 "ProjectEri.EnemyAI.V2.EnemySkillExecutorV2, Assembly-CSharp");
             System.Type resourceProvider = System.Type.GetType(
                 "ProjectEri.EnemyAI.V2.EnemySpellResourceProviderV2, Assembly-CSharp");
+            System.Type profile = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyAIV2Profile, Assembly-CSharp");
 
             Assert.That(actionKind, Is.Not.Null);
             Assert.That(System.Enum.IsDefined(actionKind, "CastSkill"), Is.True);
             Assert.That(solver, Is.Not.Null);
             Assert.That(executor, Is.Not.Null);
             Assert.That(resourceProvider, Is.Not.Null);
+            Assert.That(profile, Is.Not.Null);
+            Assert.That(
+                profile.GetField("minimumSecondsBetweenSkillStarts"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("minimumLegacyAttacksBetweenSkills"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("maximumConsecutiveSkillActions"),
+                Is.Not.Null);
             Assert.That(
                 typeof(ISpellResourceProvider).IsAssignableFrom(
                     resourceProvider),
@@ -1269,6 +1380,27 @@ namespace ProjectEri.SkillSystemV2.Tests
             spell.ReplaceDelivery(new SpellDeliverySlot(
                 delivery,
                 new PointClickDeliverySettings(null)));
+            return spell;
+        }
+
+        private SpellDefinition CreateLingeringAreaSpell()
+        {
+            LingeringAreaDeliveryDefinition delivery = Track(
+                ScriptableObject.CreateInstance<
+                    LingeringAreaDeliveryDefinition>());
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            spell.ReplaceDelivery(new SpellDeliverySlot(
+                delivery,
+                new LingeringAreaDeliverySettings(
+                    null,
+                    2f,
+                    4f,
+                    0.25f,
+                    ~0,
+                    16,
+                    Color.cyan,
+                    0)));
             return spell;
         }
 

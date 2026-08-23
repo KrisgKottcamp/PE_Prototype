@@ -42,7 +42,7 @@ public static class EnemySkillAISetupUtility
 
         EditorUtility.DisplayDialog(
             "Enemy Skill AI configured",
-            "The runtime components are present. Assign Basic Attack and Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile > Enable Skill Actions.",
+            "The runtime components are present. Assign Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile > Enable Skill Actions. Tune the profile's Skill Cadence fields and each spell's Placement Lookahead / AI Recast / Active Instance fields before playtesting.",
             "OK");
     }
 
@@ -90,12 +90,14 @@ public static class EnemySkillAISetupUtility
                         problems.Add($"{spell.DisplayName} has no Delivery.");
                     if (!spell.AIAffordance.UsableByAI)
                         problems.Add($"{spell.DisplayName} does not have Usable By AI enabled.");
+                    if (spell.AIAffordance.BaseUtility <= 0f)
+                        problems.Add($"{spell.DisplayName} has zero AI Base Utility.");
                 }
             }
         }
 
         string message = problems.Count == 0
-            ? "Ready for the first enemy-skill vertical slice."
+            ? "Ready for enemy skill cadence and predictive placement. Confirm the active EnemyAIV2Profile has Enable Skill Actions checked. For a Slow Orb starting point, use Placement Lookahead 0.45-0.70, Minimum AI Recast 2-4 seconds, one active instance per caster, two per squad, and leave equivalent overlap disabled."
             : "Fix the following before enabling skill actions:\n\n- " +
               string.Join("\n- ", problems);
         EditorUtility.DisplayDialog(

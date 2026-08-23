@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 namespace ProjectEri.EnemyAI.V2
@@ -93,6 +94,12 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private float debugAttackStartGapRemaining;
         [SerializeField] private float debugPhraseBreatherRemaining;
 
+        [Header("Skill Cadence Debug")]
+        [SerializeField] private string debugSkillCadence = "Not evaluated";
+        [SerializeField] private float debugSkillStartGapRemaining;
+        [SerializeField] private int debugLegacyAttacksSinceSkill;
+        [SerializeField] private int debugConsecutiveSkillActions;
+
         [Header("Stage 3.5 Fluid Movement Debug")]
         [SerializeField] private string debugFluidDecision = "None";
         [SerializeField] private bool debugControllerUsedFluidPressure;
@@ -128,6 +135,9 @@ namespace ProjectEri.EnemyAI.V2
         private bool attackGateWasOccupied;
         private float lastAttackGateReleasedAt = -999f;
         private float lastAnyAttackStartedAt = -999f;
+        private float lastSkillStartedAt = -999f;
+        private int legacyAttacksSinceLastSkill = int.MaxValue;
+        private int consecutiveSkillActions;
         private float phraseBreatherUntil = -1f;
 
         private EnemyAIV2Profile lastAppliedProfile;
@@ -1743,6 +1753,7 @@ namespace ProjectEri.EnemyAI.V2
 
             if (issued)
             {
+                RecordLegacyAttackForSkillCadence();
                 lastAttackPatternByAgent[agent] = pattern;
                 lastAttackPatternByRole[role] = pattern;
                 lastAnyAttackStartedAt = Time.time;
@@ -1840,6 +1851,7 @@ namespace ProjectEri.EnemyAI.V2
 
             if (issued)
             {
+                RecordLegacyAttackForSkillCadence();
                 lastAttackPatternByAgent[agent] = pattern;
                 lastAttackPatternByRole[role] = pattern;
                 lastAnyAttackStartedAt = Time.time;
@@ -1867,6 +1879,45 @@ namespace ProjectEri.EnemyAI.V2
                 agent == null || agent.ActionRunner == null ||
                 agent.PlayerTarget == null)
             {
+                return false;
+            }
+
+            float skillGap = Mathf.Max(
+                0f,
+                profile.minimumSecondsBetweenSkillStarts);
+            float skillGapRemaining =
+                skillGap - (Time.time - lastSkillStartedAt);
+            debugSkillStartGapRemaining = Mathf.Max(0f, skillGapRemaining);
+            debugLegacyAttacksSinceSkill = legacyAttacksSinceLastSkill;
+            debugConsecutiveSkillActions = consecutiveSkillActions;
+            if (skillGapRemaining > 0f)
+            {
+                debugSkillCadence =
+                    $"Skill-start gap: {skillGapRemaining:0.00}s";
+                return false;
+            }
+
+            bool hasUsedSkill = lastSkillStartedAt > -900f;
+            int requiredLegacyAttacks = Mathf.Max(
+                0,
+                profile.minimumLegacyAttacksBetweenSkills);
+            if (hasUsedSkill &&
+                legacyAttacksSinceLastSkill < requiredLegacyAttacks)
+            {
+                debugSkillCadence =
+                    $"Waiting for legacy attack " +
+                    $"{legacyAttacksSinceLastSkill}/{requiredLegacyAttacks}";
+                return false;
+            }
+
+            int maximumConsecutive = Mathf.Max(
+                1,
+                profile.maximumConsecutiveSkillActions);
+            if (consecutiveSkillActions >= maximumConsecutive)
+            {
+                debugSkillCadence =
+                    $"Consecutive skill cap {maximumConsecutive}; " +
+                    "legacy attack required";
                 return false;
             }
 
@@ -1903,6 +1954,10 @@ namespace ProjectEri.EnemyAI.V2
             if (!chose || spell == null ||
                 score < Mathf.Max(0f, profile.minimumSkillUtility))
             {
+                debugSkillCadence = !chose || spell == null
+                    ? "No skill candidate passed targeting/cadence rules"
+                    : $"Skill utility {score:0.00} below " +
+                      $"{profile.minimumSkillUtility:0.00}";
                 return false;
             }
 
@@ -1923,6 +1978,22 @@ namespace ProjectEri.EnemyAI.V2
             if (!issued)
                 return false;
 
+            SpellAITacticalMemory.RecordCast(
+                spell,
+                agent.gameObject,
+                cast);
+            lastSkillStartedAt = Time.time;
+            legacyAttacksSinceLastSkill = 0;
+            consecutiveSkillActions++;
+            debugSkillCadence =
+                $"Issued {spell.DisplayName}; next skill requires " +
+                $"{profile.minimumLegacyAttacksBetweenSkills} legacy attack(s) " +
+                $"and {profile.minimumSecondsBetweenSkillStarts:0.00}s";
+            debugSkillStartGapRemaining = Mathf.Max(
+                0f,
+                profile.minimumSecondsBetweenSkillStarts);
+            debugLegacyAttacksSinceSkill = 0;
+            debugConsecutiveSkillActions = consecutiveSkillActions;
             lastAnyAttackStartedAt = Time.time;
             debugLastAttackSelection =
                 $"{agent.name}: SkillSystemV2 {spell.DisplayName}, utility {score:0.00}";
@@ -1935,6 +2006,20 @@ namespace ProjectEri.EnemyAI.V2
             else if (role == EnemyRoleV2.SoloDuelist)
                 debugSoloAttackSelection = debugLastAttackSelection;
             return true;
+        }
+
+        private void RecordLegacyAttackForSkillCadence()
+        {
+            if (legacyAttacksSinceLastSkill < int.MaxValue)
+                legacyAttacksSinceLastSkill++;
+            consecutiveSkillActions = 0;
+            debugLegacyAttacksSinceSkill = legacyAttacksSinceLastSkill;
+            debugConsecutiveSkillActions = 0;
+            debugSkillCadence = lastSkillStartedAt > -900f
+                ? $"Legacy attack recorded " +
+                  $"({legacyAttacksSinceLastSkill}/" +
+                  $"{Mathf.Max(0, profile.minimumLegacyAttacksBetweenSkills)})"
+                : "No skill has been cast yet";
         }
 
         private void ApplyAttackSelectionOverrides(

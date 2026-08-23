@@ -198,6 +198,9 @@ namespace ProjectEri.SkillSystemV2.Editor
                     aiAffordance.FindPropertyRelative("placementIntent"));
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative(
+                        "placementLookaheadSeconds"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
                         "preferredMinimumRange"));
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative(
@@ -209,6 +212,30 @@ namespace ProjectEri.SkillSystemV2.Editor
                     aiAffordance.FindPropertyRelative("baseUtility"));
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative("commitmentRisk"));
+
+                EditorGUILayout.Space(3f);
+                EditorGUILayout.LabelField(
+                    "AI cadence and active placement",
+                    EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "minimumAIRecastInterval"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "maximumActiveInstancesPerCaster"));
+                EditorGUILayout.PropertyField(
+                    aiAffordance.FindPropertyRelative(
+                        "maximumActiveInstancesPerSquad"));
+                SerializedProperty allowEquivalentOverlap =
+                    aiAffordance.FindPropertyRelative(
+                        "allowEquivalentOverlap");
+                EditorGUILayout.PropertyField(allowEquivalentOverlap);
+                if (allowEquivalentOverlap.boolValue)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "equivalentOverlapUtilityMultiplier"));
+                }
 
                 SpellAIIntent intents = (SpellAIIntent)
                     aiAffordance.FindPropertyRelative("intents").intValue;

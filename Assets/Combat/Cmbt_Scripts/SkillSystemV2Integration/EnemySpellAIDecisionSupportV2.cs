@@ -23,6 +23,8 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private float debugBestScore;
         [SerializeField] private string debugTargetSolution = "Not evaluated";
         [SerializeField] private string debugRejection = "Not evaluated";
+        [SerializeField] private float debugTacticalMultiplier = 1f;
+        [SerializeField] private int debugRememberedActiveInstances;
 
         public SpellDefinition BasicAttack =>
             loadout != null ? loadout.BasicAttack : null;
@@ -53,6 +55,9 @@ namespace ProjectEri.EnemyAI.V2
             spell = null;
             cast = default;
             score = float.NegativeInfinity;
+            debugTacticalMultiplier = 1f;
+            debugRememberedActiveInstances =
+                SpellAITacticalMemory.ActiveInstanceCount;
             if (loadout == null)
             {
                 debugRejection = "Missing SpellLoadout";
@@ -105,6 +110,18 @@ namespace ProjectEri.EnemyAI.V2
                     continue;
                 }
 
+                if (!SpellAITacticalMemory.TryEvaluate(
+                        candidate,
+                        gameObject,
+                        resolved,
+                        out float tacticalMultiplier,
+                        out string tacticalRejection))
+                {
+                    debugRejection =
+                        $"{candidate.DisplayName}: {tacticalRejection}";
+                    continue;
+                }
+
                 float distance = Vector2.Distance(
                     origin,
                     resolved.HasTargetPoint
@@ -123,13 +140,17 @@ namespace ProjectEri.EnemyAI.V2
                 float candidateScore =
                     SpellAIDecisionUtility.Score(candidate, decision);
                 if (!float.IsNegativeInfinity(candidateScore))
-                    candidateScore *= Mathf.Max(0.1f, targetingScore);
+                {
+                    candidateScore *= Mathf.Max(0.1f, targetingScore) *
+                                      tacticalMultiplier;
+                }
                 if (candidateScore <= score)
                     continue;
 
                 score = candidateScore;
                 spell = candidate;
                 cast = resolved;
+                debugTacticalMultiplier = tacticalMultiplier;
                 debugTargetSolution = targetingSolver.DebugSolution;
             }
 

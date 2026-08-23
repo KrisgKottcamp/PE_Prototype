@@ -73,6 +73,9 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField] private SpellAIPlacementIntent placementIntent =
             SpellAIPlacementIntent.Auto;
 
+        [Tooltip("Extra seconds of target movement projected for AI placement. Zero preserves travel-time prediction and lets the enemy solver supply its conservative instant-area fallback.")]
+        [SerializeField, Min(0f)] private float placementLookaheadSeconds;
+
         [Tooltip("Closest distance at which this spell is normally useful. This is a preference, not a replacement for cast validation.")]
         [SerializeField, Min(0f)] private float preferredMinimumRange;
 
@@ -87,6 +90,26 @@ namespace ProjectEri.SkillSystemV2
 
         [Tooltip("How risky it is to commit to this cast. Long stationary casts should be near one; instant safe casts should be near zero.")]
         [SerializeField, Range(0f, 1f)] private float commitmentRisk;
+
+        [Header("AI cadence and active placement")]
+        [Tooltip("Minimum seconds before the same caster may choose this spell again, independent of the gameplay cooldown.")]
+        [SerializeField, Min(0f)] private float minimumAIRecastInterval =
+            1.25f;
+
+        [Tooltip("Maximum remembered persistent instances of this spell from one caster. Zero means unlimited.")]
+        [SerializeField, Min(0)] private int maximumActiveInstancesPerCaster =
+            1;
+
+        [Tooltip("Maximum remembered persistent instances of this spell across the enemy squad. Zero means unlimited.")]
+        [SerializeField, Min(0)] private int maximumActiveInstancesPerSquad =
+            2;
+
+        [Tooltip("Permit a new persistent placement to substantially overlap an equivalent active placement.")]
+        [SerializeField] private bool allowEquivalentOverlap;
+
+        [Tooltip("Utility multiplier used when equivalent overlap is allowed. Values below one discourage redundant placement without forbidding it.")]
+        [SerializeField, Min(0f)]
+        private float equivalentOverlapUtilityMultiplier = 0.25f;
 
         [Tooltip("For Execute or Escape spells, only prefer the special behavior below this caster or target health fraction.")]
         [SerializeField, Range(0f, 1f)] private float healthThreshold = 0.3f;
@@ -117,11 +140,22 @@ namespace ProjectEri.SkillSystemV2
         public SpellAIIntent Intents => intents;
         public SpellAITargetPreference TargetPreference => targetPreference;
         public SpellAIPlacementIntent PlacementIntent => placementIntent;
+        public float PlacementLookaheadSeconds =>
+            Mathf.Max(0f, placementLookaheadSeconds);
         public float PreferredMinimumRange => Mathf.Max(0f, preferredMinimumRange);
         public float PreferredMaximumRange => Mathf.Max(0f, preferredMaximumRange);
         public int MinimumUsefulTargets => Mathf.Max(1, minimumUsefulTargets);
         public float BaseUtility => Mathf.Max(0f, baseUtility);
         public float CommitmentRisk => Mathf.Clamp01(commitmentRisk);
+        public float MinimumAIRecastInterval =>
+            Mathf.Max(0f, minimumAIRecastInterval);
+        public int MaximumActiveInstancesPerCaster =>
+            Mathf.Max(0, maximumActiveInstancesPerCaster);
+        public int MaximumActiveInstancesPerSquad =>
+            Mathf.Max(0, maximumActiveInstancesPerSquad);
+        public bool AllowEquivalentOverlap => allowEquivalentOverlap;
+        public float EquivalentOverlapUtilityMultiplier =>
+            Mathf.Max(0f, equivalentOverlapUtilityMultiplier);
         public float HealthThreshold => Mathf.Clamp01(healthThreshold);
         public IReadOnlyList<string> ProducesComboTags =>
             producesComboTags ??= new List<string>();

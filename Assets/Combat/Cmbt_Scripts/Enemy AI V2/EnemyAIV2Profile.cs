@@ -164,6 +164,15 @@ namespace ProjectEri.EnemyAI.V2
         [Tooltip("When enabled, skills can replace a moving FluidPressure shot. The first vertical slice stops locomotion for the skill cast so authored build-up and recovery remain readable.")]
         public bool skillsMayReplaceFluidPressure = true;
 
+        [Tooltip("Minimum real combat time between SkillSystemV2 cast starts across the squad. Ordinary attacks and movement remain available during this gap.")]
+        [Min(0f)] public float minimumSecondsBetweenSkillStarts = 1.25f;
+
+        [Tooltip("After a skill, require this many successful legacy attack actions before the same squad may select another skill. Zero permits consecutive skills.")]
+        [Min(0)] public int minimumLegacyAttacksBetweenSkills = 1;
+
+        [Tooltip("Hard safety cap on consecutive skill actions. One creates a readable skill/basic cadence even when a skill has very high utility.")]
+        [Min(1)] public int maximumConsecutiveSkillActions = 1;
+
         [Header("Controller Attack")]
         public string controllerPattern = "PetalFan";
         [Min(1)] public int controllerShotsPerBurst = 1;
