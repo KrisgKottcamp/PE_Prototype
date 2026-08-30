@@ -173,6 +173,16 @@ namespace ProjectEri.EnemyAI.V2
         [Tooltip("Hard safety cap on consecutive skill actions. One creates a readable skill/basic cadence even when a skill has very high utility.")]
         [Min(1)] public int maximumConsecutiveSkillActions = 1;
 
+        [Header("SkillSystemV2 Squad Combo Coordination")]
+        [Tooltip("Allow the squad to recognize produced/consumed combo tags, target active setup geometry, and reserve setup/consumer roles.")]
+        public bool enableSquadComboCoordination = true;
+
+        [Tooltip("Maximum active setup and consumer reservations across this squad. Zero means unlimited.")]
+        [Min(0)] public int maximumConcurrentComboReservations = 2;
+
+        [Tooltip("Extra time added to a cast's authored duration when reserving its combo opportunity. This prevents long build-ups from losing their reservation mid-cast.")]
+        [Min(0f)] public float comboReservationCastPadding = 0.5f;
+
         [Header("SkillSystemV2 Threat Reactions")]
         [Tooltip("Allow configured EnemySpellThreatPerceptionV2 components to read hostile delivery geometry and issue bounded avoidance orders.")]
         public bool enableSpellThreatReactions = true;

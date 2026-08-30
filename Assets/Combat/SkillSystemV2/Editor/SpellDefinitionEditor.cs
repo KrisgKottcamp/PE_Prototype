@@ -191,8 +191,9 @@ namespace ProjectEri.SkillSystemV2.Editor
                 EditorGUILayout.LabelField(
                     "When should the AI use it?",
                     EditorStyles.boldLabel);
-                EditorGUILayout.PropertyField(
-                    aiAffordance.FindPropertyRelative("intents"));
+                SerializedProperty intentsProperty =
+                    aiAffordance.FindPropertyRelative("intents");
+                DrawIntentFlags(intentsProperty);
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative("targetPreference"));
                 EditorGUILayout.PropertyField(
@@ -238,13 +239,63 @@ namespace ProjectEri.SkillSystemV2.Editor
                             "equivalentOverlapUtilityMultiplier"));
                 }
 
-                SpellAIIntent intents = (SpellAIIntent)
-                    aiAffordance.FindPropertyRelative("intents").intValue;
-                if ((intents & (SpellAIIntent.Execute |
-                                SpellAIIntent.Escape)) != 0)
+                SpellAIIntent intents =
+                    (SpellAIIntent)intentsProperty.intValue;
+                bool usesHealthThreshold =
+                    (intents & (SpellAIIntent.Execute |
+                                SpellAIIntent.Escape |
+                                SpellAIIntent.Support)) != 0;
+                using (new EditorGUI.DisabledScope(!usesHealthThreshold))
                 {
                     EditorGUILayout.PropertyField(
-                        aiAffordance.FindPropertyRelative("healthThreshold"));
+                        aiAffordance.FindPropertyRelative("healthThreshold"),
+                        new GUIContent(
+                            "Health Threshold",
+                            usesHealthThreshold
+                                ? "Execute checks target health, Escape checks caster health, and ally-targeted Support checks ally health."
+                                : "Enable Execute, Escape, or Support to use this threshold."));
+                }
+
+                EditorGUILayout.Space(3f);
+                EditorGUILayout.LabelField(
+                    "AI approach before casting",
+                    EditorStyles.boldLabel);
+                SerializedProperty moveIntoRange =
+                    aiAffordance.FindPropertyRelative(
+                        "moveIntoRangeBeforeCasting");
+                EditorGUILayout.PropertyField(moveIntoRange);
+                if (moveIntoRange.boolValue)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "requiredAICastRange"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "maximumAIApproachDistance"));
+                }
+                bool isSupport =
+                    (intents & SpellAIIntent.Support) != 0;
+                using (new EditorGUI.DisabledScope(!isSupport))
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "requestTargetHoldDuringSupportCast"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "interruptSupportCastWhenDamaged"));
+                    SerializedProperty interruptForThreat =
+                        aiAffordance.FindPropertyRelative(
+                            "interruptSupportCastForImminentThreat");
+                    EditorGUILayout.PropertyField(interruptForThreat);
+                    if (interruptForThreat.boolValue)
+                    {
+                        EditorGUILayout.PropertyField(
+                            aiAffordance.FindPropertyRelative(
+                                "supportCastThreatInterruptScore"));
+                        EditorGUILayout.PropertyField(
+                            aiAffordance.FindPropertyRelative(
+                                "supportCastThreatInterruptWindow"));
+                    }
                 }
 
                 EditorGUILayout.Space(3f);
@@ -257,6 +308,57 @@ namespace ProjectEri.SkillSystemV2.Editor
                 EditorGUILayout.PropertyField(
                     aiAffordance.FindPropertyRelative("consumesComboTags"),
                     includeChildren: true);
+                SerializedProperty producedComboTags =
+                    aiAffordance.FindPropertyRelative("producesComboTags");
+                if (producedComboTags.arraySize > 0)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboTagActivationEvent"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboOpportunityLifetime"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboOpportunityRadius"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "suppressRedundantComboSetup"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "requireSquadConsumerForSetup"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "setupUtilityMultiplierWithConsumer"));
+                }
+
+                SerializedProperty consumedComboTags =
+                    aiAffordance.FindPropertyRelative("consumesComboTags");
+                if (consumedComboTags.arraySize > 0)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "requireActiveComboToCast"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboRequirementMode"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboUtilityMultiplier"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "consumeComboOpportunityOnCast"));
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "allowSelfCombo"));
+                }
+                if (producedComboTags.arraySize > 0 ||
+                    consumedComboTags.arraySize > 0)
+                {
+                    EditorGUILayout.PropertyField(
+                        aiAffordance.FindPropertyRelative(
+                            "comboReservationSeconds"));
+                }
 
                 EditorGUILayout.Space(3f);
                 EditorGUILayout.LabelField(
@@ -278,6 +380,75 @@ namespace ProjectEri.SkillSystemV2.Editor
                     aiAffordance.FindPropertyRelative("telegraphDuration"));
             }
             EditorGUILayout.Space();
+        }
+
+        private static void DrawIntentFlags(SerializedProperty property)
+        {
+            EditorGUILayout.LabelField(
+                new GUIContent(
+                    "Intents",
+                    "Plain categories describing why an AI would cast this spell. Multiple intents may be selected."));
+
+            SpellAIIntent value = (SpellAIIntent)property.intValue;
+            EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
+            EditorGUI.BeginChangeCheck();
+            using (new EditorGUI.IndentLevelScope())
+            {
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Damage,
+                    "Damage");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Control,
+                    "Control");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Mobility,
+                    "Mobility");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Defense,
+                    "Defense");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Support,
+                    "Support");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Setup,
+                    "Setup");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Execute,
+                    "Execute");
+                value = DrawIntentToggle(
+                    value,
+                    SpellAIIntent.Escape,
+                    "Escape");
+            }
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                property.intValue = (int)value;
+                GUI.changed = true;
+            }
+            EditorGUI.showMixedValue = false;
+        }
+
+        private static SpellAIIntent DrawIntentToggle(
+            SpellAIIntent value,
+            SpellAIIntent flag,
+            string label)
+        {
+            bool enabled = (value & flag) != 0;
+            bool selected = EditorGUILayout.ToggleLeft(label, enabled);
+            if (selected == enabled)
+                return value;
+
+            return selected
+                ? value | flag
+                : value & ~flag;
         }
 
         private void DrawComposition()

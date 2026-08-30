@@ -412,6 +412,28 @@ namespace ProjectEri.SkillSystemV2
                         SpellValidationSeverity.Error,
                         "Enemy AI preferred maximum range is smaller than its preferred minimum range."));
                 }
+                if (AIAffordance.RequireActiveComboToCast &&
+                    AIAffordance.ConsumesComboTags.Count == 0)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        "Require Active Combo To Cast is enabled, but this spell consumes no combo tags."));
+                }
+                if (AIAffordance.ProducesComboTags.Count > 0 &&
+                    AIAffordance.ComboTagActivationEvent ==
+                    SpellEventType.None)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Error,
+                        "This spell produces combo tags, but its Combo Tag Activation Event is None."));
+                }
+                if (AIAffordance.RequireSquadConsumerForSetup &&
+                    AIAffordance.ProducesComboTags.Count == 0)
+                {
+                    issues.Add(new SpellValidationIssue(
+                        SpellValidationSeverity.Warning,
+                        "Require Squad Consumer For Setup is enabled, but this spell produces no combo tags."));
+                }
             }
 
             EnsureDeliverySlot();

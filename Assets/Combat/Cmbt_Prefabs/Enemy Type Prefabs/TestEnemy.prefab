@@ -775,6 +775,7 @@ MonoBehaviour:
   locomotion: {fileID: 0}
   combatExecutor: {fileID: 0}
   skillExecutor: {fileID: 0}
+  targetingSolver: {fileID: 0}
   debugAction: 0
   debugStatus: 0
   debugReason: Idle
@@ -888,7 +889,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellLoadout
   basicAttack: {fileID: 0}
   equippedSkills:
-  - {fileID: 11400000, guid: 83edc2a1d710e364fa4f124e9ba80d18, type: 2}
+  - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
+  - {fileID: 11400000, guid: 451d388a15808364f931c9b06d6fe1d5, type: 2}
+  - {fileID: 11400000, guid: 7d1d420ae525d8042baaedcfcf2e95dc, type: 2}
+  - {fileID: 11400000, guid: f325580d15342894ba2bb623c4b6cb69, type: 2}
+  - {fileID: 11400000, guid: 37d412756329c0d4c80abf807fc4d62b, type: 2}
 --- !u!114 &5765512021955163310
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -944,12 +949,18 @@ MonoBehaviour:
   loadout: {fileID: -4771669693608532639}
   spellRunner: {fileID: 5765512021955163310}
   targetingSolver: {fileID: 0}
+  agent: {fileID: 0}
   debugBestSpell: None
   debugBestScore: 0
   debugTargetSolution: Not evaluated
   debugRejection: Not evaluated
   debugTacticalMultiplier: 1
   debugRememberedActiveInstances: 0
+  debugComboPlan: Not evaluated
+  debugComboOpportunities: 0
+  debugSupportTarget: None
+  debugSupportTargetHealth: 1
+  debugApproachPlan: None
 --- !u!114 &7551269063446772972
 MonoBehaviour:
   m_ObjectHideFlags: 0

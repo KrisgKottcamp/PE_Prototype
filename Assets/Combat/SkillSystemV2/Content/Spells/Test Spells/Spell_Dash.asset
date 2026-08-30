@@ -44,6 +44,48 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 0
     requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 1
+    intents: 4
+    targetPreference: 7
+    placementIntent: 0
+    placementLookaheadSeconds: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    minimumAIRecastInterval: 1.25
+    maximumActiveInstancesPerCaster: 1
+    maximumActiveInstancesPerSquad: 2
+    allowEquivalentOverlap: 0
+    equivalentOverlapUtilityMultiplier: 0.25
+    healthThreshold: 0.3
+    producesComboTags: []
+    consumesComboTags: []
+    comboTagActivationEvent: 2
+    comboOpportunityLifetime: 0
+    comboOpportunityRadius: 0
+    requireActiveComboToCast: 0
+    comboRequirementMode: 0
+    comboUtilityMultiplier: 1.65
+    consumeComboOpportunityOnCast: 1
+    comboReservationSeconds: 1.5
+    allowSelfCombo: 1
+    suppressRedundantComboSetup: 1
+    requireSquadConsumerForSetup: 0
+    setupUtilityMultiplierWithConsumer: 1.35
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
@@ -55,6 +97,14 @@ MonoBehaviour:
   - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
     settings:
       rid: 1819652408774492323
+    deliveryBinding: 0
+    anchorTrigger: 2
+    anchorApplication: 2
+    anchorMultiplicity: 1
+    anchorDuration: 1
+    anchorInterval: 0.25
+    anchorSizeOverride: 0
+    reapplyAfterExit: 1
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1

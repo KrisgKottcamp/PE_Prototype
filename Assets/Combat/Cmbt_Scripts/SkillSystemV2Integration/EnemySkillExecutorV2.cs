@@ -6,6 +6,7 @@ namespace ProjectEri.EnemyAI.V2
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpellRunner))]
     [RequireComponent(typeof(EnemySpellResourceProviderV2))]
+    [RequireComponent(typeof(SpellBuildUpControl2D))]
     public sealed class EnemySkillExecutorV2 : MonoBehaviour
     {
         [SerializeField] private SpellRunner spellRunner;
@@ -16,6 +17,7 @@ namespace ProjectEri.EnemyAI.V2
         private bool running;
         private bool succeeded;
         private bool failed;
+        private SpellAIComboReservation activeComboReservation;
 
         public bool IsRunning => running;
         public string DebugResult => debugResult;
@@ -23,6 +25,7 @@ namespace ProjectEri.EnemyAI.V2
         private void Awake()
         {
             EnsureResourceProvider();
+            EnsureBuildUpVisual();
             if (spellRunner == null)
                 spellRunner = GetComponent<SpellRunner>();
         }
@@ -30,6 +33,7 @@ namespace ProjectEri.EnemyAI.V2
         private void OnEnable()
         {
             EnsureResourceProvider();
+            EnsureBuildUpVisual();
             if (spellRunner == null)
                 spellRunner = GetComponent<SpellRunner>();
             if (spellRunner == null)
@@ -51,6 +55,12 @@ namespace ProjectEri.EnemyAI.V2
             gameObject.AddComponent<EnemySpellResourceProviderV2>();
         }
 
+        private void EnsureBuildUpVisual()
+        {
+            if (GetComponent<SpellBuildUpControl2D>() == null)
+                gameObject.AddComponent<SpellBuildUpControl2D>();
+        }
+
         private void OnDisable()
         {
             if (spellRunner != null)
@@ -58,11 +68,18 @@ namespace ProjectEri.EnemyAI.V2
                 spellRunner.CastCompleted -= HandleCompleted;
                 spellRunner.CastInterrupted -= HandleInterrupted;
             }
+            SpellAIComboCoordinator.ReleaseReservation(
+                activeComboReservation,
+                gameObject);
+            activeComboReservation = default;
             running = false;
             activeSpell = null;
         }
 
-        public bool BeginSkill(SpellDefinition spell, in CastContext context)
+        public bool BeginSkill(
+            SpellDefinition spell,
+            in CastContext context,
+            in SpellAIComboReservation comboReservation)
         {
             if (spellRunner == null || spell == null || running)
             {
@@ -77,17 +94,24 @@ namespace ProjectEri.EnemyAI.V2
             succeeded = false;
             failed = false;
             activeSpell = spell;
+            activeComboReservation = comboReservation;
             debugSpell = spell.DisplayName;
+            running = true;
             if (!spellRunner.TryCast(spell, context, out SpellCastFailure failure))
             {
+                running = false;
+                SpellAIComboCoordinator.ReleaseReservation(
+                    activeComboReservation,
+                    gameObject);
+                activeComboReservation = default;
                 activeSpell = null;
                 failed = true;
                 debugResult = $"Cast rejected: {failure}";
                 return false;
             }
 
-            running = true;
-            debugResult = "Casting";
+            if (running)
+                debugResult = "Casting";
             return true;
         }
 
@@ -117,6 +141,13 @@ namespace ProjectEri.EnemyAI.V2
             running = false;
             activeSpell = null;
             debugResult = reason;
+            if (!running)
+            {
+                SpellAIComboCoordinator.ReleaseReservation(
+                    activeComboReservation,
+                    gameObject);
+                activeComboReservation = default;
+            }
         }
 
         private void HandleCompleted(SpellCastEvent castEvent)
@@ -126,6 +157,11 @@ namespace ProjectEri.EnemyAI.V2
             running = false;
             succeeded = true;
             debugResult = "Cast completed";
+            SpellAIComboCoordinator.CommitReservation(
+                activeComboReservation,
+                activeSpell,
+                gameObject);
+            activeComboReservation = default;
             activeSpell = null;
         }
 
@@ -138,6 +174,10 @@ namespace ProjectEri.EnemyAI.V2
             debugResult = string.IsNullOrWhiteSpace(castEvent.Reason)
                 ? "Cast interrupted"
                 : castEvent.Reason;
+            SpellAIComboCoordinator.ReleaseReservation(
+                activeComboReservation,
+                gameObject);
+            activeComboReservation = default;
             activeSpell = null;
         }
     }

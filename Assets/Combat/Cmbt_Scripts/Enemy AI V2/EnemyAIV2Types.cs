@@ -67,7 +67,15 @@ namespace ProjectEri.EnemyAI.V2
         // Short, obstacle-aware movement order issued by generic spell threat
         // perception. Keeping it distinct makes reactions visible in runtime
         // diagnostics without introducing a second movement controller.
-        EvadeThreat = 8
+        EvadeThreat = 8,
+
+        // Protected move-then-cast sequence for short-range actor-targeted
+        // skills such as an ally heal, melee buff, or close-range debuff.
+        ApproachAndCastSkill = 9,
+
+        // Protected pause requested by an allied support caster. This is a
+        // squad-coordination action, not spell-name-specific healing logic.
+        HoldForSupport = 10
     }
 
     public enum EnemyActionStatusV2
@@ -157,6 +165,15 @@ namespace ProjectEri.EnemyAI.V2
 
         [NonSerialized] public SpellDefinition skillSpell;
         [NonSerialized] public CastContext skillCast;
+        [NonSerialized] public SpellAIComboReservation comboReservation;
+        [NonSerialized] public GameObject skillApproachTarget;
+        [NonSerialized] public GameObject supportHoldOwner;
+        [NonSerialized] public int threatId;
+        [NonSerialized] public float threatScore;
+        [NonSerialized] public float threatTimeToImpact;
+        [NonSerialized] public bool threatIsInside;
+        public float skillApproachRange = 1.4f;
+        public float skillCastTimeoutSeconds = 2f;
 
         public string reason = "None";
 

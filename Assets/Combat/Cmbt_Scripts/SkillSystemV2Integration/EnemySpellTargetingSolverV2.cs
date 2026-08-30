@@ -63,7 +63,8 @@ namespace ProjectEri.EnemyAI.V2
             Vector2 fallbackGroundPoint,
             out CastContext resolved,
             out float solutionScore,
-            out string rejection)
+            out string rejection,
+            bool preferFallbackGroundPoint = false)
         {
             resolved = default;
             solutionScore = float.NegativeInfinity;
@@ -107,12 +108,16 @@ namespace ProjectEri.EnemyAI.V2
             }
 
             Vector2 origin = transform.position;
-            Vector2 currentTargetPoint = target != null
-                ? (Vector2)target.transform.position
-                : fallbackGroundPoint;
+            Vector2 currentTargetPoint = preferFallbackGroundPoint
+                ? fallbackGroundPoint
+                : target != null
+                    ? (Vector2)target.transform.position
+                    : fallbackGroundPoint;
             if (preferredTarget != null)
                 SampleTarget(preferredTarget.transform);
-            Vector2 targetVelocity = ResolveVelocity(target);
+            Vector2 targetVelocity = preferFallbackGroundPoint
+                ? Vector2.zero
+                : ResolveVelocity(target);
             SpellAIPlacementIntent intent = ResolvePlacementIntent(spell);
             float arrivalDelay = SpellAITargetingUtility.EstimateArrivalDelay(
                 spell,
@@ -129,7 +134,9 @@ namespace ProjectEri.EnemyAI.V2
                 authoredLookahead = defaultInstantLookaheadSeconds;
             }
             if (intent == SpellAIPlacementIntent.DirectHit ||
-                intent == SpellAIPlacementIntent.ProtectSelf)
+                intent == SpellAIPlacementIntent.ProtectSelf ||
+                intent == SpellAIPlacementIntent.ComboLocation ||
+                preferFallbackGroundPoint)
             {
                 authoredLookahead = 0f;
             }

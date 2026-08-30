@@ -70,12 +70,18 @@ MonoBehaviour:
   soloRecoverySeconds: 0.55
   holdLaneMaximumSeconds: 0.75
   enableSkillActions: 1
-  minimumSkillUtility: 1
+  minimumSkillUtility: 0.5
   skillCastTimeoutPadding: 1
   skillsMayReplaceFluidPressure: 1
-  minimumSecondsBetweenSkillStarts: 1.25
-  minimumLegacyAttacksBetweenSkills: 1
-  maximumConsecutiveSkillActions: 1
+  minimumSecondsBetweenSkillStarts: 0.75
+  minimumLegacyAttacksBetweenSkills: 0
+  maximumConsecutiveSkillActions: 2
+  enableSquadComboCoordination: 1
+  maximumConcurrentComboReservations: 2
+  comboReservationCastPadding: 0.5
+  enableSpellThreatReactions: 1
+  maximumConcurrentThreatReactions: 2
+  emergencyThreatScore: 0.9
   controllerPattern: PetalFan
   controllerShotsPerBurst: 1
   controllerIntraBurstInterval: 0.13

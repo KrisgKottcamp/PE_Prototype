@@ -304,6 +304,9 @@ namespace ProjectEri.SkillSystemV2
             SpellAIThreatService.CancelCast(
                 interruptedSpell,
                 interruptedContext);
+            SpellAIComboCoordinator.CancelPendingCast(
+                interruptedSpell,
+                interruptedContext);
             CancelDelivery(reason);
             ClearActiveCast();
 
@@ -762,6 +765,9 @@ namespace ProjectEri.SkillSystemV2
                 "The cast completed every phase normally.");
 
             SpellAIThreatService.CancelCast(
+                completedSpell,
+                completedContext);
+            SpellAIComboCoordinator.CancelPendingCast(
                 completedSpell,
                 completedContext);
 

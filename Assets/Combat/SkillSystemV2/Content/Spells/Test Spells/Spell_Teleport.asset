@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: 
     amount: 0
   targetFilter:
-    relationship: 1
+    relationship: 0
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -52,17 +52,36 @@ MonoBehaviour:
       m_Bits: 0
     lineOfSightRadius: 0.03
   aiAffordance:
-    usableByAI: 0
-    intents: 1
+    usableByAI: 1
+    intents: 0
     targetPreference: 0
-    preferredMinimumRange: 0
+    placementIntent: 2
+    placementLookaheadSeconds: 0.5
+    preferredMinimumRange: 3
     preferredMaximumRange: 8
     minimumUsefulTargets: 1
-    baseUtility: 1
-    commitmentRisk: 0
+    baseUtility: 1.6
+    commitmentRisk: 0.15
+    minimumAIRecastInterval: 4
+    maximumActiveInstancesPerCaster: 0
+    maximumActiveInstancesPerSquad: 0
+    allowEquivalentOverlap: 1
+    equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
     producesComboTags: []
     consumesComboTags: []
+    comboTagActivationEvent: 2
+    comboOpportunityLifetime: 0
+    comboOpportunityRadius: 0
+    requireActiveComboToCast: 0
+    comboRequirementMode: 0
+    comboUtilityMultiplier: 1.65
+    consumeComboOpportunityOnCast: 1
+    comboReservationSeconds: 1.5
+    allowSelfCombo: 1
+    suppressRedundantComboSetup: 1
+    requireSquadConsumerForSetup: 0
+    setupUtilityMultiplierWithConsumer: 1.35
     suggestedReactions: 1
     dangerRadius: 0
     reactionUrgency: 0.7
@@ -74,21 +93,10 @@ MonoBehaviour:
       rid: 1819652482963603537
   deliverySlotMigrated: 1
   effects: []
-  effectSlots:
-  - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
-    settings:
-      rid: 1819652394160488522
-    deliveryBinding: 0
-    anchorTrigger: 2
-    anchorApplication: 2
-    anchorMultiplicity: 1
-    anchorDuration: 1
-    anchorInterval: 0.25
-    anchorSizeOverride: 0
-    reapplyAfterExit: 1
+  effectSlots: []
   eventEffectRoutes:
   - enabled: 1
-    displayName: Event Effect Recipe 1
+    displayName: Teleport
     stableId: 18fb8ddd9b404fdfbc290034578e8fce
     trigger: 6
     subjectRuleMode: 0
@@ -120,19 +128,6 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652394160488522
-      type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        destinationSource: 0
-        speed: 14
-        maximumDistance: 10
-        instantaneous: 1
-        requireLineOfSight: 0
-        obstructionMask:
-          serializedVersion: 2
-          m_Bits: 4294967295
-        keepOutsideHitSurface: 1
-        extraSurfaceClearance: 0.05
     - rid: 1819652394160488578
       type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
@@ -143,7 +138,7 @@ MonoBehaviour:
         requireLineOfSight: 1
         obstructionMask:
           serializedVersion: 2
-          m_Bits: 1152
+          m_Bits: 1408
         keepOutsideHitSurface: 1
         extraSurfaceClearance: 0.05
     - rid: 1819652482963603537
@@ -157,7 +152,7 @@ MonoBehaviour:
         collisionRadius: 0.08
         collisionMask:
           serializedVersion: 2
-          m_Bits: 1152
+          m_Bits: 1408
         pierceTargets: 0
         maximumTargetHits: 1
         stopOnBlockedCollider: 1

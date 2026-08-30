@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: AP
     amount: 0
   targetFilter:
-    relationship: 4
+    relationship: 0
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -52,17 +52,37 @@ MonoBehaviour:
       m_Bits: 0
     lineOfSightRadius: 0.03
   aiAffordance:
-    usableByAI: 0
-    intents: 1
+    usableByAI: 1
+    intents: 65
     targetPreference: 0
+    placementIntent: 7
+    placementLookaheadSeconds: 0.5
     preferredMinimumRange: 0
     preferredMaximumRange: 8
     minimumUsefulTargets: 1
-    baseUtility: 1
+    baseUtility: 2
     commitmentRisk: 0
+    minimumAIRecastInterval: 1
+    maximumActiveInstancesPerCaster: 1
+    maximumActiveInstancesPerSquad: 2
+    allowEquivalentOverlap: 0
+    equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
     producesComboTags: []
-    consumesComboTags: []
+    consumesComboTags:
+    - Oil
+    comboTagActivationEvent: 2
+    comboOpportunityLifetime: 0
+    comboOpportunityRadius: 0
+    requireActiveComboToCast: 1
+    comboRequirementMode: 0
+    comboUtilityMultiplier: 2
+    consumeComboOpportunityOnCast: 1
+    comboReservationSeconds: 1.5
+    allowSelfCombo: 1
+    suppressRedundantComboSetup: 1
+    requireSquadConsumerForSetup: 0
+    setupUtilityMultiplierWithConsumer: 1.35
     suggestedReactions: 1
     dangerRadius: 0
     reactionUrgency: 0.7
@@ -106,7 +126,7 @@ MonoBehaviour:
         collisionRadius: 0.1
         collisionMask:
           serializedVersion: 2
-          m_Bits: 1152
+          m_Bits: 1408
         pierceTargets: 0
         maximumTargetHits: 1
         stopOnBlockedCollider: 1

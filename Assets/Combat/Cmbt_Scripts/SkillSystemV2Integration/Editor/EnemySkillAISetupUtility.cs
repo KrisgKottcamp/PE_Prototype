@@ -34,6 +34,7 @@ public static class EnemySkillAISetupUtility
         EnsureComponent<EnemySpellTargetingSolverV2>(selected);
         EnsureComponent<EnemySpellAIDecisionSupportV2>(selected);
         EnsureComponent<EnemySkillExecutorV2>(selected);
+        EnsureComponent<SpellBuildUpControl2D>(selected);
         EnsureComponent<EnemySpellThreatPerceptionV2>(selected);
 
         Undo.CollapseUndoOperations(group);
@@ -43,7 +44,7 @@ public static class EnemySkillAISetupUtility
 
         EditorUtility.DisplayDialog(
             "Enemy Skill AI configured",
-            "The runtime components are present. Assign Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile. Threat perception uses the Humanoid fallback preset until you assign an Enemy Threat Response Profile. Tune each spell's Suggested Reactions, Danger Radius, Reaction Urgency, and Telegraph Duration.",
+            "The runtime components are present. Assign Equipped Skills on SpellLoadout, enable Usable By AI on each intended spell, then opt in through EnemyAIV2Profile. Threat perception uses the Humanoid fallback preset until you assign an Enemy Threat Response Profile. Squad combos use Produced/Consumed Combo Tags plus the delivery's authored activation event and geometry.",
             "OK");
     }
 
@@ -72,6 +73,7 @@ public static class EnemySkillAISetupUtility
             Require<EnemySpellTargetingSolverV2>(selected, problems);
             Require<EnemySpellAIDecisionSupportV2>(selected, problems);
             Require<EnemySkillExecutorV2>(selected, problems);
+            Require<SpellBuildUpControl2D>(selected, problems);
             Require<EnemySpellThreatPerceptionV2>(selected, problems);
 
             SpellLoadout loadout = selected.GetComponent<SpellLoadout>();
@@ -94,12 +96,30 @@ public static class EnemySkillAISetupUtility
                         problems.Add($"{spell.DisplayName} does not have Usable By AI enabled.");
                     if (spell.AIAffordance.BaseUtility <= 0f)
                         problems.Add($"{spell.DisplayName} has zero AI Base Utility.");
+
+                    SpellAITargetPreference preference =
+                        spell.AIAffordance.TargetPreference;
+                    bool targetsAllies =
+                        preference ==
+                            SpellAITargetPreference.LowestHealthAlly ||
+                        preference == SpellAITargetPreference.AllyCluster;
+                    TargetRelationship relationship =
+                        spell.TargetFilter.Relationship;
+                    if (targetsAllies &&
+                        relationship != TargetRelationship.Allies &&
+                        relationship !=
+                            TargetRelationship.AlliesAndSelf)
+                    {
+                        problems.Add(
+                            $"{spell.DisplayName} targets allies in AI " +
+                            "guidance but Target Rules does not allow allies.");
+                    }
                 }
             }
         }
 
         string message = problems.Count == 0
-            ? "Ready for enemy skill cadence, predictive placement, and generic threat reactions. Confirm the active EnemyAIV2Profile enables both Skill Actions and Spell Threat Reactions. Slow Orb should permit Leave Area, expose its real radius, and use a readable urgency/telegraph. Assign a Threat Response Profile for non-Humanoid personalities."
+            ? "Ready for skill cadence, predictive placement, threat reactions, and squad combo coordination. Confirm the active EnemyAIV2Profile enables Skill Actions, Spell Threat Reactions, and Squad Combo Coordination. Setup spells should Produce a tag; consumer spells should Consume the same tag and use Combo Location when appropriate."
             : "Fix the following before enabling skill actions:\n\n- " +
               string.Join("\n- ", problems);
         EditorUtility.DisplayDialog(

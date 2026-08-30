@@ -3,9 +3,10 @@ using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
 /// <summary>
-/// Player-side adapter for SpellTiming.BuildUpControl. It intentionally lives
-/// outside the reusable spell core: enemies can share Build Up timing without
-/// inheriting player input restrictions.
+/// Actor-side adapter for SpellTiming.BuildUpControl. It owns the shared
+/// buildup visual while exposing optional player input restriction queries.
+/// Enemy casters can safely use the visual because only player controllers
+/// call the blocking helpers below.
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(SpellRunner))]

@@ -240,6 +240,10 @@ namespace ProjectEri.EnemyAI.V2
                 targetPosition = destination,
                 arrivalRadius = reactionArrivalRadius,
                 timeoutSeconds = reactionTimeout,
+                threatId = threat.ThreatId,
+                threatScore = threat.Score,
+                threatTimeToImpact = threat.TimeToImpact,
+                threatIsInside = threat.IsInside,
                 reason = $"{reaction} from {threat.Spell.DisplayName} " +
                          $"(score {threat.Score:0.00})"
             };
@@ -680,7 +684,8 @@ namespace ProjectEri.EnemyAI.V2
         {
             return kind == EnemyActionKindV2.AttackPattern ||
                    kind == EnemyActionKindV2.FluidPressure ||
-                   kind == EnemyActionKindV2.CastSkill;
+                   kind == EnemyActionKindV2.CastSkill ||
+                   kind == EnemyActionKindV2.ApproachAndCastSkill;
         }
 
         private static bool Has(

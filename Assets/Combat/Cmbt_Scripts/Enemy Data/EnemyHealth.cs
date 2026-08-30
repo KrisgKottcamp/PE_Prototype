@@ -2,12 +2,15 @@ using UnityEngine;
 using ProjectEri.SkillSystemV2;
 using ProjectEri.EnemyAI.V2;
 
-public class EnemyHealth : MonoBehaviour, ISpellDamageReceiver
+public class EnemyHealth : MonoBehaviour,
+    ISpellDamageReceiver,
+    ISpellHealingReceiver
 {
     [SerializeField] private int maxHP = 30;
     public int CurrentHP { get; private set; }
 
     public System.Action<EnemyHealth> OnDied;
+    public System.Action<EnemyHealth, int> OnDamaged;
     private HitMorph hitMorph;
     private DamageFlash2D damageFlash;
 
@@ -62,7 +65,13 @@ public class EnemyHealth : MonoBehaviour, ISpellDamageReceiver
         hitMorph?.Play();
         PlayHitFlash();
 
+        int before = CurrentHP;
         CurrentHP -= amount;
+        int applied = Mathf.Max(
+            0,
+            before - Mathf.Max(0, CurrentHP));
+        if (applied > 0)
+            OnDamaged?.Invoke(this, applied);
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
 
         if (CurrentHP <= 0)
@@ -85,6 +94,33 @@ public class EnemyHealth : MonoBehaviour, ISpellDamageReceiver
             request.Amount,
             applied,
             before > 0 && CurrentHP <= 0);
+        return applied > 0;
+    }
+
+    public bool TryReceiveHealing(
+        in SpellHealingRequest request,
+        out SpellHealingResult result)
+    {
+        int before = CurrentHP;
+        if (before <= 0 || before >= maxHP || request.Amount <= 0f)
+        {
+            result = new SpellHealingResult(
+                request.Amount,
+                0f,
+                false);
+            return false;
+        }
+
+        int requested = Mathf.CeilToInt(request.Amount);
+        CurrentHP = Mathf.Min(maxHP, before + requested);
+        int applied = Mathf.Max(0, CurrentHP - before);
+        if (applied > 0)
+            OnHealthChanged?.Invoke(CurrentHP, maxHP);
+
+        result = new SpellHealingResult(
+            request.Amount,
+            applied,
+            false);
         return applied > 0;
     }
 

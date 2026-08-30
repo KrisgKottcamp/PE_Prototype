@@ -10,35 +10,35 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_Slash
+  m_Name: Spell_EnemyHeal
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Slash V2
-  stableId: player.slash.v2
-  description: Player Integration vertical-slice spell. Tune or replace freely.
+  displayName: EnemyHeal
+  stableId: 24e70d4db98947438d21e4c96d285041
+  description: 
   icon: {fileID: 0}
-  category: Player Skill V2
+  category: Skill
   timing:
-    buildUpDuration: 0
+    buildUpDuration: 3
     firingDuration: 0
-    channelDuration: 0
+    channelDuration: 0.3
     recoveryDuration: 0
     timeMode: 0
     buildUpControl:
       blockPlayerMovement: 0
       blockPlayerBasicAttacks: 0
       blockPlayerSkillUsage: 0
-      showPowerUpParticles: 0
-      particleColor: {r: 0, g: 0, b: 0, a: 0}
-      particlesPerSecond: 0
-      particleSpawnRadius: 0
-      particleInwardSpeed: 0
-      particleSize: 0
-  cooldown: 0
+      showPowerUpParticles: 1
+      particleColor: {r: 0, g: 1, b: 0.15004349, a: 0}
+      particlesPerSecond: 10
+      particleSpawnRadius: 1.5
+      particleInwardSpeed: 3
+      particleSize: 0.5
+  cooldown: 6
   resourceCost:
-    resourceId: AP
-    amount: 10
+    resourceId: 
+    amount: 0
   targetFilter:
-    relationship: 4
+    relationship: 2
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -53,21 +53,30 @@ MonoBehaviour:
     lineOfSightRadius: 0.03
   aiAffordance:
     usableByAI: 1
-    intents: 1
-    targetPreference: 0
+    intents: 16
+    targetPreference: 5
     placementIntent: 1
     placementLookaheadSeconds: 0
     preferredMinimumRange: 0
-    preferredMaximumRange: 8
-    minimumUsefulTargets: 16
-    baseUtility: 1.6
-    commitmentRisk: 0
-    minimumAIRecastInterval: 1.25
-    maximumActiveInstancesPerCaster: 1
-    maximumActiveInstancesPerSquad: 2
-    allowEquivalentOverlap: 0
+    preferredMaximumRange: 1.5
+    minimumUsefulTargets: 1
+    baseUtility: 5
+    commitmentRisk: 0.3
+    minimumAIRecastInterval: 6
+    maximumActiveInstancesPerCaster: 0
+    maximumActiveInstancesPerSquad: 0
+    allowEquivalentOverlap: 1
     equivalentOverlapUtilityMultiplier: 0.25
-    healthThreshold: 0.3
+    healthThreshold: 0.95
+    moveIntoRangeBeforeCasting: 1
+    requiredAICastRange: 1.35
+    maximumAIApproachDistance: 30
+    requestTargetHoldDuringSupportCast: 1
+    interruptSupportCastWhenDamaged: 1
+    interruptSupportCastForImminentThreat: 1
+    supportCastThreatInterruptScore: 0.72
+    supportCastThreatInterruptWindow: 0.9
+    supportCoordinationVersion: 2
     producesComboTags: []
     consumesComboTags: []
     comboTagActivationEvent: 2
@@ -88,26 +97,15 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: 035c34a168aff25429f522cdaff0ab46, type: 2}
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
     settings:
-      rid: 1819652408774492304
+      rid: 1819652839167492179
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
-  - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
+  - effect: {fileID: 11400000, guid: f2f443e317f544df8ad8a39af7dbd3d1, type: 2}
     settings:
-      rid: 1819652408774492305
-    deliveryBinding: 0
-    anchorTrigger: 2
-    anchorApplication: 2
-    anchorMultiplicity: 1
-    anchorDuration: 1
-    anchorInterval: 0.25
-    anchorSizeOverride: 0
-    reapplyAfterExit: 1
-  - effect: {fileID: 11400000, guid: 88f0450f13420ad4dba3e313ac258ce5, type: 2}
-    settings:
-      rid: 1819652408774492306
+      rid: 1819652839167492178
     deliveryBinding: 0
     anchorTrigger: 2
     anchorApplication: 2
@@ -125,26 +123,12 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492304
-      type: {class: MeleeArcDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652839167492178
+      type: {class: HealingEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 11400000, guid: 2a45799fdb78d6f44b7e72a14acc27f9, type: 2}
-        range: 1.75
-        arcAngle: 90
-        hitMask:
-          serializedVersion: 2
-          m_Bits: 1024
-        maximumColliders: 24
-    - rid: 1819652408774492305
-      type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+        amount: 60
+        allowRevive: 0
+    - rid: 1819652839167492179
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        damageType: {fileID: 0}
-        amount: 30
-        ignoreInvulnerability: 0
-    - rid: 1819652408774492306
-      type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        direction: 0
-        magnitude: 3.5
-        duration: 0.12
-        mode: 2
+        playerTargeting: {fileID: 11400000, guid: a752629118ebe6e4aa9d3e24e7d102da, type: 2}

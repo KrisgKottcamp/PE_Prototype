@@ -34,6 +34,7 @@ namespace ProjectEri.SkillSystemV2
                 return 0;
 
             SpellAIThreatService.ReportDeliveryEvent(this, occurrence);
+            SpellAIComboCoordinator.ReportDeliveryEvent(this, occurrence);
             SpellRuntimeDiagnostics.ReportDeliveryEvent(
                 Spell,
                 Cast,

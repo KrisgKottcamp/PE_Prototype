@@ -36,8 +36,7 @@ skill system. It does not replace the current combat skill scripts yet.
 ## Still deliberately deferred
 
 - Beam, summon, and dedicated chain delivery archetypes.
-- Adapters for `PartyManager`, `EnemyHealth`, movement, and existing prefabs.
-- Enemy skill scoring and squad coordination.
+- Additional adapters for remaining legacy party/movement systems and prefabs.
 
 These features should depend on the core assembly rather than adding
 player- or enemy-specific behavior to `SpellRunner`.
@@ -115,9 +114,47 @@ Slow Orb starting point, use **Placement Lookahead = 0.45-0.70**, **Minimum AI
 Recast = 2-4 seconds**, **Maximum Active Per Caster = 1**, **Maximum Active Per
 Squad = 2**, and leave equivalent overlap disabled.
 
-Two-point placement, navigation choke scoring, and shared combo state remain
-later milestones. Skill selection cadence and placement prediction are kept
-independent from the threat-reaction layer below.
+Two-point placement and navigation choke scoring remain later milestones.
+Skill selection cadence and placement prediction are kept independent from the
+threat-reaction and combo-coordination layers below.
+
+### Squad combo coordination
+
+`SpellAIComboCoordinator` listens to the same normalized delivery lifecycle as
+effects and threat perception. A setup spell publishes its **Produces Combo
+Tags** when its authored **Combo Tag Activation Event** occurs. The opportunity
+uses the delivery's live geometry and disappears when that delivery stops or
+expires. No spell names or element table are involved.
+
+A consumer lists matching **Consumes Combo Tags**. The squad then:
+
+1. Raises that spell's utility while a matching allied setup exists.
+2. Aims point/directional consumers at the setup geometry, or actor-targeted
+   consumers at the event subject that carries the setup.
+3. Reserves the opportunity through the real cast lifecycle so two allies
+   cannot consume it simultaneously.
+4. Releases the reservation after rejection/interruption, or spends it after a
+   successful cast when **Consume Combo Opportunity On Cast** is enabled.
+5. Reserves planned setup locations so different enemies do not create the same
+   nearby setup on one decision tick.
+
+Use **Require Active Combo To Cast** for a dedicated finisher. Leave it disabled
+when the spell should remain independently useful and merely gain a combo bonus.
+**Any Tag / All Tags** controls whether one or every consumed tag is required.
+Setup spells can require another living squad member to have a compatible
+consumer equipped, and can gain an authored setup-utility bonus when that role
+is available.
+The active `EnemyAIV2Profile` owns the global opt-in, reservation-cap, and cast
+padding controls.
+
+Oil/ignition acceptance setup:
+
+- Oil Spill: Produces `Oil`; Activation Event `Delivery Started`; redundant
+  setup suppression enabled.
+- Ignition: Consumes `Oil`; Placement Intent `Combo Location`; Require Active
+  Combo enabled; Consume Opportunity enabled.
+- Enemy profile: Enable Squad Combo Coordination; Maximum Concurrent Combo
+  Reservations `2`.
 
 ### Generic delivery threat perception
 
@@ -401,3 +438,16 @@ This avoids adding one-off dependencies to the core spell executor.
 secondary spell on its chosen runner. The original root cast budget and depth
 limits remain active, preventing recursive spell combinations from running
 forever.
+# Enemy ally support and approach casting
+
+Enemy AI V2 can use actor-targeted support spells on wounded squadmates. A
+spell authored with `Support`, `Lowest Health Ally`, and `Move Into Range Before
+Casting` selects a different living ally, follows that moving ally through the
+normal locomotion system, stops at `Required AI Cast Range`, revalidates the
+cast, and then begins its normal buildup. The protected
+`ApproachAndCastSkill` action prevents formation orders from overwriting the
+sequence, while serious delivery threats may still interrupt it.
+
+`EnemyHealth` implements `ISpellHealingReceiver`, so the generic Healing effect
+updates the existing enemy HP and health-bar event path without an additional
+prefab adapter.

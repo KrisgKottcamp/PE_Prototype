@@ -153,7 +153,7 @@ namespace ProjectEri.EnemyAI.V2
             if (director != null)
                 director.Unregister(this);
 
-            actionRunner?.CancelCurrent("Agent disabled");
+            actionRunner?.ForceCancelCurrent("Agent disabled");
         }
 
         public void Initialize(
@@ -218,7 +218,7 @@ namespace ProjectEri.EnemyAI.V2
             RestoreProtectedVisualState();
 
             if (!shouldDisableLegacy)
-                actionRunner?.CancelCurrent(requestedActive
+                actionRunner?.ForceCancelCurrent(requestedActive
                     ? "V2 waiting for player/profile"
                     : "ObserveOnly mode");
 

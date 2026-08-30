@@ -100,6 +100,12 @@ namespace ProjectEri.EnemyAI.V2
         [SerializeField] private int debugLegacyAttacksSinceSkill;
         [SerializeField] private int debugConsecutiveSkillActions;
 
+        [Header("Squad Combo Coordination Debug")]
+        [SerializeField] private string debugComboCoordination =
+            "Not evaluated";
+        [SerializeField] private int debugComboOpportunities;
+        [SerializeField] private int debugComboReservations;
+
         [Header("Stage 3.5 Fluid Movement Debug")]
         [SerializeField] private string debugFluidDecision = "None";
         [SerializeField] private bool debugControllerUsedFluidPressure;
@@ -1948,9 +1954,16 @@ namespace ProjectEri.EnemyAI.V2
                 incomingDanger: 0f,
                 commitmentCost: 0f,
                 activeComboTags: null,
+                squadConsumerTags:
+                    BuildSquadConsumerTags(agent),
+                enableComboPlanning:
+                    profile.enableSquadComboCoordination,
                 out ProjectEri.SkillSystemV2.SpellDefinition spell,
                 out ProjectEri.SkillSystemV2.CastContext cast,
-                out float score);
+                out float score,
+                out ProjectEri.SkillSystemV2.SpellAIComboPlan comboPlan,
+                out GameObject skillTarget,
+                out bool approachBeforeCast);
             if (!chose || spell == null ||
                 score < Mathf.Max(0f, profile.minimumSkillUtility))
             {
@@ -1961,22 +1974,112 @@ namespace ProjectEri.EnemyAI.V2
                 return false;
             }
 
-            float timeout = Mathf.Max(
+            ProjectEri.SkillSystemV2.SpellAIComboReservation
+                comboReservation = default;
+            if (profile.enableSquadComboCoordination &&
+                comboPlan.NeedsReservation)
+            {
+                ProjectEri.SkillSystemV2.CombatTeam team =
+                    ProjectEri.SkillSystemV2.CombatTeamMember.ResolveTeam(
+                        agent.gameObject,
+                        ProjectEri.SkillSystemV2.CombatTeam.Enemy);
+                debugComboOpportunities =
+                    ProjectEri.SkillSystemV2.SpellAIComboCoordinator
+                        .ActiveOpportunityCount;
+                debugComboReservations =
+                    ProjectEri.SkillSystemV2.SpellAIComboCoordinator
+                        .ActiveReservationCount(team);
+                int reservationCap = Mathf.Max(
+                    0,
+                    profile.maximumConcurrentComboReservations);
+                if (reservationCap > 0 &&
+                    debugComboReservations >= reservationCap)
+                {
+                    debugComboCoordination =
+                        $"Reservation capacity {reservationCap} reached";
+                    return false;
+                }
+
+                float reservationDuration =
+                    spell.Timing.TotalDuration +
+                    Mathf.Max(0f, profile.comboReservationCastPadding);
+                if (!ProjectEri.SkillSystemV2.SpellAIComboCoordinator
+                    .TryReservePlan(
+                        comboPlan,
+                        spell,
+                        agent.gameObject,
+                        cast,
+                        reservationDuration,
+                        out comboReservation,
+                        out string comboRejection))
+                {
+                    debugComboCoordination = comboRejection;
+                    return false;
+                }
+
+                debugComboCoordination = comboPlan.Description;
+                debugComboReservations++;
+            }
+            else
+            {
+                debugComboOpportunities =
+                    ProjectEri.SkillSystemV2.SpellAIComboCoordinator
+                        .ActiveOpportunityCount;
+                debugComboCoordination =
+                    profile.enableSquadComboCoordination
+                        ? "Chosen spell has no reservable combo role"
+                        : "Disabled by profile";
+            }
+
+            float castTimeout = Mathf.Max(
                 0.25f,
                 spell.Timing.TotalDuration + profile.skillCastTimeoutPadding);
+            float timeout = castTimeout;
+            EnemyActionKindV2 actionKind = EnemyActionKindV2.CastSkill;
+            if (approachBeforeCast && skillTarget != null)
+            {
+                actionKind = EnemyActionKindV2.ApproachAndCastSkill;
+                float approachDistance = Vector2.Distance(
+                    agent.transform.position,
+                    skillTarget.transform.position);
+                float travelSeconds = approachDistance /
+                    Mathf.Max(0.25f, profile.moveSpeed);
+                timeout = Mathf.Max(
+                    castTimeout + 0.5f,
+                    travelSeconds + castTimeout + 1.25f);
+            }
             bool issued = agent.ActionRunner.AssignOrder(new EnemyActionOrderV2
             {
                 orderId = nextOrderId++,
-                kind = EnemyActionKindV2.CastSkill,
+                kind = actionKind,
                 timeoutSeconds = timeout,
                 skillSpell = spell,
                 skillCast = cast,
+                comboReservation = comboReservation,
+                skillApproachTarget = skillTarget,
+                skillApproachRange =
+                    spell.AIAffordance.RequiredAICastRange,
+                skillCastTimeoutSeconds = castTimeout,
                 reason =
-                    $"{reason}: {role} chose {spell.DisplayName} (utility {score:0.00})"
+                    $"{reason}: {role} chose {spell.DisplayName} " +
+                    $"(utility {score:0.00})" +
+                    (approachBeforeCast && skillTarget != null
+                        ? $"; approach {skillTarget.name} to " +
+                          $"{spell.AIAffordance.RequiredAICastRange:0.00}"
+                        : string.Empty) +
+                    (comboPlan.NeedsReservation
+                        ? $"; {comboPlan.Description}"
+                        : string.Empty)
             });
 
             if (!issued)
+            {
+                ProjectEri.SkillSystemV2.SpellAIComboCoordinator
+                    .ReleaseReservation(
+                        comboReservation,
+                        agent.gameObject);
                 return false;
+            }
 
             SpellAITacticalMemory.RecordCast(
                 spell,
@@ -2020,6 +2123,47 @@ namespace ProjectEri.EnemyAI.V2
                   $"({legacyAttacksSinceLastSkill}/" +
                   $"{Mathf.Max(0, profile.minimumLegacyAttacksBetweenSkills)})"
                 : "No skill has been cast yet";
+        }
+
+        private ISet<string> BuildSquadConsumerTags(
+            EnemyAgentV2 setupAgent)
+        {
+            var result = new HashSet<string>(
+                System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < agents.Count; i++)
+            {
+                EnemyAgentV2 ally = agents[i];
+                if (ally == null || ally == setupAgent || !ally.IsAlive)
+                    continue;
+
+                SpellLoadout loadout = ally.GetComponent<SpellLoadout>();
+                if (loadout == null)
+                    continue;
+                IReadOnlyList<SpellDefinition> skills =
+                    loadout.EquippedSkills;
+                for (int skillIndex = 0;
+                     skillIndex < skills.Count;
+                     skillIndex++)
+                {
+                    SpellDefinition candidate = skills[skillIndex];
+                    if (candidate == null ||
+                        !candidate.AIAffordance.UsableByAI)
+                    {
+                        continue;
+                    }
+
+                    IReadOnlyList<string> consumed =
+                        candidate.AIAffordance.ConsumesComboTags;
+                    for (int tagIndex = 0;
+                         tagIndex < consumed.Count;
+                         tagIndex++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(consumed[tagIndex]))
+                            result.Add(consumed[tagIndex].Trim());
+                    }
+                }
+            }
+            return result;
         }
 
         private void ApplyAttackSelectionOverrides(
@@ -2942,7 +3086,7 @@ namespace ProjectEri.EnemyAI.V2
             for (int i = 0; i < agents.Count; i++)
             {
                 if (agents[i] != null)
-                    agents[i].ActionRunner?.CancelCurrent(reason);
+                    agents[i].ActionRunner?.TryCancelForPlanning(reason);
             }
         }
 

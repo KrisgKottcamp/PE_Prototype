@@ -16,6 +16,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         {
             SpellAITacticalMemory.ClearAll();
             SpellAIThreatService.ClearAll();
+            SpellAIComboCoordinator.ClearAll();
             caster = Track(new GameObject("Vocabulary Caster"));
             target = Track(new GameObject("Vocabulary Target"));
         }
@@ -25,6 +26,7 @@ namespace ProjectEri.SkillSystemV2.Tests
         {
             SpellAITacticalMemory.ClearAll();
             SpellAIThreatService.ClearAll();
+            SpellAIComboCoordinator.ClearAll();
             for (int i = created.Count - 1; i >= 0; i--)
             {
                 if (created[i] != null)
@@ -1181,6 +1183,241 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void AISupportScoring_AllowsApproachForWoundedAlly()
+        {
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            SpellAIAffordance data = new SpellAIAffordance();
+            SetField(data, "usableByAI", true);
+            SetField(data, "intents", SpellAIIntent.Support);
+            SetField(
+                data,
+                "targetPreference",
+                SpellAITargetPreference.LowestHealthAlly);
+            SetField(data, "healthThreshold", 0.65f);
+            SetField(data, "preferredMaximumRange", 1.5f);
+            SetField(data, "moveIntoRangeBeforeCasting", true);
+            SetField(spell, "aiAffordance", data);
+
+            var tooFarWithoutApproach = new SpellAIDecisionContext(
+                5f, 1, 1f, 0.4f, 0f, 0f);
+            var approachingWoundedAlly = new SpellAIDecisionContext(
+                5f, 1, 1f, 0.4f, 0f, 0f, null, true);
+            var approachingHealthyAlly = new SpellAIDecisionContext(
+                5f, 1, 1f, 0.9f, 0f, 0f, null, true);
+
+            Assert.That(
+                SpellAIDecisionUtility.Score(
+                    spell,
+                    tooFarWithoutApproach),
+                Is.EqualTo(float.NegativeInfinity));
+            Assert.That(
+                SpellAIDecisionUtility.Score(
+                    spell,
+                    approachingWoundedAlly),
+                Is.GreaterThan(0f));
+            Assert.That(
+                SpellAIDecisionUtility.Score(
+                    spell,
+                    approachingHealthyAlly),
+                Is.EqualTo(float.NegativeInfinity));
+        }
+
+        [Test]
+        public void EnemyHealth_ReceivesGenericSpellHealing()
+        {
+            System.Type enemyHealthType = System.Type.GetType(
+                "EnemyHealth, Assembly-CSharp");
+            Assert.That(enemyHealthType, Is.Not.Null);
+
+            GameObject enemy = Track(new GameObject("Healing Test Enemy"));
+            Component healthComponent = enemy.AddComponent(enemyHealthType);
+            var healingReceiver = healthComponent as ISpellHealingReceiver;
+            Assert.That(healingReceiver, Is.Not.Null);
+
+            enemyHealthType.GetMethod("Init").Invoke(
+                healthComponent,
+                new object[] { 30 });
+            enemyHealthType.GetMethod("TakeDamage").Invoke(
+                healthComponent,
+                new object[] { 12 });
+            var effectContext = new SpellEffectContext(
+                null,
+                default,
+                enemy,
+                enemy.transform.position,
+                Vector2.zero,
+                1f);
+
+            bool healed = healingReceiver.TryReceiveHealing(
+                new SpellHealingRequest(effectContext, 7f, false),
+                out SpellHealingResult result);
+            int currentHP = (int)enemyHealthType
+                .GetProperty("CurrentHP")
+                .GetValue(healthComponent);
+
+            Assert.That(healed, Is.True);
+            Assert.That(currentHP, Is.EqualTo(25));
+            Assert.That(result.AppliedAmount, Is.EqualTo(7f));
+        }
+
+        [Test]
+        public void EnemyActionRunner_ProtectsActiveSkillFromOrdinaryOrders()
+        {
+            System.Type runnerType = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyActionRunnerV2, " +
+                "Assembly-CSharp");
+            System.Type actionKindType = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyActionKindV2, " +
+                "Assembly-CSharp");
+            Assert.That(runnerType, Is.Not.Null);
+            Assert.That(actionKindType, Is.Not.Null);
+
+            MethodInfo policy = runnerType.GetMethod(
+                "CanReplaceCurrentAction",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(policy, Is.Not.Null);
+            MethodInfo threatPolicy = runnerType.GetMethod(
+                "MeetsSupportThreatInterruptThreshold",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(threatPolicy, Is.Not.Null);
+            MethodInfo planningCancelPolicy = runnerType.GetMethod(
+                "CanPlanningCancelCurrent",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(planningCancelPolicy, Is.Not.Null);
+
+            object castSkill = System.Enum.Parse(
+                actionKindType,
+                "CastSkill");
+            object approachAndCast = System.Enum.Parse(
+                actionKindType,
+                "ApproachAndCastSkill");
+            object moveToSlot = System.Enum.Parse(
+                actionKindType,
+                "MoveToSlot");
+            object attack = System.Enum.Parse(
+                actionKindType,
+                "AttackPattern");
+            object evade = System.Enum.Parse(
+                actionKindType,
+                "EvadeThreat");
+            object holdForSupport = System.Enum.Parse(
+                actionKindType,
+                "HoldForSupport");
+
+            Assert.That(
+                (bool)policy.Invoke(
+                    null,
+                    new[] { castSkill, moveToSlot }),
+                Is.False);
+            Assert.That(
+                (bool)policy.Invoke(
+                    null,
+                    new[] { approachAndCast, attack }),
+                Is.False);
+            Assert.That(
+                (bool)policy.Invoke(
+                    null,
+                    new[] { castSkill, evade }),
+                Is.True);
+            Assert.That(
+                (bool)policy.Invoke(
+                    null,
+                    new[] { holdForSupport, evade }),
+                Is.False);
+            Assert.That(
+                (bool)threatPolicy.Invoke(
+                    null,
+                    new object[] { 0.8f, 0.72f, 0.5f, 0.9f, false }),
+                Is.True);
+            Assert.That(
+                (bool)threatPolicy.Invoke(
+                    null,
+                    new object[] { 0.6f, 0.72f, 0.2f, 0.9f, false }),
+                Is.False);
+            Assert.That(
+                (bool)threatPolicy.Invoke(
+                    null,
+                    new object[] { 0.8f, 0.72f, 1.5f, 0.9f, false }),
+                Is.False);
+            Assert.That(
+                (bool)planningCancelPolicy.Invoke(
+                    null,
+                    new[] { castSkill, (object)true }),
+                Is.False,
+                "Squad replanning must not cancel a committed Support cast.");
+            Assert.That(
+                (bool)planningCancelPolicy.Invoke(
+                    null,
+                    new[] { approachAndCast, (object)true }),
+                Is.False,
+                "Repositioning must not cancel a Support approach/cast.");
+            Assert.That(
+                (bool)planningCancelPolicy.Invoke(
+                    null,
+                    new[] { holdForSupport, (object)false }),
+                Is.False,
+                "Squad replanning must not release the coordinated target.");
+            Assert.That(
+                (bool)planningCancelPolicy.Invoke(
+                    null,
+                    new[] { attack, (object)false }),
+                Is.True,
+                "Ordinary attacks should remain replaceable by replanning.");
+        }
+
+        [Test]
+        public void AISupportCoordination_DefaultsToImminentThreatInterrupt()
+        {
+            var guidance = new SpellAIAffordance();
+
+            Assert.That(
+                guidance.RequestTargetHoldDuringSupportCast,
+                Is.True);
+            Assert.That(
+                guidance.InterruptSupportCastWhenDamaged,
+                Is.False);
+            Assert.That(
+                guidance.InterruptSupportCastForImminentThreat,
+                Is.True);
+            Assert.That(
+                guidance.SupportCastThreatInterruptScore,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(
+                guidance.SupportCastThreatInterruptWindow,
+                Is.EqualTo(0.9f).Within(0.001f));
+        }
+
+        [Test]
+        public void AISupportCoordination_MigratesExistingSpellDefaults()
+        {
+            var guidance = new SpellAIAffordance();
+            SetField(guidance, "interruptSupportCastWhenDamaged", true);
+            SetField(guidance, "interruptSupportCastForImminentThreat", false);
+            SetField(guidance, "supportCastThreatInterruptScore", 0f);
+            SetField(guidance, "supportCastThreatInterruptWindow", 0f);
+            SetField(guidance, "supportCoordinationVersion", 1);
+
+            guidance.OnAfterDeserialize();
+
+            Assert.That(
+                guidance.RequestTargetHoldDuringSupportCast,
+                Is.True);
+            Assert.That(
+                guidance.InterruptSupportCastWhenDamaged,
+                Is.False);
+            Assert.That(
+                guidance.InterruptSupportCastForImminentThreat,
+                Is.True);
+            Assert.That(
+                guidance.SupportCastThreatInterruptScore,
+                Is.EqualTo(0.72f).Within(0.001f));
+            Assert.That(
+                guidance.SupportCastThreatInterruptWindow,
+                Is.EqualTo(0.9f).Within(0.001f));
+        }
+
+        [Test]
         public void AITargetPrediction_ClampsLeadDistance()
         {
             Vector2 predicted = SpellAITargetingUtility.PredictTargetPoint(
@@ -1516,6 +1753,8 @@ namespace ProjectEri.SkillSystemV2.Tests
         {
             System.Type actionKind = System.Type.GetType(
                 "ProjectEri.EnemyAI.V2.EnemyActionKindV2, Assembly-CSharp");
+            System.Type actionOrder = System.Type.GetType(
+                "ProjectEri.EnemyAI.V2.EnemyActionOrderV2, Assembly-CSharp");
             System.Type solver = System.Type.GetType(
                 "ProjectEri.EnemyAI.V2.EnemySpellTargetingSolverV2, Assembly-CSharp");
             System.Type executor = System.Type.GetType(
@@ -1528,11 +1767,23 @@ namespace ProjectEri.SkillSystemV2.Tests
                 "ProjectEri.EnemyAI.V2.EnemySpellThreatPerceptionV2, Assembly-CSharp");
             System.Type threatProfile = System.Type.GetType(
                 "ProjectEri.EnemyAI.V2.EnemyThreatResponseProfileV2, Assembly-CSharp");
+            System.Type comboCoordinator =
+                typeof(SpellAIComboCoordinator);
+            System.Type enemyHealth = System.Type.GetType(
+                "EnemyHealth, Assembly-CSharp");
+            System.Type buildUpControl = System.Type.GetType(
+                "SpellBuildUpControl2D, Assembly-CSharp");
 
             Assert.That(actionKind, Is.Not.Null);
+            Assert.That(actionOrder, Is.Not.Null);
             Assert.That(System.Enum.IsDefined(actionKind, "CastSkill"), Is.True);
             Assert.That(
                 System.Enum.IsDefined(actionKind, "EvadeThreat"),
+                Is.True);
+            Assert.That(
+                System.Enum.IsDefined(
+                    actionKind,
+                    "ApproachAndCastSkill"),
                 Is.True);
             Assert.That(solver, Is.Not.Null);
             Assert.That(executor, Is.Not.Null);
@@ -1540,6 +1791,14 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(profile, Is.Not.Null);
             Assert.That(threatPerception, Is.Not.Null);
             Assert.That(threatProfile, Is.Not.Null);
+            Assert.That(comboCoordinator, Is.Not.Null);
+            Assert.That(buildUpControl, Is.Not.Null);
+            Assert.That(actionOrder.GetField("threatId"), Is.Not.Null);
+            Assert.That(actionOrder.GetField("threatScore"), Is.Not.Null);
+            Assert.That(
+                actionOrder.GetField("threatTimeToImpact"),
+                Is.Not.Null);
+            Assert.That(actionOrder.GetField("threatIsInside"), Is.Not.Null);
             Assert.That(
                 profile.GetField("minimumSecondsBetweenSkillStarts"),
                 Is.Not.Null);
@@ -1559,8 +1818,49 @@ namespace ProjectEri.SkillSystemV2.Tests
                 profile.GetField("emergencyThreatScore"),
                 Is.Not.Null);
             Assert.That(
+                profile.GetField("enableSquadComboCoordination"),
+                Is.Not.Null);
+            Assert.That(
+                profile.GetField("maximumConcurrentComboReservations"),
+                Is.Not.Null);
+            Assert.That(enemyHealth, Is.Not.Null);
+            Assert.That(
+                enemyHealth.GetField("OnDamaged"),
+                Is.Not.Null);
+            Assert.That(
+                typeof(ISpellHealingReceiver).IsAssignableFrom(
+                    enemyHealth),
+                Is.True);
+            Assert.That(
                 typeof(ISpellResourceProvider).IsAssignableFrom(
                     resourceProvider),
+                Is.True);
+        }
+
+        [Test]
+        public void AIIntentFlags_ExecutePersistsAlongsideDamage()
+        {
+            SpellDefinition spell = Track(
+                ScriptableObject.CreateInstance<SpellDefinition>());
+            var serialized = new UnityEditor.SerializedObject(spell);
+            UnityEditor.SerializedProperty intents =
+                serialized.FindProperty("aiAffordance.intents");
+
+            Assert.That(intents, Is.Not.Null);
+            intents.intValue = (int)(
+                SpellAIIntent.Damage |
+                SpellAIIntent.Execute);
+            serialized.ApplyModifiedProperties();
+            serialized.Update();
+
+            SpellAIIntent saved = (SpellAIIntent)serialized
+                .FindProperty("aiAffordance.intents")
+                .intValue;
+            Assert.That(
+                (saved & SpellAIIntent.Damage) != 0,
+                Is.True);
+            Assert.That(
+                (saved & SpellAIIntent.Execute) != 0,
                 Is.True);
         }
 
