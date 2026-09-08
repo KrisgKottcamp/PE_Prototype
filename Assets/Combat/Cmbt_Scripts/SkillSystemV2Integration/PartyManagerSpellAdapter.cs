@@ -180,6 +180,34 @@ public sealed class PartyManagerSpellAdapter : MonoBehaviour,
             : Mathf.CeilToInt(spell.ResourceCost.Amount);
     }
 
+    /// <summary>
+    /// Advances the same per-character cost escalation used by the legacy
+    /// CombatSkillSystem. Called only after SpellRunner has accepted a root
+    /// player cast, so cancelled targeting and automatic child casts do not
+    /// increase the multiplier.
+    /// </summary>
+    public bool AdvanceActiveCharacterSkillCostMultiplier()
+    {
+        if (!applyActiveCharacterSkillCostMultiplier ||
+            !TryGetActive(out PartyManager.CharacterState active))
+        {
+            return false;
+        }
+
+        active.skillCostMultiplier = CalculateNextSkillCostMultiplier(
+            active.skillCostMultiplier,
+            active.def.skillCostIncreaseMultiplier);
+        return true;
+    }
+
+    public static float CalculateNextSkillCostMultiplier(
+        float currentMultiplier,
+        float increasePerCast)
+    {
+        return Mathf.Max(1f, currentMultiplier) *
+               Mathf.Max(1f, increasePerCast);
+    }
+
     private int ResolveApAmount(
         float baseAmount,
         PartyManager.CharacterState active)
@@ -191,9 +219,23 @@ public sealed class PartyManagerSpellAdapter : MonoBehaviour,
             gameObject,
             SpellActorStat.ActionPointCost,
             1f);
+        return ResolveScaledApAmount(
+            baseAmount,
+            multiplier,
+            efficiency);
+    }
+
+    public static int ResolveScaledApAmount(
+        float baseAmount,
+        float costMultiplier,
+        float actionPointCostModifier)
+    {
         return Mathf.Max(
             0,
-            Mathf.CeilToInt(baseAmount * multiplier * efficiency));
+            Mathf.CeilToInt(
+                Mathf.Max(0f, baseAmount) *
+                Mathf.Max(1f, costMultiplier) *
+                Mathf.Max(0f, actionPointCostModifier)));
     }
 
     private static bool IsActionPoints(string resourceId)

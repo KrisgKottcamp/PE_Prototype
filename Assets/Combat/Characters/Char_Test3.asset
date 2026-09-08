@@ -21,11 +21,15 @@ MonoBehaviour:
   apMagnetizationRange: 1.6
   basicAttackType: 2
   basicAttackProjectilePrefab: {fileID: 0}
-  startingSkills:
-  - {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
-  - {fileID: 11400000, guid: d607b1a150ef239429333485c3da7918, type: 2}
-  - {fileID: 11400000, guid: 21b8f1ca2b4b7b64180ed2634030a9e0, type: 2}
+  startingSkills: []
   skillCostIncreaseMultiplier: 3
+  useSkillSystemV2Loadout: 1
+  skillSystemV2BasicAttack: {fileID: 0}
+  equippedSpellsV2:
+  - {fileID: 11400000, guid: dc95c345b1176e841ae044a23a41beb5, type: 2}
+  - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
+  - {fileID: 11400000, guid: 1cb3bcb1c0841204eaca8643a3150b92, type: 2}
+  - {fileID: 11400000, guid: 38220feeb16d54149b36d747e81d1160, type: 2}
   unlocks: []
   combatSprite: {fileID: 21300000, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
   portraitSprite: {fileID: -8563271677356080694, guid: 96842285eba745c4b82738eac8d16033, type: 3}

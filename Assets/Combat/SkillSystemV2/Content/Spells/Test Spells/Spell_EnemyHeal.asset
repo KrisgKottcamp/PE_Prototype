@@ -67,7 +67,7 @@ MonoBehaviour:
     maximumActiveInstancesPerSquad: 0
     allowEquivalentOverlap: 1
     equivalentOverlapUtilityMultiplier: 0.25
-    healthThreshold: 0.95
+    healthThreshold: 0.4
     moveIntoRangeBeforeCasting: 1
     requiredAICastRange: 1.35
     maximumAIApproachDistance: 30

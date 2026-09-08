@@ -381,6 +381,31 @@ the anchor expires. This lets allegiance-only reflection coexist with a curved
 gravity trajectory even though reflection changes `Projectile` to the
 `PlayerProjectile` layer.
 
+A timed Stat Modifier cast directly onto an inactive party member is stored as
+pending on that member's stable target proxy. It contributes nothing and its
+duration does not begin until that member first becomes active. After first
+activation, **Reset When Target Becomes Inactive** removes it on switch-out when
+enabled; when disabled, the normal duration continues while the member is
+inactive and contributes again only if that same member returns before expiry.
+Area-presence modifiers remain governed by their delivery anchor instead.
+
+Player-cast V2 spells expose **Attack Momentum** beside Resource Cost. The raw
+value is awarded when the root spell first applies any configured effect
+successfully. A miss, invalid/rejected target, or fully resisted application
+awards nothing. Multi-projectile hits, lingering-area pulses, repeated event
+recipes, and triggered child spells share the root cast's one award, preventing
+one spell from generating duplicate Momentum. Enemy casts never contribute to
+the player's gauge.
+
+The combat skill menu is intentionally hybrid for **Call Eri**. When a
+character has an equipped V2 loadout, its V2 spells remain the primary list and
+the legacy `EriHealingCall` SkillDefinition is appended once. Legacy characters
+that do not already contain it receive the same appended entry. Selection still
+routes through `CombatSkillSystem`, preserving Eri's healing-point availability,
+ally picker, refusal behavior, and zero-AP semantics. The menu discovers the
+skill across the party and also exposes an explicit Inspector reference as a
+stable override.
+
 ## Event Effect Recipes
 
 Default Effects remain the simple path: the delivery applies them at its normal

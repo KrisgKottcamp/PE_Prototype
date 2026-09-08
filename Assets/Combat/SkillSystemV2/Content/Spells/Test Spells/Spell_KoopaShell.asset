@@ -23,17 +23,78 @@ MonoBehaviour:
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
+    buildUpControl:
+      blockPlayerMovement: 0
+      blockPlayerBasicAttacks: 0
+      blockPlayerSkillUsage: 0
+      showPowerUpParticles: 0
+      particleColor: {r: 0, g: 0, b: 0, a: 0}
+      particlesPerSecond: 0
+      particleSpawnRadius: 0
+      particleInwardSpeed: 0
+      particleSize: 0
   cooldown: 0
   resourceCost:
-    resourceId: 
-    amount: 0
+    resourceId: AP
+    amount: 10
   targetFilter:
     relationship: 0
-    useLayerMask: 0
+    useLayerMask: 1
     allowedLayers:
       serializedVersion: 2
-      m_Bits: 4294967295
+      m_Bits: 1408
     requireSpellTarget: 0
+  placementRules:
+    maximumDistance: 0
+    requireLineOfSight: 0
+    lineOfSightMask:
+      serializedVersion: 2
+      m_Bits: 0
+    lineOfSightRadius: 0.03
+  aiAffordance:
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
+    placementIntent: 0
+    placementLookaheadSeconds: 0
+    preferredMinimumRange: 0
+    preferredMaximumRange: 8
+    minimumUsefulTargets: 1
+    baseUtility: 1
+    commitmentRisk: 0
+    minimumAIRecastInterval: 1.25
+    maximumActiveInstancesPerCaster: 1
+    maximumActiveInstancesPerSquad: 2
+    allowEquivalentOverlap: 0
+    equivalentOverlapUtilityMultiplier: 0.25
+    healthThreshold: 0.3
+    moveIntoRangeBeforeCasting: 0
+    requiredAICastRange: 1.4
+    maximumAIApproachDistance: 8
+    requestTargetHoldDuringSupportCast: 1
+    interruptSupportCastWhenDamaged: 0
+    interruptSupportCastForImminentThreat: 1
+    supportCastThreatInterruptScore: 0.72
+    supportCastThreatInterruptWindow: 0.9
+    supportCoordinationVersion: 2
+    producesComboTags: []
+    consumesComboTags: []
+    comboTagActivationEvent: 2
+    comboOpportunityLifetime: 0
+    comboOpportunityRadius: 0
+    requireActiveComboToCast: 0
+    comboRequirementMode: 0
+    comboUtilityMultiplier: 1.65
+    consumeComboOpportunityOnCast: 1
+    comboReservationSeconds: 1.5
+    allowSelfCombo: 1
+    suppressRedundantComboSetup: 1
+    requireSquadConsumerForSetup: 0
+    setupUtilityMultiplierWithConsumer: 1.35
+    suggestedReactions: 1
+    dangerRadius: 0
+    reactionUrgency: 0.7
+    telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: edc614f49846bca48af14de8b1dcf080, type: 2}
@@ -45,6 +106,14 @@ MonoBehaviour:
   - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
     settings:
       rid: 1819652408774492253
+    deliveryBinding: 0
+    anchorTrigger: 17
+    anchorApplication: 2
+    anchorMultiplicity: 1
+    anchorDuration: 10
+    anchorInterval: 0.25
+    anchorSizeOverride: 0
+    reapplyAfterExit: 1
   eventEffectRoutes: []
   reactiveEffectGroups: []
   effectSlotsMigrated: 1
@@ -77,5 +146,5 @@ MonoBehaviour:
       type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 0}
-        amount: 10
+        amount: 20
         ignoreInvulnerability: 0

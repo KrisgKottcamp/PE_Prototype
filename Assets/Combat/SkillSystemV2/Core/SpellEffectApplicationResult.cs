@@ -37,6 +37,7 @@ namespace ProjectEri.SkillSystemV2
     {
         public SpellEffectApplicationStatus Status { get; }
         public SpellDefinition Spell { get; }
+        public CastContext Cast { get; }
         public GameObject RequestedTarget { get; }
         public GameObject ResolvedTarget { get; }
         public GameObject DetectedObject { get; }
@@ -57,6 +58,7 @@ namespace ProjectEri.SkillSystemV2
         public SpellEffectApplicationResult(
             SpellEffectApplicationStatus status,
             SpellDefinition spell,
+            in CastContext cast,
             GameObject requestedTarget,
             GameObject resolvedTarget,
             GameObject detectedObject,
@@ -70,6 +72,7 @@ namespace ProjectEri.SkillSystemV2
         {
             Status = status;
             Spell = spell;
+            Cast = cast;
             RequestedTarget = requestedTarget;
             ResolvedTarget = resolvedTarget;
             DetectedObject = detectedObject;

@@ -35,8 +35,8 @@ MonoBehaviour:
       particleSize: 0
   cooldown: 0
   resourceCost:
-    resourceId: 
-    amount: 0
+    resourceId: AP
+    amount: 10
   targetFilter:
     relationship: 0
     useLayerMask: 0
@@ -68,6 +68,15 @@ MonoBehaviour:
     allowEquivalentOverlap: 0
     equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
+    moveIntoRangeBeforeCasting: 0
+    requiredAICastRange: 1.4
+    maximumAIApproachDistance: 8
+    requestTargetHoldDuringSupportCast: 1
+    interruptSupportCastWhenDamaged: 0
+    interruptSupportCastForImminentThreat: 1
+    supportCastThreatInterruptScore: 0.72
+    supportCastThreatInterruptWindow: 0.9
+    supportCoordinationVersion: 2
     producesComboTags: []
     consumesComboTags: []
     comboTagActivationEvent: 2
@@ -83,8 +92,8 @@ MonoBehaviour:
     requireSquadConsumerForSetup: 0
     setupUtilityMultiplierWithConsumer: 1.35
     suggestedReactions: 3
-    dangerRadius: 0
-    reactionUrgency: 0.805
+    dangerRadius: 1
+    reactionUrgency: 0.9
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:

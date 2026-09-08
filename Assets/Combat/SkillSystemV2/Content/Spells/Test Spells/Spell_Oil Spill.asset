@@ -35,8 +35,8 @@ MonoBehaviour:
       particleSize: 0
   cooldown: 0
   resourceCost:
-    resourceId: 
-    amount: 0
+    resourceId: AP
+    amount: 10
   targetFilter:
     relationship: 0
     useLayerMask: 0
@@ -68,6 +68,15 @@ MonoBehaviour:
     allowEquivalentOverlap: 0
     equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
+    moveIntoRangeBeforeCasting: 0
+    requiredAICastRange: 1.4
+    maximumAIApproachDistance: 8
+    requestTargetHoldDuringSupportCast: 1
+    interruptSupportCastWhenDamaged: 0
+    interruptSupportCastForImminentThreat: 1
+    supportCastThreatInterruptScore: 0.72
+    supportCastThreatInterruptWindow: 0.9
+    supportCoordinationVersion: 2
     producesComboTags:
     - Oil
     consumesComboTags: []

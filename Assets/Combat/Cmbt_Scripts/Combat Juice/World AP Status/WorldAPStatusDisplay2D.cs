@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ProjectEri.SkillSystemV2;
 using TMPro;
 using UnityEngine;
 
@@ -184,6 +185,7 @@ public sealed class WorldAPStatusDisplay2D : MonoBehaviour
     public void SetState(
         PartyManager.CharacterState active,
         CombatSkillSystem skillSystem,
+        PlayerSpellV2Bridge v2Bridge,
         bool isMenuOpen)
     {
         menuOpen = isMenuOpen;
@@ -209,8 +211,16 @@ public sealed class WorldAPStatusDisplay2D : MonoBehaviour
             apNumberRemaining = apNumberDuration;
 
         lastCurrentAP = displayedCurrentAP;
-        UpdateSkillNodes(active, skillSystem);
+        UpdateSkillNodes(active, skillSystem, v2Bridge);
         RefreshVisuals();
+    }
+
+    public void SetState(
+        PartyManager.CharacterState active,
+        CombatSkillSystem skillSystem,
+        bool isMenuOpen)
+    {
+        SetState(active, skillSystem, null, isMenuOpen);
     }
 
     public void ClearState(bool immediate = false)
@@ -247,13 +257,28 @@ public sealed class WorldAPStatusDisplay2D : MonoBehaviour
 
     private void UpdateSkillNodes(
         PartyManager.CharacterState active,
-        CombatSkillSystem skillSystem)
+        CombatSkillSystem skillSystem,
+        PlayerSpellV2Bridge v2Bridge)
     {
         int visibleIndex = 0;
         int reachableSkillCount = 0;
         Dictionary<int, int> stackCounts = new Dictionary<int, int>();
 
-        if (active.unlockedSkills != null && skillSystem != null)
+        if (ShouldUseV2Loadout(
+                v2Bridge != null ? v2Bridge.SkillCount : 0))
+        {
+            for (int i = 0; i < v2Bridge.SkillCount; i++)
+            {
+                SpellDefinition spell = v2Bridge.GetSkill(i);
+                int scaledCost = v2Bridge.GetScaledAPCost(spell);
+                AddSkillCostNode(
+                    scaledCost,
+                    ref visibleIndex,
+                    ref reachableSkillCount,
+                    stackCounts);
+            }
+        }
+        else if (active.unlockedSkills != null && skillSystem != null)
         {
             for (int i = 0; i < active.unlockedSkills.Count; i++)
             {
@@ -266,46 +291,11 @@ public sealed class WorldAPStatusDisplay2D : MonoBehaviour
                 }
 
                 int scaledCost = skillSystem.GetScaledCost(skill);
-
-                if (scaledCost <= 0 || scaledCost == int.MaxValue)
-                    continue;
-
-                EnsureSkillNodeCount(visibleIndex + 1);
-                SkillNode node = skillNodes[visibleIndex];
-                bool overMaximum = scaledCost > displayedMaximumAP;
-                bool affordable = !overMaximum &&
-                    displayedCurrentAP >= scaledCost;
-
-                if (!overMaximum)
-                    reachableSkillCount++;
-
-                // Every over-max skill occupies the same endpoint bucket.
-                // Equal reachable costs share a bucket and stack outward.
-                int positionKey = overMaximum ? int.MaxValue : scaledCost;
-                int stackIndex = stackCounts.TryGetValue(
-                    positionKey,
-                    out int existingCount)
-                    ? existingCount
-                    : 0;
-                stackCounts[positionKey] = stackIndex + 1;
-
-                node.root.gameObject.SetActive(true);
-                node.slash.enabled = overMaximum;
-                node.normalizedCost = overMaximum
-                    ? 1f
-                    : Mathf.Clamp01(
-                        scaledCost / (float)displayedMaximumAP);
-                node.outwardStackIndex = stackIndex;
-                Color bodyColor = overMaximum
-                    ? overMaximumNodeColor
-                    : affordable
-                        ? affordableNodeColor
-                        : unavailableNodeColor;
-
-                bodyColor.a = 1f;
-                node.body.color = bodyColor;
-                node.slash.color = Opaque(overMaximumNodeColor);
-                visibleIndex++;
+                AddSkillCostNode(
+                    scaledCost,
+                    ref visibleIndex,
+                    ref reachableSkillCount,
+                    stackCounts);
             }
         }
 
@@ -318,6 +308,56 @@ public sealed class WorldAPStatusDisplay2D : MonoBehaviour
             skillNodes[i].root.gameObject.SetActive(false);
 
         LayoutSkillNodes();
+    }
+
+    public static bool ShouldUseV2Loadout(int equippedV2SpellCount)
+    {
+        return equippedV2SpellCount > 0;
+    }
+
+    private void AddSkillCostNode(
+        int scaledCost,
+        ref int visibleIndex,
+        ref int reachableSkillCount,
+        Dictionary<int, int> stackCounts)
+    {
+        if (scaledCost <= 0 || scaledCost == int.MaxValue)
+            return;
+
+        EnsureSkillNodeCount(visibleIndex + 1);
+        SkillNode node = skillNodes[visibleIndex];
+        bool overMaximum = scaledCost > displayedMaximumAP;
+        bool affordable = !overMaximum &&
+            displayedCurrentAP >= scaledCost;
+
+        if (!overMaximum)
+            reachableSkillCount++;
+
+        int positionKey = overMaximum ? int.MaxValue : scaledCost;
+        int stackIndex = stackCounts.TryGetValue(
+            positionKey,
+            out int existingCount)
+            ? existingCount
+            : 0;
+        stackCounts[positionKey] = stackIndex + 1;
+
+        node.root.gameObject.SetActive(true);
+        node.slash.enabled = overMaximum;
+        node.normalizedCost = overMaximum
+            ? 1f
+            : Mathf.Clamp01(
+                scaledCost / (float)displayedMaximumAP);
+        node.outwardStackIndex = stackIndex;
+        Color bodyColor = overMaximum
+            ? overMaximumNodeColor
+            : affordable
+                ? affordableNodeColor
+                : unavailableNodeColor;
+
+        bodyColor.a = 1f;
+        node.body.color = bodyColor;
+        node.slash.color = Opaque(overMaximumNodeColor);
+        visibleIndex++;
     }
 
     private void EnsureVisualResources()

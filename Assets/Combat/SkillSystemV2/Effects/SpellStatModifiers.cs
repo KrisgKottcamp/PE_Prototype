@@ -59,7 +59,7 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Maximum simultaneous stacks when Stacking is set to Stack.")]
         [SerializeField, Min(1)] private int maximumStacks = 1;
 
-        [Tooltip("When enabled, remove this modifier when its specifically targeted party member switches out. When disabled, its duration continues while that member is inactive and it resumes only if that same member becomes active again.")]
+        [Tooltip("A modifier targeted at an already-inactive party member waits without consuming duration until that member first becomes active. After it starts, enable this to remove it on switch-out; disable it to let its duration continue while inactive.")]
         [SerializeField] private bool resetWhenTargetBecomesInactive;
 
         [Tooltip("Apply this modifier through the shared party pawn so every active party member receives it. Leave disabled for effects intended for one selected member.")]
@@ -124,7 +124,7 @@ namespace ProjectEri.SkillSystemV2
         [Tooltip("Default stack limit when stacking is enabled.")]
         [SerializeField, Min(1)] private int maximumStacks = 1;
 
-        [Tooltip("Default behavior when a specifically targeted party member switches out. Enable to remove the modifier; disable to let its duration continue while inactive.")]
+        [Tooltip("Inactive selected members always wait for first activation before duration begins. After that, enable this to remove the modifier on switch-out; disable it to let duration continue while inactive.")]
         [SerializeField] private bool resetWhenTargetBecomesInactive;
 
         [Tooltip("Default party scope. Enable only for modifiers intentionally shared by every active party member.")]
@@ -321,8 +321,10 @@ namespace ProjectEri.SkillSystemV2
             public SpellStatOperation Operation;
             public float Value;
             public float ExpiresAt;
+            public float Duration;
             public bool Persistent;
             public bool Unscaled;
+            public bool WaitingForFirstActivation;
             public bool ResetWhenTargetBecomesInactive;
         }
 
@@ -338,6 +340,26 @@ namespace ProjectEri.SkillSystemV2
                 RefreshActivationState();
                 Prune();
                 return entries.Count;
+            }
+        }
+
+        public int PendingTimedModifierCount
+        {
+            get
+            {
+                EnsureRegistered();
+                RefreshActivationState();
+                Prune();
+                int count = 0;
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    if (!entries[i].Persistent &&
+                        entries[i].WaitingForFirstActivation)
+                    {
+                        count++;
+                    }
+                }
+                return count;
             }
         }
 
@@ -371,6 +393,9 @@ namespace ProjectEri.SkillSystemV2
             EnsureRegistered();
             RefreshActivationState();
             Prune();
+
+            if (TryResolveActivationState(out bool isActive) && !isActive)
+                return;
 
             for (int i = 0; i < entries.Count; i++)
             {
@@ -427,6 +452,9 @@ namespace ProjectEri.SkillSystemV2
 
             EnsureRegistered();
             CaptureActivationState();
+            bool waitForFirstActivation =
+                IsWaitingForFirstActivation();
+            float safeDuration = Mathf.Max(0.02f, duration);
 
             string safeKey = string.IsNullOrWhiteSpace(key)
                 ? source.GetInstanceID().ToString()
@@ -440,8 +468,12 @@ namespace ProjectEri.SkillSystemV2
                 {
                     CopySettings(existing, settings);
                     existing.Unscaled = useUnscaledTime;
-                    existing.ExpiresAt = CurrentTime(useUnscaledTime) +
-                                         Mathf.Max(0.02f, duration);
+                    existing.Duration = safeDuration;
+                    existing.WaitingForFirstActivation =
+                        waitForFirstActivation;
+                    existing.ExpiresAt = waitForFirstActivation
+                        ? float.PositiveInfinity
+                        : CurrentTime(useUnscaledTime) + safeDuration;
                     existing.Persistent = false;
                     return;
                 }
@@ -459,10 +491,18 @@ namespace ProjectEri.SkillSystemV2
                             : 1f))
                 {
                     existing.Unscaled = useUnscaledTime;
-                    existing.ExpiresAt = Mathf.Max(
-                        existing.ExpiresAt,
-                        CurrentTime(useUnscaledTime) +
-                        Mathf.Max(0.02f, duration));
+                    if (existing.WaitingForFirstActivation)
+                    {
+                        existing.Duration = Mathf.Max(
+                            existing.Duration,
+                            safeDuration);
+                    }
+                    else
+                    {
+                        existing.ExpiresAt = Mathf.Max(
+                            existing.ExpiresAt,
+                            CurrentTime(useUnscaledTime) + safeDuration);
+                    }
                     return;
                 }
 
@@ -479,10 +519,13 @@ namespace ProjectEri.SkillSystemV2
             {
                 SourceId = sourceId,
                 Key = safeKey,
-                ExpiresAt = CurrentTime(useUnscaledTime) +
-                            Mathf.Max(0.02f, duration),
+                Duration = safeDuration,
+                ExpiresAt = waitForFirstActivation
+                    ? float.PositiveInfinity
+                    : CurrentTime(useUnscaledTime) + safeDuration,
                 Persistent = false,
-                Unscaled = useUnscaledTime
+                Unscaled = useUnscaledTime,
+                WaitingForFirstActivation = waitForFirstActivation
             };
             CopySettings(entry, settings);
             entries.Add(entry);
@@ -515,6 +558,7 @@ namespace ProjectEri.SkillSystemV2
             CopySettings(entry, settings);
             entry.Persistent = true;
             entry.ExpiresAt = float.PositiveInfinity;
+            entry.WaitingForFirstActivation = false;
         }
 
         public void Remove(UnityEngine.Object source, string key)
@@ -564,11 +608,15 @@ namespace ProjectEri.SkillSystemV2
             {
                 previousActivationState = isActive;
                 activationStateInitialized = true;
+                if (isActive)
+                    StartPendingTimedEntries();
                 return;
             }
 
             if (previousActivationState && !isActive)
                 RemoveResetOnInactiveEntries();
+            else if (!previousActivationState && isActive)
+                StartPendingTimedEntries();
 
             previousActivationState = isActive;
         }
@@ -623,6 +671,26 @@ namespace ProjectEri.SkillSystemV2
             return foundGate;
         }
 
+        private bool IsWaitingForFirstActivation()
+        {
+            return TryResolveActivationState(out bool isActive) &&
+                   !isActive;
+        }
+
+        private void StartPendingTimedEntries()
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry entry = entries[i];
+                if (entry.Persistent || !entry.WaitingForFirstActivation)
+                    continue;
+
+                entry.WaitingForFirstActivation = false;
+                entry.ExpiresAt = CurrentTime(entry.Unscaled) +
+                                  Mathf.Max(0.02f, entry.Duration);
+            }
+        }
+
         private void RemoveResetOnInactiveEntries()
         {
             for (int i = entries.Count - 1; i >= 0; i--)
@@ -654,6 +722,7 @@ namespace ProjectEri.SkillSystemV2
             {
                 Entry entry = entries[i];
                 if (!entry.Persistent &&
+                    !entry.WaitingForFirstActivation &&
                     entry.ExpiresAt <= CurrentTime(entry.Unscaled))
                     entries.RemoveAt(i);
             }

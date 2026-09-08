@@ -2485,6 +2485,13 @@ MonoBehaviour:
   debugCombatTempo: Default
   debugAttackStartGapRemaining: 0
   debugPhraseBreatherRemaining: 0
+  debugSkillCadence: Not evaluated
+  debugSkillStartGapRemaining: 0
+  debugLegacyAttacksSinceSkill: 0
+  debugConsecutiveSkillActions: 0
+  debugComboCoordination: Not evaluated
+  debugComboOpportunities: 0
+  debugComboReservations: 0
   debugFluidDecision: None
   debugControllerUsedFluidPressure: 0
   debugFlankerUsedFluidPressure: 0
@@ -6584,7 +6591,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1566031717
 RectTransform:
   m_ObjectHideFlags: 0

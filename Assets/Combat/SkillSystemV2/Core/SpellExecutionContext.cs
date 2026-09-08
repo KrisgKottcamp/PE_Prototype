@@ -303,6 +303,7 @@ namespace ProjectEri.SkillSystemV2
                 return ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.MissingSpell,
                     null,
+                    Cast,
                     target,
                     null,
                     detectedObject,
@@ -320,6 +321,7 @@ namespace ProjectEri.SkillSystemV2
                 return ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.MissingTarget,
                     Spell,
+                    Cast,
                     null,
                     null,
                     detectedObject,
@@ -338,6 +340,7 @@ namespace ProjectEri.SkillSystemV2
                 return ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.TargetResolutionFailed,
                     Spell,
+                    Cast,
                     target,
                     null,
                     detectedObject,
@@ -362,6 +365,7 @@ namespace ProjectEri.SkillSystemV2
                 return ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.TargetRejected,
                     Spell,
+                    Cast,
                     target,
                     resolvedTarget,
                     layerObject,
@@ -407,6 +411,7 @@ namespace ProjectEri.SkillSystemV2
                 return ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.NoEffectsConfigured,
                     Spell,
+                    Cast,
                     requestedTarget,
                     target,
                     detectedObject,
@@ -577,6 +582,7 @@ namespace ProjectEri.SkillSystemV2
             return ReportApplication(new SpellEffectApplicationResult(
                 status,
                 Spell,
+                Cast,
                 requestedTarget,
                 target,
                 detectedObject,
@@ -607,6 +613,7 @@ namespace ProjectEri.SkillSystemV2
                 ReportApplication(new SpellEffectApplicationResult(
                     SpellEffectApplicationStatus.MissingTarget,
                     Spell,
+                    Cast,
                     null,
                     null,
                     null,

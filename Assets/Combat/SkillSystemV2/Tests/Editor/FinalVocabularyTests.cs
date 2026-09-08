@@ -1418,6 +1418,148 @@ namespace ProjectEri.SkillSystemV2.Tests
         }
 
         [Test]
+        public void PlayerV2SpellCost_AdvancesOncePerRootCast()
+        {
+            System.Type adapterType = System.Type.GetType(
+                "PartyManagerSpellAdapter, Assembly-CSharp");
+            System.Type bridgeType = System.Type.GetType(
+                "PlayerSpellV2Bridge, Assembly-CSharp");
+            Assert.That(adapterType, Is.Not.Null);
+            Assert.That(bridgeType, Is.Not.Null);
+
+            MethodInfo advance = adapterType.GetMethod(
+                "CalculateNextSkillCostMultiplier",
+                BindingFlags.Public | BindingFlags.Static);
+            MethodInfo scaledCost = adapterType.GetMethod(
+                "ResolveScaledApAmount",
+                BindingFlags.Public | BindingFlags.Static);
+            MethodInfo rootPolicy = bridgeType.GetMethod(
+                "ShouldAdvanceSkillCostMultiplier",
+                BindingFlags.Public | BindingFlags.Static);
+            MethodInfo momentumPolicy = bridgeType.GetMethod(
+                "ShouldAwardSuccessfulSpellMomentum",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(advance, Is.Not.Null);
+            Assert.That(scaledCost, Is.Not.Null);
+            Assert.That(rootPolicy, Is.Not.Null);
+            Assert.That(momentumPolicy, Is.Not.Null);
+
+            float nextMultiplier = (float)advance.Invoke(
+                null,
+                new object[] { 1f, 3f });
+            Assert.That(nextMultiplier, Is.EqualTo(3f));
+            Assert.That(
+                (int)scaledCost.Invoke(
+                    null,
+                    new object[] { 10f, nextMultiplier, 1f }),
+                Is.EqualTo(30));
+            Assert.That(
+                (bool)rootPolicy.Invoke(
+                    null,
+                    new object[] { 0, true }),
+                Is.True);
+            Assert.That(
+                (bool)rootPolicy.Invoke(
+                    null,
+                    new object[] { 1, true }),
+                Is.False,
+                "Triggered child casts must not increase player costs again.");
+            Assert.That(
+                (bool)rootPolicy.Invoke(
+                    null,
+                    new object[] { 0, false }),
+                Is.False);
+            Assert.That(
+                (bool)momentumPolicy.Invoke(
+                    null,
+                    new object[] { 41L, 0, true, true }),
+                Is.True,
+                "A successful player root spell may award Momentum.");
+            Assert.That(
+                (bool)momentumPolicy.Invoke(
+                    null,
+                    new object[] { 41L, 1, true, true }),
+                Is.False,
+                "Triggered child spells must not award extra Momentum.");
+            Assert.That(
+                (bool)momentumPolicy.Invoke(
+                    null,
+                    new object[] { 41L, 0, false, true }),
+                Is.False,
+                "Enemy spells must not award player Momentum.");
+            Assert.That(
+                (bool)momentumPolicy.Invoke(
+                    null,
+                    new object[] { 41L, 0, true, false }),
+                Is.False,
+                "Misses and rejected applications must not award Momentum.");
+        }
+
+        [Test]
+        public void WorldAPDial_PrefersEquippedV2Loadout()
+        {
+            System.Type displayType = System.Type.GetType(
+                "WorldAPStatusDisplay2D, Assembly-CSharp");
+            Assert.That(displayType, Is.Not.Null);
+
+            MethodInfo policy = displayType.GetMethod(
+                "ShouldUseV2Loadout",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(policy, Is.Not.Null);
+            Assert.That(
+                (bool)policy.Invoke(null, new object[] { 3 }),
+                Is.True);
+            Assert.That(
+                (bool)policy.Invoke(null, new object[] { 0 }),
+                Is.False,
+                "An empty V2 loadout must preserve the legacy fallback.");
+        }
+
+        [Test]
+        public void CombatSkillMenu_AppendsLegacyCallEriToV2Loadout()
+        {
+            System.Type menuType = System.Type.GetType(
+                "CombatSkillMenuController, Assembly-CSharp");
+            Assert.That(menuType, Is.Not.Null);
+
+            FieldInfo callEriField = menuType.GetField(
+                "alwaysAvailableCallEriSkill",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo appendPolicy = menuType.GetMethod(
+                "ShouldAppendCallEri",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(callEriField, Is.Not.Null);
+            Assert.That(callEriField.FieldType, Is.EqualTo(
+                System.Type.GetType("SkillDefinition, Assembly-CSharp")));
+            Assert.That(appendPolicy, Is.Not.Null);
+
+            Assert.That(
+                (bool)appendPolicy.Invoke(
+                    null,
+                    new object[] { true, false, true }),
+                Is.True,
+                "A resolved Call Eri skill must be appended to a V2 menu.");
+            Assert.That(
+                (bool)appendPolicy.Invoke(
+                    null,
+                    new object[] { false, false, true }),
+                Is.True,
+                "Legacy characters without Call Eri must also receive it.");
+            Assert.That(
+                (bool)appendPolicy.Invoke(
+                    null,
+                    new object[] { false, true, true }),
+                Is.False,
+                "A legacy menu that already contains Call Eri must not duplicate it.");
+            Assert.That(
+                (bool)appendPolicy.Invoke(
+                    null,
+                    new object[] { true, false, false }),
+                Is.False,
+                "The menu cannot append an unresolved legacy asset.");
+        }
+
+        [Test]
         public void AITargetPrediction_ClampsLeadDistance()
         {
             Vector2 predicted = SpellAITargetingUtility.PredictTargetPoint(

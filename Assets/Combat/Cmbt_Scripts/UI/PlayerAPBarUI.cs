@@ -117,6 +117,7 @@ public class PlayerAPBarUI : MonoBehaviour
     private float nextContextRefreshTime;
     private CombatPawn combatPawn;
     private CombatSkillSystem combatSkillSystem;
+    private PlayerSpellV2Bridge playerSpellV2Bridge;
     private CombatSkillMenuController skillMenuController;
     private APReadyGlow2D affordableSkillGlow;
     private WorldAPStatusDisplay2D worldAPStatusDisplay;
@@ -279,12 +280,30 @@ public class PlayerAPBarUI : MonoBehaviour
     {
         if (active == null ||
             active.def == null ||
-            active.currentHP <= 0 ||
-            active.unlockedSkills == null ||
-            combatSkillSystem == null)
+            active.currentHP <= 0)
         {
             return false;
         }
+
+        if (playerSpellV2Bridge != null &&
+            playerSpellV2Bridge.SkillCount > 0)
+        {
+            for (int i = 0; i < playerSpellV2Bridge.SkillCount; i++)
+            {
+                int scaledCost = playerSpellV2Bridge.GetScaledAPCost(
+                    playerSpellV2Bridge.GetSkill(i));
+                if (scaledCost > 0 && scaledCost < int.MaxValue &&
+                    active.currentAP >= scaledCost)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (active.unlockedSkills == null || combatSkillSystem == null)
+            return false;
 
         for (int i = 0; i < active.unlockedSkills.Count; i++)
         {
@@ -327,6 +346,7 @@ public class PlayerAPBarUI : MonoBehaviour
         worldAPStatusDisplay.SetState(
             active,
             combatSkillSystem,
+            playerSpellV2Bridge,
             skillMenuController != null &&
             skillMenuController.IsOpen);
     }
@@ -383,6 +403,7 @@ public class PlayerAPBarUI : MonoBehaviour
             worldAPStatusDisplay?.SetPresentationEnabled(false);
             combatPawn = foundPawn;
             combatSkillSystem = null;
+            playerSpellV2Bridge = null;
             skillMenuController = null;
             affordableSkillGlow = null;
             worldAPStatusDisplay = null;
@@ -400,6 +421,9 @@ public class PlayerAPBarUI : MonoBehaviour
             combatSkillSystem =
                 FindObjectOfType<CombatSkillSystem>(true);
         }
+
+        playerSpellV2Bridge =
+            combatPawn.GetComponent<PlayerSpellV2Bridge>();
 
         skillMenuController =
             FindObjectOfType<CombatSkillMenuController>(true);

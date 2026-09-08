@@ -125,6 +125,7 @@ namespace ProjectEri.SkillSystemV2.Tests
                     layers: 1 << 8));
             spell.ReplaceEffectSlots(new SpellEffectSlot(damage));
 
+            CastChainBudget budget = spell.CreateChainBudget();
             var cast = new CastContext(
                 caster,
                 CombatTeam.Player,
@@ -133,7 +134,8 @@ namespace ProjectEri.SkillSystemV2.Tests
                 true,
                 target.transform.position,
                 true,
-                target);
+                target,
+                budget);
             var context = new SpellExecutionContext(spell, cast);
 
             SpellEffectApplicationResult rejected =
@@ -158,6 +160,9 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(applied.AppliedCount, Is.EqualTo(1));
             Assert.That(applied.ResolvedTarget, Is.SameAs(target));
             Assert.That(applied.DetectedObject, Is.SameAs(hurtbox));
+            Assert.That(applied.Cast.Caster, Is.SameAs(caster));
+            Assert.That(applied.Cast.RootCastId, Is.EqualTo(budget.RootCastId));
+            Assert.That(spell.MomentumGain, Is.EqualTo(18f));
             Assert.That(vitality.CurrentHealth, Is.EqualTo(90f).Within(0.001f));
 
             Object.DestroyImmediate(hurtbox);

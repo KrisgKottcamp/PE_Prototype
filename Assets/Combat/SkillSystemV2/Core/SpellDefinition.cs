@@ -44,6 +44,11 @@ namespace ProjectEri.SkillSystemV2
         [SerializeField]
         private SpellResourceCost resourceCost;
 
+        [Header("Attack Momentum")]
+        [Tooltip("Raw party Momentum awarded the first time this player spell successfully applies an effect. Misses, rejected targets, repeated area ticks, and triggered secondary spells do not award it again.")]
+        [SerializeField, Min(0f)]
+        private float momentumGain = 18f;
+
         [Header("Target Rules")]
         [Tooltip("The spell's normal rules for deciding which objects its Default Effects are allowed to affect.")]
         [SerializeField]
@@ -121,6 +126,7 @@ namespace ProjectEri.SkillSystemV2
         public SpellTiming Timing => timing;
         public float Cooldown => Mathf.Max(0f, cooldown);
         public SpellResourceCost ResourceCost => resourceCost;
+        public float MomentumGain => Mathf.Max(0f, momentumGain);
         public TargetFilter TargetFilter => targetFilter;
         public SpellPlacementRules PlacementRules =>
             placementRules ??= new SpellPlacementRules();
@@ -807,6 +813,7 @@ namespace ProjectEri.SkillSystemV2
 
         private void OnValidate()
         {
+            momentumGain = Mathf.Max(0f, momentumGain);
             cooldown = Mathf.Max(0f, cooldown);
             maximumChainDepth = Mathf.Max(0, maximumChainDepth);
             maximumRootActivations = Mathf.Max(1, maximumRootActivations);

@@ -462,6 +462,12 @@ namespace ProjectEri.SkillSystemV2.Tests
             Assert.That(
                 targetAlias.GetComponent<SpellStatModifierController>(),
                 Is.Not.Null);
+            SpellStatModifierController inactiveController =
+                targetAlias.GetComponent<SpellStatModifierController>();
+            Assert.That(
+                inactiveController.PendingTimedModifierCount,
+                Is.EqualTo(1),
+                "An inactive selected member must store the modifier without starting its duration.");
             Assert.That(
                 SpellStatModifierUtility.Evaluate(
                     caster,
@@ -474,6 +480,10 @@ namespace ProjectEri.SkillSystemV2.Tests
                 Is.EqualTo(1f).Within(0.001f));
 
             alias.SetActiveForRepresentedActor(true);
+            Assert.That(
+                inactiveController.PendingTimedModifierCount,
+                Is.EqualTo(0),
+                "The duration starts when the represented member first becomes active.");
             Assert.That(
                 SpellTargetResolver.IsSameHierarchy(caster, targetAlias),
                 Is.True);

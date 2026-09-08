@@ -39,6 +39,11 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     [SerializeField] private bool cancelWithRightClick = true;
 
     private Collider2D[] overlapBuffer;
+    private static readonly HashSet<long> momentumAwardedRootCasts =
+        new HashSet<long>();
+    private static readonly Queue<long> momentumAwardHistory =
+        new Queue<long>();
+    private const int MomentumAwardHistoryLimit = 256;
 
     public event Action<SpellDefinition> SpellTargetingStarted;
     public event Action<SpellDefinition> SpellConfirmed;
@@ -59,22 +64,30 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     private void OnEnable()
     {
         ResolveReferences();
-        if (targetingController == null)
-            return;
-
-        targetingController.TargetingConfirmed += HandleConfirmed;
-        targetingController.TargetingCancelled += HandleCancelled;
-        targetingController.CastRejected += HandleRejected;
+        if (targetingController != null)
+        {
+            targetingController.TargetingConfirmed += HandleConfirmed;
+            targetingController.TargetingCancelled += HandleCancelled;
+            targetingController.CastRejected += HandleRejected;
+        }
+        if (spellRunner != null)
+            spellRunner.CastStarted += HandleCastStarted;
+        SpellRuntimeDiagnostics.ApplicationCompleted +=
+            HandleEffectApplicationCompleted;
     }
 
     private void OnDisable()
     {
-        if (targetingController == null)
-            return;
-
-        targetingController.TargetingConfirmed -= HandleConfirmed;
-        targetingController.TargetingCancelled -= HandleCancelled;
-        targetingController.CastRejected -= HandleRejected;
+        if (targetingController != null)
+        {
+            targetingController.TargetingConfirmed -= HandleConfirmed;
+            targetingController.TargetingCancelled -= HandleCancelled;
+            targetingController.CastRejected -= HandleRejected;
+        }
+        if (spellRunner != null)
+            spellRunner.CastStarted -= HandleCastStarted;
+        SpellRuntimeDiagnostics.ApplicationCompleted -=
+            HandleEffectApplicationCompleted;
         targetMenu?.Close();
     }
 
@@ -229,6 +242,24 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
         return $"{spell.ResourceCost.Amount:0.#} {spell.ResourceCost.ResourceId}";
     }
 
+    public int GetScaledAPCost(SpellDefinition spell)
+    {
+        if (spell == null || spell.ResourceCost.IsFree)
+            return 0;
+
+        if (!string.Equals(
+                spell.ResourceCost.ResourceId,
+                SpellResourceCost.ActionPoints,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return int.MaxValue;
+        }
+
+        return partyAdapter != null
+            ? partyAdapter.GetDisplayedCost(spell)
+            : Mathf.CeilToInt(spell.ResourceCost.Amount);
+    }
+
     private GameObject ResolveSelectedTarget(Vector2 worldPosition)
     {
         EnsureBuffer();
@@ -255,6 +286,84 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     {
         targetMenu?.Close();
         SpellConfirmed?.Invoke(evt.Spell);
+    }
+
+    private void HandleCastStarted(SpellCastEvent castEvent)
+    {
+        GameObject caster = castEvent.Context.Caster;
+        bool casterMatchesPlayer = caster != null &&
+            SpellTargetResolver.IsSameHierarchy(gameObject, caster);
+        if (!ShouldAdvanceSkillCostMultiplier(
+                castEvent.Context.ChainDepth,
+                casterMatchesPlayer))
+        {
+            return;
+        }
+
+        partyAdapter?.AdvanceActiveCharacterSkillCostMultiplier();
+    }
+
+    private void HandleEffectApplicationCompleted(
+        SpellEffectApplicationResult result)
+    {
+        if (!result.Succeeded || result.Spell == null ||
+            result.Spell.MomentumGain <= 0f)
+        {
+            return;
+        }
+
+        CastContext cast = result.Cast;
+        GameObject caster = cast.Caster;
+        bool casterMatchesPlayer = caster != null &&
+            SpellTargetResolver.IsSameHierarchy(gameObject, caster);
+        if (!ShouldAwardSuccessfulSpellMomentum(
+                cast.RootCastId,
+                cast.ChainDepth,
+                casterMatchesPlayer,
+                result.Succeeded))
+        {
+            return;
+        }
+
+        if (!momentumAwardedRootCasts.Add(cast.RootCastId))
+            return;
+
+        momentumAwardHistory.Enqueue(cast.RootCastId);
+        while (momentumAwardHistory.Count > MomentumAwardHistoryLimit)
+        {
+            momentumAwardedRootCasts.Remove(
+                momentumAwardHistory.Dequeue());
+        }
+
+        AttackMomentumManager.Instance?.RegisterSuccessfulSkill(
+            result.Spell.MomentumGain);
+    }
+
+    public static bool ShouldAwardSuccessfulSpellMomentum(
+        long rootCastId,
+        int chainDepth,
+        bool casterMatchesPlayer,
+        bool applicationSucceeded)
+    {
+        return rootCastId != 0L &&
+               chainDepth == 0 &&
+               casterMatchesPlayer &&
+               applicationSucceeded;
+    }
+
+    [RuntimeInitializeOnLoadMethod(
+        RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetMomentumAwardHistory()
+    {
+        momentumAwardedRootCasts.Clear();
+        momentumAwardHistory.Clear();
+    }
+
+    public static bool ShouldAdvanceSkillCostMultiplier(
+        int chainDepth,
+        bool casterMatchesPlayer)
+    {
+        return casterMatchesPlayer && chainDepth == 0;
     }
 
     private void HandleCancelled(PlayerTargetingEvent evt)

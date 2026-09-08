@@ -33,6 +33,7 @@ GameObject:
   - component: {fileID: 7551269063446772972}
   - component: {fileID: 8200652904887801920}
   - component: {fileID: -4017769951211098156}
+  - component: {fileID: 144281651233717477}
   m_Layer: 10
   m_Name: TestEnemy
   m_TagString: Untagged
@@ -776,9 +777,12 @@ MonoBehaviour:
   combatExecutor: {fileID: 0}
   skillExecutor: {fileID: 0}
   targetingSolver: {fileID: 0}
+  spellRunner: {fileID: 0}
+  enemyHealth: {fileID: 0}
   debugAction: 0
   debugStatus: 0
   debugReason: Idle
+  debugLastIgnoredInterruption: None
   debugOrderId: 0
   debugActionElapsed: 0
 --- !u!114 &889431934497075718
@@ -890,7 +894,6 @@ MonoBehaviour:
   basicAttack: {fileID: 0}
   equippedSkills:
   - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
-  - {fileID: 11400000, guid: 451d388a15808364f931c9b06d6fe1d5, type: 2}
   - {fileID: 11400000, guid: 7d1d420ae525d8042baaedcfcf2e95dc, type: 2}
   - {fileID: 11400000, guid: f325580d15342894ba2bb623c4b6cb69, type: 2}
   - {fileID: 11400000, guid: 37d412756329c0d4c80abf807fc4d62b, type: 2}
@@ -1024,6 +1027,19 @@ MonoBehaviour:
   agent: {fileID: 889431934497075718}
   locomotion: {fileID: -5411453713712291072}
   actionRunner: {fileID: 5243475557449673624}
+--- !u!114 &144281651233717477
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 99964620462346716}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9714d9c388a1b4f49a4687dee3e02d6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpellBuildUpControl2D
+  spellRunner: {fileID: 0}
 --- !u!1 &6209197949866718809
 GameObject:
   m_ObjectHideFlags: 0

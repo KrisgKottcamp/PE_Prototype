@@ -17,6 +17,7 @@ namespace ProjectEri.SkillSystemV2.Editor
         private SerializedProperty timing;
         private SerializedProperty cooldown;
         private SerializedProperty resourceCost;
+        private SerializedProperty momentumGain;
         private SerializedProperty targetFilter;
         private SerializedProperty placementRules;
         private SerializedProperty aiAffordance;
@@ -55,6 +56,7 @@ namespace ProjectEri.SkillSystemV2.Editor
             timing = serializedObject.FindProperty("timing");
             cooldown = serializedObject.FindProperty("cooldown");
             resourceCost = serializedObject.FindProperty("resourceCost");
+            momentumGain = serializedObject.FindProperty("momentumGain");
             targetFilter = serializedObject.FindProperty("targetFilter");
             placementRules = serializedObject.FindProperty("placementRules");
             aiAffordance = serializedObject.FindProperty("aiAffordance");
@@ -79,6 +81,7 @@ namespace ProjectEri.SkillSystemV2.Editor
             DrawSection("Phase Timing", timing);
             EditorGUILayout.PropertyField(cooldown);
             DrawSection("Resource Cost", resourceCost);
+            DrawSection("Attack Momentum", momentumGain);
             DrawSection("Target Rules", targetFilter);
             DrawPlacementRules();
             DrawComposition();

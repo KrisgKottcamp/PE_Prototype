@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_Dash
+  m_Name: Spell_SpeedBoost
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Dash V2
-  stableId: player.dash.v2
-  description: Player Integration vertical-slice spell. Tune or replace freely.
+  displayName: Speed Boost
+  stableId: 085476dc49c84d4e972d5e44d9796fbe
+  description: 
   icon: {fileID: 0}
-  category: Player Skill V2
+  category: Skill
   timing:
     buildUpDuration: 0
     firingDuration: 0
@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: AP
     amount: 10
   targetFilter:
-    relationship: 1
+    relationship: 3
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -52,9 +52,9 @@ MonoBehaviour:
       m_Bits: 0
     lineOfSightRadius: 0.03
   aiAffordance:
-    usableByAI: 1
-    intents: 4
-    targetPreference: 7
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
     placementIntent: 0
     placementLookaheadSeconds: 0
     preferredMinimumRange: 0
@@ -62,7 +62,7 @@ MonoBehaviour:
     minimumUsefulTargets: 1
     baseUtility: 1
     commitmentRisk: 0
-    minimumAIRecastInterval: 1.25
+    minimumAIRecastInterval: 2
     maximumActiveInstancesPerCaster: 1
     maximumActiveInstancesPerSquad: 2
     allowEquivalentOverlap: 0
@@ -97,15 +97,15 @@ MonoBehaviour:
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
+    delivery: {fileID: 11400000, guid: a286b6d1c8e60404fb4d5e719798d6dc, type: 2}
     settings:
-      rid: 1819652408774492322
+      rid: 1819652839167492191
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
-  - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
+  - effect: {fileID: 11400000, guid: 8546d8692e456e541824b5f706ee413e, type: 2}
     settings:
-      rid: 1819652408774492323
+      rid: 1819652839167492192
     deliveryBinding: 0
     anchorTrigger: 2
     anchorApplication: 2
@@ -123,20 +123,18 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492322
-      type: {class: PointClickDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652839167492191
+      type: {class: InstantTargetDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}
-    - rid: 1819652408774492323
-      type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+        playerTargeting: {fileID: 11400000, guid: a752629118ebe6e4aa9d3e24e7d102da, type: 2}
+    - rid: 1819652839167492192
+      type: {class: SpellStatModifierSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        destinationSource: 0
-        speed: 14
-        maximumDistance: 4
-        instantaneous: 0
-        requireLineOfSight: 1
-        obstructionMask:
-          serializedVersion: 2
-          m_Bits: 128
-        keepOutsideHitSurface: 1
-        extraSurfaceClearance: 0.05
+        stat: 4
+        operation: 1
+        value: 1.25
+        duration: 3
+        stacking: 0
+        maximumStacks: 1
+        resetWhenTargetBecomesInactive: 1
+        applyToAllPartyMembers: 0

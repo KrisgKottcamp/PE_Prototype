@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_Dash
+  m_Name: Spell_Shotgun
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Dash V2
-  stableId: player.dash.v2
-  description: Player Integration vertical-slice spell. Tune or replace freely.
+  displayName: Shotgun
+  stableId: 239be41bea2f48ab80f24f5138885a3a
+  description: 
   icon: {fileID: 0}
-  category: Player Skill V2
+  category: Skill
   timing:
     buildUpDuration: 0
     firingDuration: 0
@@ -38,7 +38,7 @@ MonoBehaviour:
     resourceId: AP
     amount: 10
   targetFilter:
-    relationship: 1
+    relationship: 4
     useLayerMask: 0
     allowedLayers:
       serializedVersion: 2
@@ -52,9 +52,9 @@ MonoBehaviour:
       m_Bits: 0
     lineOfSightRadius: 0.03
   aiAffordance:
-    usableByAI: 1
-    intents: 4
-    targetPreference: 7
+    usableByAI: 0
+    intents: 1
+    targetPreference: 0
     placementIntent: 0
     placementLookaheadSeconds: 0
     preferredMinimumRange: 0
@@ -92,20 +92,20 @@ MonoBehaviour:
     requireSquadConsumerForSetup: 0
     setupUtilityMultiplierWithConsumer: 1.35
     suggestedReactions: 1
-    dangerRadius: 0
-    reactionUrgency: 0.7
+    dangerRadius: 3
+    reactionUrgency: 1
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
-    delivery: {fileID: 11400000, guid: 4b91fe41abeecb04aa91defa59d226cb, type: 2}
+    delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
     settings:
-      rid: 1819652408774492322
+      rid: 1819652839167492188
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
-  - effect: {fileID: 11400000, guid: 916638faf12806f4baae5cbc94c318d9, type: 2}
+  - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
     settings:
-      rid: 1819652408774492323
+      rid: 1819652839167492189
     deliveryBinding: 0
     anchorTrigger: 2
     anchorApplication: 2
@@ -123,20 +123,45 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652408774492322
-      type: {class: PointClickDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+    - rid: 1819652839167492188
+      type: {class: ProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
-        playerTargeting: {fileID: 11400000, guid: 7bcf29524617c3b409bef6cc3f11011a, type: 2}
-    - rid: 1819652408774492323
-      type: {class: CasterMovementEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        destinationSource: 0
-        speed: 14
-        maximumDistance: 4
-        instantaneous: 0
-        requireLineOfSight: 1
-        obstructionMask:
+        playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
+        projectilePrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
+        allowPrefabGameplayComponents: 0
+        speed: 2
+        range: 10
+        collisionRadius: 0.08
+        collisionMask:
           serializedVersion: 2
-          m_Bits: 128
-        keepOutsideHitSurface: 1
-        extraSurfaceClearance: 0.05
+          m_Bits: 1152
+        pierceTargets: 0
+        maximumTargetHits: 1
+        stopOnBlockedCollider: 1
+        castBufferSize: 16
+        emission:
+          pattern: 1
+          projectileCount: 4
+          spreadAngle: 60
+          shotInterval: 0
+          reAimSequentialShots: 0
+        motion:
+          pattern: 0
+          homingAcquireRadius: 6
+          homingTurnRate: 180
+          returnAtRangeFraction: 0.5
+          returnCatchRadius: 0.25
+        shotShape:
+          hitShape: 0
+          beamWidth: 0.12
+          coneAngle: 45
+        falloff:
+          mode: 1
+          minimumPotency: 0.25
+          curveExponent: 0.75
+    - rid: 1819652839167492189
+      type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        damageType: {fileID: 11400000, guid: ea9d31b2d59a44d7b0e6e6b5cc2519c3, type: 2}
+        amount: 25
+        ignoreInvulnerability: 0

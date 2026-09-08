@@ -74,6 +74,10 @@ public class CombatSkillMenuController : MonoBehaviour
     [Tooltip("When the spawned pawn has a PlayerSpellV2Bridge with equipped skills, show that loadout. An empty V2 loadout falls back to the legacy PartyManager skill list.")]
     [SerializeField] private bool preferV2LoadoutWhenAvailable = true;
 
+    [Header("Always-Available Legacy Skill")]
+    [Tooltip("Optional explicit Call Eri legacy SkillDefinition. It is appended once to every character's menu, including V2 loadouts, and still executes through CombatSkillSystem. When empty, the controller discovers the party's EriHealingCall skill automatically.")]
+    [SerializeField] private SkillDefinition alwaysAvailableCallEriSkill;
+
     public bool IsOpen => isOpen;
 
     private bool isOpen;
@@ -433,50 +437,84 @@ public class CombatSkillMenuController : MonoBehaviour
     private int GetSkillCount()
     {
         if (UsesV2Loadout())
-            return v2Bridge.SkillCount;
+        {
+            return v2Bridge.SkillCount +
+                   (ResolveAlwaysAvailableCallEriSkill() != null ? 1 : 0);
+        }
 
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null ||
-            pm.Active == null ||
-            pm.Active.unlockedSkills == null)
+            pm.Active == null)
         {
             return 0;
         }
 
-        return pm.Active.unlockedSkills.Count;
+        List<SkillDefinition> skills = pm.Active.unlockedSkills;
+        SkillDefinition callEri = ResolveAlwaysAvailableCallEriSkill();
+        int legacyCount = skills != null ? skills.Count : 0;
+        return legacyCount +
+               (ShouldAppendCallEri(
+                   false,
+                   ActiveSkillsContainCallEri(skills),
+                   callEri != null)
+                       ? 1
+                       : 0);
     }
 
     private void ConfirmSelection()
     {
         if (UsesV2Loadout())
         {
-            ConfirmV2Selection();
+            int v2Count = v2Bridge != null ? v2Bridge.SkillCount : 0;
+            if (selectedIndex < v2Count)
+            {
+                ConfirmV2Selection();
+            }
+            else
+            {
+                ConfirmLegacySkill(
+                    ResolveAlwaysAvailableCallEriSkill());
+            }
             return;
         }
 
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null ||
-            pm.Active == null ||
-            pm.Active.unlockedSkills == null)
+            pm.Active == null)
         {
             return;
         }
 
         List<SkillDefinition> skills = pm.Active.unlockedSkills;
+        SkillDefinition callEri = ResolveAlwaysAvailableCallEriSkill();
+        bool appendCallEri = ShouldAppendCallEri(
+            false,
+            ActiveSkillsContainCallEri(skills),
+            callEri != null);
+        int legacyCount = skills != null ? skills.Count : 0;
+        int displayedCount = legacyCount + (appendCallEri ? 1 : 0);
 
-        if (skills.Count == 0)
+        if (displayedCount == 0)
             return;
 
         selectedIndex =
             Mathf.Clamp(
                 selectedIndex,
                 0,
-                skills.Count - 1
+                displayedCount - 1
             );
 
-        SkillDefinition skill = skills[selectedIndex];
+        SkillDefinition skill = selectedIndex < legacyCount
+            ? skills[selectedIndex]
+            : callEri;
+
+        ConfirmLegacySkill(skill);
+    }
+
+    private void ConfirmLegacySkill(SkillDefinition skill)
+    {
 
         if (skill == null)
             return;
@@ -898,8 +936,15 @@ public class CombatSkillMenuController : MonoBehaviour
         }
 
         List<SkillDefinition> skills = pm.Active.unlockedSkills;
+        SkillDefinition callEri = ResolveAlwaysAvailableCallEriSkill();
+        bool appendCallEri = ShouldAppendCallEri(
+            false,
+            ActiveSkillsContainCallEri(skills),
+            callEri != null);
+        int legacyCount = skills != null ? skills.Count : 0;
+        int displayedCount = legacyCount + (appendCallEri ? 1 : 0);
 
-        if (skills == null || skills.Count == 0)
+        if (displayedCount == 0)
         {
             listText.text = "No skills.";
             return;
@@ -909,94 +954,90 @@ public class CombatSkillMenuController : MonoBehaviour
             Mathf.Clamp(
                 selectedIndex,
                 0,
-                skills.Count - 1
+                displayedCount - 1
             );
 
         StringBuilder sb = new StringBuilder(256);
 
-        for (int i = 0; i < skills.Count; i++)
-        {
-            SkillDefinition skill = skills[i];
+        for (int i = 0; i < legacyCount; i++)
+            AppendLegacySkillRow(sb, skills[i], i);
 
-            if (skill == null)
-                continue;
-
-            bool canUse =
-                skillSystem != null &&
-                skillSystem.CanUse(skill);
-
-            bool isSelected =
-                i == selectedIndex;
-
-            Color rowColor =
-                GetSkillRowColor(
-                    isSelected,
-                    canUse
-                );
-
-            string rowColorHex =
-                ColorUtility.ToHtmlStringRGB(rowColor);
-
-            sb.Append("<color=#");
-            sb.Append(rowColorHex);
-            sb.Append(">");
-
-            if (isSelected && boldSelectedSkill)
-                sb.Append("<b>");
-
-            sb.Append(isSelected ? "> " : "  ");
-            sb.Append(skill.displayName);
-            sb.Append("  (");
-            sb.Append(
-                skillSystem != null
-                    ? skillSystem.GetCostDisplay(skill)
-                    : $"{skill.baseApCost} AP"
-            );
-            sb.Append(")");
-
-            if (!canUse &&
-                showNoApTag &&
-                skill.executionType !=
-                SkillExecutionType.EriHealingCall)
-            {
-                sb.Append("  [NO AP]");
-            }
-
-            if (skill.executionType ==
-                SkillExecutionType.EriHealingCall)
-            {
-                sb.Append("  [ERI]");
-            }
-
-            if (skill.requiresPartyTarget)
-                sb.Append("  [ALLY]");
-
-            if (skill.usesPlacement)
-                sb.Append("  [PLACE]");
-
-            if (isSelected && boldSelectedSkill)
-                sb.Append("</b>");
-
-            sb.Append("</color>");
-            sb.AppendLine();
-        }
+        if (appendCallEri)
+            AppendLegacySkillRow(sb, callEri, legacyCount);
 
         listText.text = sb.ToString();
     }
 
+    private void AppendLegacySkillRow(
+        StringBuilder sb,
+        SkillDefinition skill,
+        int menuIndex)
+    {
+        if (sb == null || skill == null)
+            return;
+
+        bool canUse = skillSystem != null && skillSystem.CanUse(skill);
+        bool isSelected = menuIndex == selectedIndex;
+        string rowColorHex = ColorUtility.ToHtmlStringRGB(
+            GetSkillRowColor(isSelected, canUse));
+
+        sb.Append("<color=#");
+        sb.Append(rowColorHex);
+        sb.Append(">");
+
+        if (isSelected && boldSelectedSkill)
+            sb.Append("<b>");
+
+        sb.Append(isSelected ? "> " : "  ");
+        sb.Append(skill.displayName);
+        sb.Append("  (");
+        sb.Append(
+            skillSystem != null
+                ? skillSystem.GetCostDisplay(skill)
+                : $"{skill.baseApCost} AP");
+        sb.Append(")");
+
+        if (!canUse && showNoApTag &&
+            skill.executionType != SkillExecutionType.EriHealingCall)
+        {
+            sb.Append("  [NO AP]");
+        }
+
+        if (skill.executionType == SkillExecutionType.EriHealingCall)
+            sb.Append("  [ERI]");
+
+        if (skill.requiresPartyTarget)
+            sb.Append("  [ALLY]");
+
+        if (skill.usesPlacement)
+            sb.Append("  [PLACE]");
+
+        if (isSelected && boldSelectedSkill)
+            sb.Append("</b>");
+
+        sb.Append("</color>");
+        sb.AppendLine();
+    }
+
     private void RefreshV2SkillText()
     {
-        int count = v2Bridge != null ? v2Bridge.SkillCount : 0;
-        if (count <= 0)
+        int v2Count = v2Bridge != null ? v2Bridge.SkillCount : 0;
+        SkillDefinition callEri = ResolveAlwaysAvailableCallEriSkill();
+        bool appendCallEri = ShouldAppendCallEri(
+            usesV2Loadout: true,
+            activeSkillsContainCallEri: false,
+            resolvedCallEri: callEri != null);
+        int displayedCount = v2Count + (appendCallEri ? 1 : 0);
+        if (displayedCount <= 0)
         {
             listText.text = "No V2 spells equipped.";
             return;
         }
 
-        selectedIndex = Mathf.Clamp(selectedIndex, 0, count - 1);
+        selectedIndex = Mathf.Clamp(selectedIndex, 0, displayedCount - 1);
         StringBuilder sb = new StringBuilder(256);
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < v2Count; i++)
         {
             SpellDefinition spell = v2Bridge.GetSkill(i);
             if (spell == null)
@@ -1038,7 +1079,75 @@ public class CombatSkillMenuController : MonoBehaviour
             sb.AppendLine();
         }
 
+        if (appendCallEri)
+            AppendLegacySkillRow(sb, callEri, v2Count);
+
         listText.text = sb.ToString();
+    }
+
+    public static bool ShouldAppendCallEri(
+        bool usesV2Loadout,
+        bool activeSkillsContainCallEri,
+        bool resolvedCallEri)
+    {
+        return resolvedCallEri &&
+               (usesV2Loadout || !activeSkillsContainCallEri);
+    }
+
+    private SkillDefinition ResolveAlwaysAvailableCallEriSkill()
+    {
+        if (IsCallEriSkill(alwaysAvailableCallEriSkill))
+            return alwaysAvailableCallEriSkill;
+
+        PartyManager partyManager = PartyManager.Instance;
+        if (partyManager == null || partyManager.party == null)
+            return null;
+
+        for (int i = 0; i < partyManager.party.Count; i++)
+        {
+            PartyManager.CharacterState state = partyManager.party[i];
+            SkillDefinition found = FindCallEriSkill(
+                state != null ? state.unlockedSkills : null);
+            if (found == null && state != null && state.def != null)
+            {
+                found = FindCallEriSkill(state.def.startingSkills);
+            }
+
+            if (found == null)
+                continue;
+
+            alwaysAvailableCallEriSkill = found;
+            return found;
+        }
+
+        return null;
+    }
+
+    private static SkillDefinition FindCallEriSkill(
+        IList<SkillDefinition> skills)
+    {
+        if (skills == null)
+            return null;
+
+        for (int i = 0; i < skills.Count; i++)
+        {
+            if (IsCallEriSkill(skills[i]))
+                return skills[i];
+        }
+
+        return null;
+    }
+
+    private static bool ActiveSkillsContainCallEri(
+        IList<SkillDefinition> skills)
+    {
+        return FindCallEriSkill(skills) != null;
+    }
+
+    private static bool IsCallEriSkill(SkillDefinition skill)
+    {
+        return skill != null &&
+               skill.executionType == SkillExecutionType.EriHealingCall;
     }
 
     private bool UsesV2Loadout()
@@ -1125,6 +1234,31 @@ public class CombatSkillMenuController : MonoBehaviour
 
         return unselectedAffordableSkillColor;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (IsCallEriSkill(alwaysAvailableCallEriSkill))
+            return;
+
+        string[] guids = UnityEditor.AssetDatabase.FindAssets(
+            "t:SkillDefinition");
+        System.Array.Sort(guids, System.StringComparer.Ordinal);
+        for (int i = 0; i < guids.Length; i++)
+        {
+            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]);
+            SkillDefinition candidate =
+                UnityEditor.AssetDatabase.LoadAssetAtPath<SkillDefinition>(
+                    path);
+            if (!IsCallEriSkill(candidate))
+                continue;
+
+            alwaysAvailableCallEriSkill = candidate;
+            UnityEditor.EditorUtility.SetDirty(this);
+            break;
+        }
+    }
+#endif
 
     private void OnDisable()
     {
