@@ -29,6 +29,7 @@ public class PartyManager : MonoBehaviour
     [Header("Runtime")]
     public int activeIndex;
     public List<CharacterState> party = new();
+    public int mpPotions = 3;
 
     [System.Serializable]
     public class CharacterState
@@ -39,6 +40,8 @@ public class PartyManager : MonoBehaviour
 
         public int currentHP;
         public int currentAP;
+        public int currentMP = EriTurnRules.MaxMP;
+        public int exhaustedSegments;
 
         public float skillCostMultiplier = 1f;
         public List<SkillDefinition> unlockedSkills = new();
@@ -51,6 +54,7 @@ public class PartyManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         BuildPartyIfEmpty();
+        if (GetComponent<EriPrototypeRest>() == null) gameObject.AddComponent<EriPrototypeRest>();
 
         if (GetComponent<EriSupportManager>() == null)
             gameObject.AddComponent<EriSupportManager>();
@@ -92,7 +96,7 @@ public class PartyManager : MonoBehaviour
         if (active == null || active.def == null)
             return 0;
 
-        int maximum = Mathf.Max(0, active.def.maxAP);
+        int maximum = EriTurnRules.Capacity(active.def.maxAP, active.exhaustedSegments);
         int before = Mathf.Clamp(active.currentAP, 0, maximum);
 
         active.currentAP = Mathf.Clamp(before + amount, 0, maximum);
@@ -247,8 +251,23 @@ public class PartyManager : MonoBehaviour
         }
     }
 
+    // Prototype rest is explicit; ordinary encounter transitions never refill MP.
+    public void RestPrototypeParty()
+    {
+        if (CombatManager.Instance != null) return;
+        RestoreAllPartyHP();
+        foreach (var member in party)
+        {
+            member.currentMP = EriTurnRules.MaxMP;
+            member.exhaustedSegments = 0;
+            member.currentAP = 0;
+        }
+        mpPotions = 3;
+    }
+
     public void SwapNext()
     {
+        if (EriTurnCombat.Active != null && EriTurnCombat.Active.IsBusy) return;
         activeIndex = (activeIndex + 1) % party.Count;
 
         // Spec rules
@@ -261,6 +280,7 @@ public class PartyManager : MonoBehaviour
     public bool SwapNextAlive()
     {
         if (party == null || party.Count == 0) return false;
+        if (EriTurnCombat.Active != null && EriTurnCombat.Active.IsBusy) return true;
 
         int start = activeIndex;
 

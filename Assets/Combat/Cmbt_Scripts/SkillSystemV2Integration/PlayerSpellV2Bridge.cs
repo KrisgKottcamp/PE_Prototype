@@ -44,6 +44,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     private static readonly Queue<long> momentumAwardHistory =
         new Queue<long>();
     private const int MomentumAwardHistoryLimit = 256;
+    private EriTurnCombat turnCombat;
 
     public event Action<SpellDefinition> SpellTargetingStarted;
     public event Action<SpellDefinition> SpellConfirmed;
@@ -52,13 +53,15 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     public SpellLoadout Loadout => spellLoadout;
     public bool IsTargeting => targetingController != null && targetingController.IsTargeting;
-    public int SkillCount => spellLoadout != null ? spellLoadout.EquippedSkills.Count : 0;
+    public int SkillCount => turnCombat != null ? turnCombat.Skills.Count : spellLoadout != null ? spellLoadout.EquippedSkills.Count : 0;
 
     private void Awake()
     {
         EnsureFeedbackComponents();
         ResolveReferences();
         EnsureBuffer();
+        turnCombat = GetComponent<EriTurnCombat>();
+        if (turnCombat == null) turnCombat = gameObject.AddComponent<EriTurnCombat>();
     }
 
     private void OnEnable()
@@ -93,6 +96,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     private void Update()
     {
+        if (turnCombat != null && turnCombat.Timing) return;
         if (!IsTargeting)
             return;
 
@@ -140,6 +144,11 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     public SpellDefinition GetSkill(int index)
     {
+        if (turnCombat != null)
+        {
+            turnCombat.RefreshSkills();
+            return index >= 0 && index < turnCombat.Skills.Count ? turnCombat.Skills[index] : null;
+        }
         return spellLoadout != null ? spellLoadout.GetSkill(index) : null;
     }
 
@@ -181,6 +190,13 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
             }
         }
 
+        if (turnCombat != null)
+        {
+            string reason = turnCombat.Reason(spell);
+            failure = string.IsNullOrEmpty(reason) ? SpellCastFailure.None :
+                turnCombat.Remaining > 0 ? SpellCastFailure.OnCooldown : SpellCastFailure.InsufficientResources;
+            return failure == SpellCastFailure.None;
+        }
         if (!spell.ResourceCost.IsFree &&
             (partyAdapter == null || !partyAdapter.CanSpend(spell.ResourceCost)))
         {
@@ -192,6 +208,27 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
     }
 
     public bool BeginSpell(SpellDefinition spell, out string rejectionReason)
+    {
+        if (turnCombat != null && !turnCombat.Timing)
+        {
+            rejectionReason = turnCombat.Reason(spell);
+            if (!string.IsNullOrEmpty(rejectionReason)) return false;
+            if ((spell.Delivery as EriPrototypeDelivery)?.Kind == EriCommandKind.Recover)
+                return BeginSpellAfterTiming(spell, out rejectionReason);
+            turnCombat.StartTiming(success =>
+            {
+                if (success)
+                {
+                    if (!BeginSpellAfterTiming(spell, out _)) SpellCancelled?.Invoke(spell);
+                }
+                else SpellCancelled?.Invoke(spell);
+            });
+            return true;
+        }
+        return BeginSpellAfterTiming(spell, out rejectionReason);
+    }
+
+    private bool BeginSpellAfterTiming(SpellDefinition spell, out string rejectionReason)
     {
         rejectionReason = string.Empty;
         if (!CanUse(spell, out SpellCastFailure castFailure))
@@ -225,6 +262,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     public string GetCostDisplay(SpellDefinition spell)
     {
+        if (turnCombat != null && spell != null) return turnCombat.CostDisplay(spell);
         if (spell == null || spell.ResourceCost.IsFree)
             return "Free";
 
@@ -244,6 +282,9 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     public int GetScaledAPCost(SpellDefinition spell)
     {
+        if (turnCombat != null && spell != null && PartyManager.Instance != null)
+            return EriTurnRules.Cost(PartyManager.Instance.Active.def.maxAP,
+                (spell.Delivery as EriPrototypeDelivery)?.Segments ?? 0, PartyManager.Instance.Active.exhaustedSegments);
         if (spell == null || spell.ResourceCost.IsFree)
             return 0;
 
@@ -290,6 +331,7 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
 
     private void HandleCastStarted(SpellCastEvent castEvent)
     {
+        if (turnCombat != null) return;
         GameObject caster = castEvent.Context.Caster;
         bool casterMatchesPlayer = caster != null &&
             SpellTargetResolver.IsSameHierarchy(gameObject, caster);

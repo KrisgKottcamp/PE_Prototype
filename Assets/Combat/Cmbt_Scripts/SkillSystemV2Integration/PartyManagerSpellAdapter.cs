@@ -188,6 +188,7 @@ public sealed class PartyManagerSpellAdapter : MonoBehaviour,
     /// </summary>
     public bool AdvanceActiveCharacterSkillCostMultiplier()
     {
+        if (EriTurnCombat.Active != null) return false;
         if (!applyActiveCharacterSkillCostMultiplier ||
             !TryGetActive(out PartyManager.CharacterState active))
         {

@@ -55,6 +55,9 @@ namespace ProjectEri.SkillSystemV2
         public event Action<SpellCastEvent> PhaseChanged;
         public event Action<SpellCastEvent> CastCompleted;
         public event Action<SpellCastEvent> CastInterrupted;
+        // Optional player-only economy. Enemy runners retain authored costs/cooldowns.
+        public Func<SpellDefinition, CastContext, SpellCastFailure> CommandCheck { get; set; }
+        public Action<SpellDefinition, CastContext> CommandAccepted { get; set; }
 
         public bool IsCasting => activeSpell != null;
         public SpellDefinition ActiveSpell => activeSpell;
@@ -113,6 +116,11 @@ namespace ProjectEri.SkillSystemV2
                 return false;
             }
             resolvedContext = validatedContext;
+            if (CommandCheck != null)
+            {
+                failure = CommandCheck(spell, resolvedContext);
+                if (failure != SpellCastFailure.None) return false;
+            }
             if (GetCooldownRemaining(spell) > 0f)
             {
                 failure = SpellCastFailure.OnCooldown;
@@ -128,7 +136,7 @@ namespace ProjectEri.SkillSystemV2
             }
 
             SpellResourceCost cost = spell.ResourceCost;
-            if (!cost.IsFree)
+            if (CommandCheck == null && !cost.IsFree)
             {
                 ISpellResourceProvider provider =
                     FindResourceProvider(resolvedContext.Caster);
@@ -192,6 +200,13 @@ namespace ProjectEri.SkillSystemV2
             }
             context = resolvedContext;
 
+            if (CommandCheck != null)
+            {
+                SpellCastFailure commandFailure = CommandCheck(spell, context);
+                if (commandFailure != SpellCastFailure.None)
+                    return Reject(spell, context, commandFailure, out failure);
+            }
+
             if (GetCooldownRemaining(spell) > 0f)
                 return Reject(
                     spell,
@@ -215,7 +230,7 @@ namespace ProjectEri.SkillSystemV2
             ISpellResourceProvider resourceProvider = null;
             SpellResourceCost cost = spell.ResourceCost;
 
-            if (!cost.IsFree)
+            if (CommandCheck == null && !cost.IsFree)
             {
                 resourceProvider = FindResourceProvider(context.Caster);
 
@@ -250,6 +265,7 @@ namespace ProjectEri.SkillSystemV2
                     out failure);
             }
 
+            CommandAccepted?.Invoke(spell, context);
             activeSpell = spell;
             activeContext = context;
             activeDelivery = null;
@@ -391,6 +407,7 @@ namespace ProjectEri.SkillSystemV2
 
         public float GetCooldownRemaining(SpellDefinition spell)
         {
+            if (CommandCheck != null) return 0f;
             if (spell == null)
                 return 0f;
 
@@ -512,6 +529,7 @@ namespace ProjectEri.SkillSystemV2
 
         private void StartCooldown(SpellDefinition spell)
         {
+            if (CommandCheck != null) return;
             if (spell.Cooldown <= 0f)
                 return;
 

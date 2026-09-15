@@ -4,6 +4,7 @@ public class CombatAPController : MonoBehaviour
 {
     private void Update()
     {
+        if (EriTurnCombat.Active != null) return;
         var pm = PartyManager.Instance;
         if (pm == null || pm.party == null || pm.party.Count == 0) return;
 

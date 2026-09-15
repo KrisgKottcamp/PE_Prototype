@@ -80,6 +80,28 @@ public class CombatSkillMenuController : MonoBehaviour
 
     public bool IsOpen => isOpen;
 
+    public void ConfigurePrototypePresentation(Transform canvas)
+    {
+        if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
+        skillPanelRoot = new GameObject("Prototype Command Menu", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        skillPanelRoot.transform.SetParent(canvas, false);
+        var rect = (RectTransform)skillPanelRoot.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f,0.5f);
+        rect.anchoredPosition = new Vector2(-120,-65); rect.sizeDelta = new Vector2(880,560);
+        skillPanelRoot.GetComponent<UnityEngine.UI.Image>().color = new Color(0.045f,0.055f,0.09f,0.98f);
+        var text = new GameObject("Command List", typeof(RectTransform), typeof(TextMeshProUGUI));
+        text.transform.SetParent(rect,false);
+        var tr = (RectTransform)text.transform; tr.anchorMin=Vector2.zero;tr.anchorMax=Vector2.one;
+        tr.offsetMin=new Vector2(26,20);tr.offsetMax=new Vector2(-26,-20);
+        listText=text.GetComponent<TextMeshProUGUI>();listText.fontSize=23;listText.richText=true;
+        listText.color=Color.white;listText.raycastTarget=false;listText.fontStyle=FontStyles.Normal;
+        selectedAffordableSkillColor=new Color(0.48f,0.95f,0.82f);
+        unselectedAffordableSkillColor=new Color(0.85f,0.89f,0.95f);
+        unavailableSkillColor=new Color(0.64f,0.69f,0.77f);
+        boldSelectedSkill=true;
+        skillPanelRoot.SetActive(false);
+    }
+
     private bool isOpen;
     private bool selectingPartyTarget;
     private bool selectingPlacement;
@@ -243,8 +265,9 @@ public class CombatSkillMenuController : MonoBehaviour
         appliedMenuTimeScale = Mathf.Min(
             prevTimeScale,
             Mathf.Clamp(slowTimeScale, 0.01f, 1f));
+        if (EriTurnCombat.Active != null) appliedMenuTimeScale = 0f;
         Time.timeScale = appliedMenuTimeScale;
-        Time.fixedDeltaTime = prevTimeScale > 0.0001f
+        Time.fixedDeltaTime = appliedMenuTimeScale == 0f ? prevFixedDelta : prevTimeScale > 0.0001f
             ? prevFixedDelta * (appliedMenuTimeScale / prevTimeScale)
             : 0.02f * appliedMenuTimeScale;
 
@@ -515,6 +538,9 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void ConfirmLegacySkill(SkillDefinition skill)
     {
+        if (IsCallEriSkill(skill) && EriTurnCombat.Active != null &&
+            !string.IsNullOrEmpty(EriTurnCombat.Active.CallEriReason))
+        { RefreshSkillText(); return; }
 
         if (skill == null)
             return;
@@ -691,7 +717,12 @@ public class CombatSkillMenuController : MonoBehaviour
             },
             confirm: (targetIndex) =>
             {
-                skillSystem.ResolveCast(pendingCast, targetIndex);
+                if (IsCallEriSkill(skill) && EriTurnCombat.Active != null)
+                {
+                    if (!EriTurnCombat.Active.TryCallEri(targetIndex)) return;
+                    skillSystem.CancelCast(pendingCast);
+                }
+                else skillSystem.ResolveCast(pendingCast, targetIndex);
                 pendingCast = null;
 
                 selectingPartyTarget = false;
@@ -977,6 +1008,8 @@ public class CombatSkillMenuController : MonoBehaviour
             return;
 
         bool canUse = skillSystem != null && skillSystem.CanUse(skill);
+        if (IsCallEriSkill(skill) && EriTurnCombat.Active != null)
+            canUse &= string.IsNullOrEmpty(EriTurnCombat.Active.CallEriReason);
         bool isSelected = menuIndex == selectedIndex;
         string rowColorHex = ColorUtility.ToHtmlStringRGB(
             GetSkillRowColor(isSelected, canUse));
@@ -991,6 +1024,7 @@ public class CombatSkillMenuController : MonoBehaviour
         sb.Append(isSelected ? "> " : "  ");
         sb.Append(skill.displayName);
         sb.Append("  (");
+        if (IsCallEriSkill(skill) && EriTurnCombat.Active != null) sb.Append("1 segment · 5 MP · ");
         sb.Append(
             skillSystem != null
                 ? skillSystem.GetCostDisplay(skill)
@@ -1004,7 +1038,11 @@ public class CombatSkillMenuController : MonoBehaviour
         }
 
         if (skill.executionType == SkillExecutionType.EriHealingCall)
+        {
             sb.Append("  [ERI]");
+            if (EriTurnCombat.Active != null && !string.IsNullOrEmpty(EriTurnCombat.Active.CallEriReason))
+                sb.Append(" [" + EriTurnCombat.Active.CallEriReason + "]");
+        }
 
         if (skill.requiresPartyTarget)
             sb.Append("  [ALLY]");
@@ -1036,6 +1074,8 @@ public class CombatSkillMenuController : MonoBehaviour
 
         selectedIndex = Mathf.Clamp(selectedIndex, 0, displayedCount - 1);
         StringBuilder sb = new StringBuilder(256);
+        if (EriTurnCombat.Active != null)
+            sb.AppendLine("<size=27><color=#78EBD0>CHOOSE COMMAND</color></size>  <size=17>TIME PAUSED</size>\n<size=17>W/S or arrows: select · Space: confirm · Esc: back</size>\n");
 
         for (int i = 0; i < v2Count; i++)
         {
@@ -1062,7 +1102,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
             if (!canUse && showNoApTag)
             {
-                sb.Append(failure == SpellCastFailure.InsufficientResources
+                sb.Append(EriTurnCombat.Active != null ? "\n<size=17>    " + EriTurnCombat.Active.Reason(spell) + "</size>" : failure == SpellCastFailure.InsufficientResources
                     ? "  [NO AP]"
                     : $"  [{failure.ToString().ToUpperInvariant()}]");
             }
@@ -1077,6 +1117,9 @@ public class CombatSkillMenuController : MonoBehaviour
                 sb.Append("</b>");
             sb.Append("</color>");
             sb.AppendLine();
+            if (EriTurnCombat.Active != null && isSelected)
+                sb.AppendLine("<size=17><color=#C3CEDD>" + spell.Description + "</color></size>");
+            if (EriTurnCombat.Active != null) sb.AppendLine("<size=5> </size>");
         }
 
         if (appendCallEri)
