@@ -250,6 +250,7 @@ public class HeavyComboAttack : MonoBehaviour
 
     public void CancelCurrentAttack()
     {
+        attackCommitment?.ClearBasicAttackMovementLock();
         if (comboRoutine != null)
         {
             StopCoroutine(comboRoutine);
@@ -266,6 +267,14 @@ public class HeavyComboAttack : MonoBehaviour
     private IEnumerator ComboRoutine()
     {
         comboRunning = true;
+
+        if (attackCommitment == null)
+            ResolveAttackCommitment();
+        attackCommitment?.ApplyBasicAttackMovementLock(
+            Mathf.Max(0f, comboPunchDelay) /
+            Mathf.Max(0.01f, GetAttackSpeedMultiplier()) +
+            Mathf.Max(0f, hit2CommitmentDuration)
+        );
 
         ApplyAttackCommitment(
             hit1MoveMultiplier,

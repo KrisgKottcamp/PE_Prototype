@@ -194,6 +194,9 @@ public class ProjectileBasicAttack : MonoBehaviour
 
         if (attackCommitment != null)
         {
+            attackCommitment.ApplyBasicAttackMovementLock(
+                shotCommitmentDuration
+            );
             attackCommitment.ApplyMovementCommitment(
                 shotMoveMultiplier,
                 shotCommitmentDuration
@@ -203,6 +206,7 @@ public class ProjectileBasicAttack : MonoBehaviour
 
     public void CancelCurrentAttack()
     {
+        attackCommitment?.ClearBasicAttackMovementLock();
         shotsRemaining = Mathf.Max(1, shotsPerBurst);
         shotTimer = 0f;
         recoveryTimer = Mathf.Max(

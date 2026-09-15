@@ -30,6 +30,13 @@ public class CharacterDefinition : ScriptableObject
     [Header("Basic Attack")]
     public BasicAttackType basicAttackType = BasicAttackType.Melee;
 
+    [Tooltip("Prevent player-directed movement for the active portion of this character's basic attack. Disable this for characters who should be able to attack while moving.")]
+    public bool lockMovementDuringBasicAttack;
+
+    [Min(0f)]
+    [Tooltip("Minimum time in seconds that movement remains locked after a basic attack starts. This is independent of the attack animation, so fast attacks can still have a readable commitment window.")]
+    public float basicAttackMovementLockDuration = 0.35f;
+
     [Header("Projectile Basic Attack")]
     public GameObject basicAttackProjectilePrefab;
 

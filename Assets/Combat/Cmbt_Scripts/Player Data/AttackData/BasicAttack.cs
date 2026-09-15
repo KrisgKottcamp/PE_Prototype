@@ -212,6 +212,9 @@ public class BasicAttack : MonoBehaviour
 
         if (attackCommitment != null)
         {
+            attackCommitment.ApplyBasicAttackMovementLock(
+                swingCommitmentDuration
+            );
             attackCommitment.ApplyMovementCommitment(
                 swingMoveMultiplier,
                 swingCommitmentDuration
@@ -221,6 +224,7 @@ public class BasicAttack : MonoBehaviour
 
     public void CancelCurrentAttack()
     {
+        attackCommitment?.ClearBasicAttackMovementLock();
         comboHitstopActive = false;
         comboHitstopExpiresAtRealtime = 0f;
         swingsRemaining = Mathf.Max(1, swingsPerBurst);

@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2010000000000000000000000000010, type: 3}
-  m_Name: Spell_Laser
+  m_Name: Spell_Blast
   m_EditorClassIdentifier: ProjectEri.SkillSystemV2::ProjectEri.SkillSystemV2.SpellDefinition
-  displayName: Laser
-  stableId: 
+  displayName: Blast
+  stableId: f9056aa7413348049f0c2ba74a4fa7f1
   description: 
   icon: {fileID: 0}
   category: Skill
   timing:
-    buildUpDuration: 0
+    buildUpDuration: 0.5
     firingDuration: 0
     channelDuration: 0
     recoveryDuration: 0
     timeMode: 0
     buildUpControl:
-      blockPlayerMovement: 0
-      blockPlayerBasicAttacks: 0
+      blockPlayerMovement: 1
+      blockPlayerBasicAttacks: 1
       blockPlayerSkillUsage: 0
       showPowerUpParticles: 0
       particleColor: {r: 0, g: 0, b: 0, a: 0}
@@ -36,7 +36,8 @@ MonoBehaviour:
   cooldown: 0
   resourceCost:
     resourceId: AP
-    amount: 0
+    amount: 15
+  momentumGain: 18
   targetFilter:
     relationship: 4
     useLayerMask: 0
@@ -53,7 +54,7 @@ MonoBehaviour:
     lineOfSightRadius: 0.03
   aiAffordance:
     usableByAI: 0
-    intents: 0
+    intents: 1
     targetPreference: 0
     placementIntent: 0
     placementLookaheadSeconds: 0
@@ -91,21 +92,21 @@ MonoBehaviour:
     suppressRedundantComboSetup: 1
     requireSquadConsumerForSetup: 0
     setupUtilityMultiplierWithConsumer: 1.35
-    suggestedReactions: -1
-    dangerRadius: 1
+    suggestedReactions: 1
+    dangerRadius: 0
     reactionUrgency: 0.7
     telegraphDuration: 0
   delivery: {fileID: 0}
   deliverySlot:
     delivery: {fileID: 11400000, guid: 667d7f61f50bef04f88a677205a6af41, type: 2}
     settings:
-      rid: 1819652839167492186
+      rid: 7786140116720287855
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
   - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
     settings:
-      rid: 1819652839167492187
+      rid: 7786140116720287856
     deliveryBinding: 0
     anchorTrigger: 2
     anchorApplication: 2
@@ -123,7 +124,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 1819652839167492186
+    - rid: 7786140116720287855
       type: {class: ProjectileDeliverySettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
@@ -141,10 +142,10 @@ MonoBehaviour:
         castBufferSize: 16
         emission:
           pattern: 0
-          projectileCount: 1
-          spreadAngle: 30
-          shotInterval: 0
-          reAimSequentialShots: 0
+          projectileCount: 4
+          spreadAngle: 54
+          shotInterval: 0.1
+          reAimSequentialShots: 1
         motion:
           pattern: 0
           homingAcquireRadius: 6
@@ -152,16 +153,16 @@ MonoBehaviour:
           returnAtRangeFraction: 0.5
           returnCatchRadius: 0.25
         shotShape:
-          hitShape: 1
+          hitShape: 0
           beamWidth: 0.12
           coneAngle: 45
         falloff:
           mode: 0
           minimumPotency: 0.5
           curveExponent: 1
-    - rid: 1819652839167492187
+    - rid: 7786140116720287856
       type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 11400000, guid: ea9d31b2d59a44d7b0e6e6b5cc2519c3, type: 2}
-        amount: 20
+        amount: 10
         ignoreInvulnerability: 0

@@ -20,8 +20,6 @@ MonoBehaviour:
   apGainOnBasicHit: 3
   apMagnetizationRange: 3
   basicAttackType: 1
-  lockMovementDuringBasicAttack: 1
-  basicAttackMovementLockDuration: 0.1
   basicAttackProjectilePrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
   startingSkills:
   - {fileID: 0}
@@ -30,9 +28,8 @@ MonoBehaviour:
   useSkillSystemV2Loadout: 1
   skillSystemV2BasicAttack: {fileID: 0}
   equippedSpellsV2:
-  - {fileID: 11400000, guid: 5c7545292f9a95c4faa22f66f571cf96, type: 2}
-  - {fileID: 11400000, guid: 9edc86ebe7830b04987320b7f1d1d9cb, type: 2}
-  - {fileID: 11400000, guid: a637052ef44659a41a9015e3955b19f5, type: 2}
+  - {fileID: 11400000, guid: cbbcc47ffdc2c9c41a696acc9ff4e257, type: 2}
+  - {fileID: 11400000, guid: ea811f93639f34a4dacfc4745b9e7a91, type: 2}
   unlocks: []
   combatSprite: {fileID: 21300000, guid: 15679294c661df74eab7df2dae28f96a, type: 3}
   portraitSprite: {fileID: 21300000, guid: f90d2b3decbeea14cbe1c0d80740bf8f, type: 3}

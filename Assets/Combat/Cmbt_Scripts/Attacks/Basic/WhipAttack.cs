@@ -287,20 +287,25 @@ public class WhipAttack : MonoBehaviour
         if (attackCommitment == null)
             return;
 
-        float duration =
+        float activeDuration =
             Mathf.Max(0f, windupDelay) +
             Mathf.Max(0f, extendTime) +
             Mathf.Max(0f, activeHoldTime) +
             Mathf.Max(0f, movementCommitmentExtra);
 
+        float fullDuration = activeDuration +
+                             Mathf.Max(0f, retractTime);
+
+        attackCommitment.ApplyBasicAttackMovementLock(fullDuration);
         attackCommitment.ApplyMovementCommitment(
             swingMoveMultiplier,
-            duration
+            activeDuration
         );
     }
 
     public void CancelCurrentAttack()
     {
+        attackCommitment?.ClearBasicAttackMovementLock();
         if (swingRoutine != null)
         {
             StopCoroutine(swingRoutine);

@@ -36,7 +36,8 @@ MonoBehaviour:
   cooldown: 0
   resourceCost:
     resourceId: AP
-    amount: 10
+    amount: 2
+  momentumGain: 18
   targetFilter:
     relationship: 1
     useLayerMask: 0

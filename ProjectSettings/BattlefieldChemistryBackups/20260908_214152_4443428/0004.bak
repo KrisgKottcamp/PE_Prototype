@@ -10,27 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 44f1f4cfeba211c449c82a05edec4b29, type: 3}
-  m_Name: Char_Test4
+  m_Name: Char_Test3
   m_EditorClassIdentifier: Assembly-CSharp::CharacterDefinition
-  displayName: Dominic
-  maxHP: 90
-  combatMoveSpeed: 4
+  displayName: Imogen
+  maxHP: 100
+  combatMoveSpeed: 3.75
   maxAP: 150
   apRegenPerSecond: 0
-  apGainOnBasicHit: 5
-  apMagnetizationRange: 2.3
-  basicAttackType: 3
-  lockMovementDuringBasicAttack: 1
-  basicAttackMovementLockDuration: 0.35
+  apGainOnBasicHit: 20
+  apMagnetizationRange: 1.6
+  basicAttackType: 2
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills: []
   skillCostIncreaseMultiplier: 3
   useSkillSystemV2Loadout: 1
   skillSystemV2BasicAttack: {fileID: 0}
   equippedSpellsV2:
-  - {fileID: 11400000, guid: 093e3e806ec33ef4a8cb9874739b315f, type: 2}
-  - {fileID: 11400000, guid: ea811f93639f34a4dacfc4745b9e7a91, type: 2}
-  - {fileID: 11400000, guid: cb61ef1440d017843b4c7a7ce7266e39, type: 2}
+  - {fileID: 11400000, guid: dc95c345b1176e841ae044a23a41beb5, type: 2}
+  - {fileID: 11400000, guid: 08add0a2705df344e952f50447d0ccc2, type: 2}
+  - {fileID: 11400000, guid: 1cb3bcb1c0841204eaca8643a3150b92, type: 2}
+  - {fileID: 11400000, guid: 38220feeb16d54149b36d747e81d1160, type: 2}
   unlocks: []
-  combatSprite: {fileID: 21300000, guid: 406f738efc0ddf44c9c221d1cb8e78c0, type: 3}
-  portraitSprite: {fileID: 7578988842328501424, guid: b923b28978bb8644ba1bb0c7fa6bfe10, type: 3}
+  combatSprite: {fileID: 21300000, guid: 6bc2d5ae4dc3a0a4ca66a70df3a0bea9, type: 3}
+  portraitSprite: {fileID: -8563271677356080694, guid: 96842285eba745c4b82738eac8d16033, type: 3}

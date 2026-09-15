@@ -37,6 +37,7 @@ MonoBehaviour:
   resourceCost:
     resourceId: AP
     amount: 10
+  momentumGain: 18
   targetFilter:
     relationship: 0
     useLayerMask: 0
@@ -103,9 +104,9 @@ MonoBehaviour:
   deliverySlotMigrated: 1
   effects: []
   effectSlots:
-  - effect: {fileID: 11400000, guid: b13a467e20abb384da8ec2e5f8a0cbeb, type: 2}
+  - effect: {fileID: 11400000, guid: 3a8fc6560a17dce4a869e51eeee1e431, type: 2}
     settings:
-      rid: 1819652408774492258
+      rid: 7786140116720287857
     deliveryBinding: 0
     anchorTrigger: 2
     anchorApplication: 2
@@ -156,16 +157,6 @@ MonoBehaviour:
         maximumBounces: 4
         castBufferSize: 32
         prototypeColor: {r: 1, g: 0.65, b: 0.15, a: 1}
-    - rid: 1819652408774492258
-      type: {class: DamageOverTimeEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
-      data:
-        damageType: {fileID: 0}
-        damagePerTick: 5
-        tickInterval: 0.5
-        duration: 3
-        tickImmediately: 1
-        ignoreInvulnerability: 0
-        stackingPolicy: 0
     - rid: 1819652408774492259
       type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
@@ -173,3 +164,9 @@ MonoBehaviour:
         magnitude: 10
         duration: 0.15
         mode: 2
+    - rid: 7786140116720287857
+      type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
+      data:
+        damageType: {fileID: 0}
+        amount: 40
+        ignoreInvulnerability: 0

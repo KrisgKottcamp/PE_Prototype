@@ -7,6 +7,7 @@ public class CombatBasicAttackRouter : MonoBehaviour
     [SerializeField] private ProjectileBasicAttack projectileAttack;
     [SerializeField] private HeavyComboAttack heavyComboAttack;
     [SerializeField] private WhipAttack whipAttack;
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
 
     [Header("Basic Attack Release Shake")]
     [Tooltip("Very small impulse played when a valid basic attack begins. Stronger hit-confirm shakes remain separate.")]
@@ -27,6 +28,8 @@ public class CombatBasicAttackRouter : MonoBehaviour
         if (projectileAttack == null) projectileAttack = GetComponent<ProjectileBasicAttack>();
         if (heavyComboAttack == null) heavyComboAttack = GetComponent<HeavyComboAttack>();
         if (whipAttack == null) whipAttack = GetComponent<WhipAttack>();
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
     }
 
     private void OnEnable()
@@ -48,7 +51,14 @@ public class CombatBasicAttackRouter : MonoBehaviour
         var pm = PartyManager.Instance;
         if (pm == null || pm.Active == null || pm.Active.def == null) return;
 
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
         lastIndex = pm.activeIndex;
+
+        // A shared pawn must never carry one character's attack lock across
+        // a party swap into the next character.
+        attackCommitment?.ClearBasicAttackMovementLock();
 
         BasicAttackType type = pm.Active.def.basicAttackType;
 

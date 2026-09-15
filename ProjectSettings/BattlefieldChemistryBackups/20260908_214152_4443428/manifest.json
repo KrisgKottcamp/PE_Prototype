@@ -1,0 +1,434 @@
+{
+    "files": [
+        {
+            "path": "Assets/Combat/Characters/Char_Test1.asset",
+            "existed": true,
+            "copy": "0000.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test1.asset.meta",
+            "existed": true,
+            "copy": "0001.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test2.asset",
+            "existed": true,
+            "copy": "0002.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test2.asset.meta",
+            "existed": true,
+            "copy": "0003.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test3.asset",
+            "existed": true,
+            "copy": "0004.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test3.asset.meta",
+            "existed": true,
+            "copy": "0005.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test4.asset",
+            "existed": true,
+            "copy": "0006.bak"
+        },
+        {
+            "path": "Assets/Combat/Characters/Char_Test4.asset.meta",
+            "existed": true,
+            "copy": "0007.bak"
+        },
+        {
+            "path": "Assets/Combat/Cmbt_Prefabs/CombatPlayerPawn.prefab",
+            "existed": true,
+            "copy": "0008.bak"
+        },
+        {
+            "path": "Assets/Combat/Cmbt_Prefabs/CombatPlayerPawn.prefab.meta",
+            "existed": true,
+            "copy": "0009.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_Damage.asset",
+            "existed": false,
+            "copy": "0010.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_Damage.asset.meta",
+            "existed": false,
+            "copy": "0011.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_DamageOverTime.asset",
+            "existed": false,
+            "copy": "0012.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_DamageOverTime.asset.meta",
+            "existed": false,
+            "copy": "0013.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_Impulse.asset",
+            "existed": false,
+            "copy": "0014.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_Impulse.asset.meta",
+            "existed": false,
+            "copy": "0015.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_MovementSpeed.asset",
+            "existed": false,
+            "copy": "0016.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_MovementSpeed.asset.meta",
+            "existed": false,
+            "copy": "0017.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_ReflectProjectile.asset",
+            "existed": false,
+            "copy": "0018.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Effect_ReflectProjectile.asset.meta",
+            "existed": false,
+            "copy": "0019.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_MeleeArc.asset",
+            "existed": false,
+            "copy": "0020.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_MeleeArc.asset.meta",
+            "existed": false,
+            "copy": "0021.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Projectile.asset",
+            "existed": false,
+            "copy": "0022.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Projectile.asset.meta",
+            "existed": false,
+            "copy": "0023.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Area.asset",
+            "existed": false,
+            "copy": "0024.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Area.asset.meta",
+            "existed": false,
+            "copy": "0025.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_LingeringArea.asset",
+            "existed": false,
+            "copy": "0026.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_LingeringArea.asset.meta",
+            "existed": false,
+            "copy": "0027.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Grenade.asset",
+            "existed": false,
+            "copy": "0028.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_Grenade.asset.meta",
+            "existed": false,
+            "copy": "0029.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_ProximityMine.asset",
+            "existed": false,
+            "copy": "0030.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Delivery_ProximityMine.asset.meta",
+            "existed": false,
+            "copy": "0031.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Fire.asset",
+            "existed": false,
+            "copy": "0032.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Fire.asset.meta",
+            "existed": false,
+            "copy": "0033.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Impact.asset",
+            "existed": false,
+            "copy": "0034.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Impact.asset.meta",
+            "existed": false,
+            "copy": "0035.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Explosive.asset",
+            "existed": false,
+            "copy": "0036.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/DamageType_Explosive.asset.meta",
+            "existed": false,
+            "copy": "0037.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_Quickdraw.asset",
+            "existed": false,
+            "copy": "0038.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_Quickdraw.asset.meta",
+            "existed": false,
+            "copy": "0039.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_Quickdraw.asset",
+            "existed": false,
+            "copy": "0040.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_Quickdraw.asset.meta",
+            "existed": false,
+            "copy": "0041.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_PowerShot.asset",
+            "existed": false,
+            "copy": "0042.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_PowerShot.asset.meta",
+            "existed": false,
+            "copy": "0043.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_PowerShot.asset",
+            "existed": false,
+            "copy": "0044.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_PowerShot.asset.meta",
+            "existed": false,
+            "copy": "0045.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_BurningSweep.asset",
+            "existed": false,
+            "copy": "0046.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Audrey_BurningSweep.asset.meta",
+            "existed": false,
+            "copy": "0047.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_BurningSweep.asset",
+            "existed": false,
+            "copy": "0048.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Audrey_BurningSweep.asset.meta",
+            "existed": false,
+            "copy": "0049.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_BurstFire.asset",
+            "existed": false,
+            "copy": "0050.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_BurstFire.asset.meta",
+            "existed": false,
+            "copy": "0051.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_BurstFire.asset",
+            "existed": false,
+            "copy": "0052.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_BurstFire.asset.meta",
+            "existed": false,
+            "copy": "0053.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_BreachGrenade.asset",
+            "existed": false,
+            "copy": "0054.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_BreachGrenade.asset.meta",
+            "existed": false,
+            "copy": "0055.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_BreachGrenade.asset",
+            "existed": false,
+            "copy": "0056.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_BreachGrenade.asset.meta",
+            "existed": false,
+            "copy": "0057.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_RailLance.asset",
+            "existed": false,
+            "copy": "0058.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Phil_RailLance.asset.meta",
+            "existed": false,
+            "copy": "0059.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_RailLance.asset",
+            "existed": false,
+            "copy": "0060.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Phil_RailLance.asset.meta",
+            "existed": false,
+            "copy": "0061.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_Rebuff.asset",
+            "existed": false,
+            "copy": "0062.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_Rebuff.asset.meta",
+            "existed": false,
+            "copy": "0063.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_Rebuff.asset",
+            "existed": false,
+            "copy": "0064.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_Rebuff.asset.meta",
+            "existed": false,
+            "copy": "0065.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_ShoulderDrive.asset",
+            "existed": false,
+            "copy": "0066.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_ShoulderDrive.asset.meta",
+            "existed": false,
+            "copy": "0067.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_ShoulderDrive.asset",
+            "existed": false,
+            "copy": "0068.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_ShoulderDrive.asset.meta",
+            "existed": false,
+            "copy": "0069.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_GroundPound.asset",
+            "existed": false,
+            "copy": "0070.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Imogen_GroundPound.asset.meta",
+            "existed": false,
+            "copy": "0071.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_GroundPound.asset",
+            "existed": false,
+            "copy": "0072.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Imogen_GroundPound.asset.meta",
+            "existed": false,
+            "copy": "0073.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_OilSpill.asset",
+            "existed": false,
+            "copy": "0074.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_OilSpill.asset.meta",
+            "existed": false,
+            "copy": "0075.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_OilSpill.asset",
+            "existed": false,
+            "copy": "0076.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_OilSpill.asset.meta",
+            "existed": false,
+            "copy": "0077.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_TripMine.asset",
+            "existed": false,
+            "copy": "0078.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_TripMine.asset.meta",
+            "existed": false,
+            "copy": "0079.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_TripMine.asset",
+            "existed": false,
+            "copy": "0080.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_TripMine.asset.meta",
+            "existed": false,
+            "copy": "0081.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_ReelIn.asset",
+            "existed": false,
+            "copy": "0082.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Aim_Dominic_ReelIn.asset.meta",
+            "existed": false,
+            "copy": "0083.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_ReelIn.asset",
+            "existed": false,
+            "copy": "0084.bak"
+        },
+        {
+            "path": "Assets/Combat/SkillSystemV2/BattlefieldChemistry/Spell_Dominic_ReelIn.asset.meta",
+            "existed": false,
+            "copy": "0085.bak"
+        }
+    ]
+}

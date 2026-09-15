@@ -26,6 +26,9 @@ public class TopDownMover : MonoBehaviour
     [Tooltip("Runtime owner for Spatial Force and relocation movement. While active, this legacy mover must not overwrite its Rigidbody2D movement.")]
     [SerializeField] private SpellActorMotionController2D forcedMotion;
 
+    [Tooltip("Shared combat attack commitment. When present, the legacy mover respects the active character's basic-attack movement lock.")]
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
+
     private Rigidbody2D rb;
     private Vector2 moveInput;
 
@@ -46,6 +49,9 @@ public class TopDownMover : MonoBehaviour
 
         if (forcedMotion == null)
             forcedMotion = GetComponent<SpellActorMotionController2D>();
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
 
         castFilter = new ContactFilter2D
         {
@@ -129,6 +135,19 @@ public class TopDownMover : MonoBehaviour
 
         if (forcedMotion != null && forcedMotion.IsControllingMotion)
             return;
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment != null &&
+            attackCommitment.IsBasicAttackMovementLocked)
+        {
+            // CombatPlayerPawn currently carries both this legacy mover and
+            // CombatPawnMover. Both must honor the same lock or they fight
+            // over the Rigidbody and produce a one-frame movement jitter.
+            rb.MovePosition(ClampToWalkArea(rb.position));
+            return;
+        }
 
         Vector2 currentPos = rb.position;
 

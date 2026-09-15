@@ -37,6 +37,7 @@ MonoBehaviour:
   resourceCost:
     resourceId: AP
     amount: 20
+  momentumGain: 18
   targetFilter:
     relationship: 0
     useLayerMask: 1
@@ -128,7 +129,7 @@ MonoBehaviour:
       data:
         playerTargeting: {fileID: 11400000, guid: b65820b0f13332d4eb733ba7007244c7, type: 2}
         radius: 2
-        duration: 4
+        duration: 8
         applicationInterval: 0.25
         hitMask:
           serializedVersion: 2

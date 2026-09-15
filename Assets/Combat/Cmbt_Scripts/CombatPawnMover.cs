@@ -17,6 +17,9 @@ public class CombatPawnMover : MonoBehaviour
     [Tooltip("Runtime owner for forced movement and relocation applied by SkillSystemV2.")]
     [SerializeField] private SpellActorMotionController2D forcedMotion;
 
+    [Tooltip("Shared basic-attack movement commitment. CharacterDefinition decides whether the current attack becomes a full movement lock.")]
+    [SerializeField] private PlayerAttackCommitment attackCommitment;
+
     [Tooltip("Automatically add PlayerMoveSpeedModifierReceiverV2 if it is missing. Recommended for the combat player.")]
     [SerializeField] private bool autoAddMovementModifierReceiver = true;
 
@@ -86,6 +89,9 @@ public class CombatPawnMover : MonoBehaviour
         if (forcedMotion == null)
             forcedMotion = GetComponent<SpellActorMotionController2D>();
 
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
         RefreshBehaviourCache();
     }
 
@@ -104,6 +110,16 @@ public class CombatPawnMover : MonoBehaviour
 
         if (forcedMotion != null && forcedMotion.IsControllingMotion)
             return;
+
+        if (attackCommitment == null)
+            attackCommitment = GetComponent<PlayerAttackCommitment>();
+
+        if (attackCommitment != null &&
+            attackCommitment.IsBasicAttackMovementLocked)
+        {
+            debugFinalSpeed = 0f;
+            return;
+        }
 
         if (SpellBuildUpControl2D.IsMovementBlocked(gameObject))
         {

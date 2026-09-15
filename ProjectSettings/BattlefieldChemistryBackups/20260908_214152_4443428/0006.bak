@@ -20,8 +20,6 @@ MonoBehaviour:
   apGainOnBasicHit: 5
   apMagnetizationRange: 2.3
   basicAttackType: 3
-  lockMovementDuringBasicAttack: 1
-  basicAttackMovementLockDuration: 0.35
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills: []
   skillCostIncreaseMultiplier: 3
@@ -30,7 +28,6 @@ MonoBehaviour:
   equippedSpellsV2:
   - {fileID: 11400000, guid: 093e3e806ec33ef4a8cb9874739b315f, type: 2}
   - {fileID: 11400000, guid: ea811f93639f34a4dacfc4745b9e7a91, type: 2}
-  - {fileID: 11400000, guid: cb61ef1440d017843b4c7a7ce7266e39, type: 2}
   unlocks: []
   combatSprite: {fileID: 21300000, guid: 406f738efc0ddf44c9c221d1cb8e78c0, type: 3}
   portraitSprite: {fileID: 7578988842328501424, guid: b923b28978bb8644ba1bb0c7fa6bfe10, type: 3}

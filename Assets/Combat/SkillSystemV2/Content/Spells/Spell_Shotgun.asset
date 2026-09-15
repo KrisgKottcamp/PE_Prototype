@@ -21,10 +21,10 @@ MonoBehaviour:
     buildUpDuration: 0
     firingDuration: 0
     channelDuration: 0
-    recoveryDuration: 0
+    recoveryDuration: 1
     timeMode: 0
     buildUpControl:
-      blockPlayerMovement: 0
+      blockPlayerMovement: 1
       blockPlayerBasicAttacks: 0
       blockPlayerSkillUsage: 0
       showPowerUpParticles: 0
@@ -37,6 +37,7 @@ MonoBehaviour:
   resourceCost:
     resourceId: AP
     amount: 10
+  momentumGain: 18
   targetFilter:
     relationship: 4
     useLayerMask: 0
@@ -129,7 +130,7 @@ MonoBehaviour:
         playerTargeting: {fileID: 11400000, guid: 7f83b025ec9bba5409569ec04d9c8cc0, type: 2}
         projectilePrefab: {fileID: 7666303392692351521, guid: 1c9ce6d7e4aa4f344b7256b5870ba810, type: 3}
         allowPrefabGameplayComponents: 0
-        speed: 2
+        speed: 10
         range: 10
         collisionRadius: 0.08
         collisionMask:
@@ -141,10 +142,10 @@ MonoBehaviour:
         castBufferSize: 16
         emission:
           pattern: 1
-          projectileCount: 4
+          projectileCount: 5
           spreadAngle: 60
-          shotInterval: 0
-          reAimSequentialShots: 0
+          shotInterval: 0.05
+          reAimSequentialShots: 1
         motion:
           pattern: 0
           homingAcquireRadius: 6

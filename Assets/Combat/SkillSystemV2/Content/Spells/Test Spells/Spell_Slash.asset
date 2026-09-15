@@ -18,7 +18,7 @@ MonoBehaviour:
   icon: {fileID: 0}
   category: Player Skill V2
   timing:
-    buildUpDuration: 0
+    buildUpDuration: 1
     firingDuration: 0
     channelDuration: 0
     recoveryDuration: 0
@@ -37,6 +37,7 @@ MonoBehaviour:
   resourceCost:
     resourceId: AP
     amount: 10
+  momentumGain: 18
   targetFilter:
     relationship: 4
     useLayerMask: 0
@@ -68,6 +69,15 @@ MonoBehaviour:
     allowEquivalentOverlap: 0
     equivalentOverlapUtilityMultiplier: 0.25
     healthThreshold: 0.3
+    moveIntoRangeBeforeCasting: 0
+    requiredAICastRange: 1.4
+    maximumAIApproachDistance: 8
+    requestTargetHoldDuringSupportCast: 1
+    interruptSupportCastWhenDamaged: 0
+    interruptSupportCastForImminentThreat: 1
+    supportCastThreatInterruptScore: 0.72
+    supportCastThreatInterruptWindow: 0.9
+    supportCoordinationVersion: 2
     producesComboTags: []
     consumesComboTags: []
     comboTagActivationEvent: 2
@@ -139,7 +149,7 @@ MonoBehaviour:
       type: {class: DamageEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
       data:
         damageType: {fileID: 0}
-        amount: 30
+        amount: 40
         ignoreInvulnerability: 0
     - rid: 1819652408774492306
       type: {class: ImpulseEffectSettings, ns: ProjectEri.SkillSystemV2, asm: ProjectEri.SkillSystemV2}
