@@ -16,6 +16,8 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     public int CleanWaveAP = 15;
     public int MaxBullets = 120;
     [Range(1, 6)] public int VolleyCount = 5;
+    [Range(0, 4)] public int PressureShotsPerVolley = 2;
+    [Range(0f, 30f)] public float PressureSpreadDegrees = 12f;
     [Header("Repositioning between volleys")]
     public float MoveSpeed = 3.6f;
     public float PreferredDistance = 3.5f;
@@ -43,6 +45,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     private bool waveActive, tookDamage;
     private float scanAt;
     private int obstacles;
+    private Vector2 previousPlayerPosition;
     private static readonly HashSet<string> ReplacedControllers = new HashSet<string>
     {
         "EnemyBrain", "EnemyShooterDebug", "AttackDogBrain", "AttackDogLungeHitbox",
@@ -55,6 +58,8 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         public GameObject Visual;
         public Vector2 Position, Velocity;
         public float Life;
+        public bool NearPlayer, GrazeResolved;
+        public int GrazeMember = -1;
     }
     private sealed class Pattern
     {
@@ -64,6 +69,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         public readonly List<Vector2> Starts = new List<Vector2>();
         public readonly List<Vector2> Directions = new List<Vector2>();
         public readonly List<LineRenderer> Lines = new List<LineRenderer>();
+        public int PatternLaneCount;
     }
     private void Awake()
     {
@@ -72,6 +78,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         obstacles = LayerMask.GetMask("Obstacles");
         ink = new Material(Shader.Find("Sprites/Default"));
         CombatPawn.AcceptedDamage += Damaged;
+        previousPlayerPosition = hurtbox != null ? (Vector2)hurtbox.bounds.center : (Vector2)transform.position;
     }
     private void Damaged(int member, int amount) { if (waveActive) tookDamage = true; }
     private void Suspend(MonoBehaviour component)
@@ -155,6 +162,14 @@ public sealed class EriEnemyRhythm : MonoBehaviour
                 for (int i = 0; i < pattern.Directions.Count; i++)
                 {
                     StaggerLane(pattern, i, burst % 2 != 0, out var start, out var direction);
+                    if (i >= pattern.PatternLaneCount)
+                    {
+                        Vector2 liveTarget = hurtbox != null ? (Vector2)hurtbox.bounds.center : (Vector2)transform.position;
+                        Vector2 liveAim = (liveTarget - start).normalized;
+                        if (liveAim.sqrMagnitude > 0.01f)
+                            direction = Rotate(liveAim, (i - pattern.PatternLaneCount -
+                                (PressureShotsPerVolley - 1) * 0.5f) * PressureSpreadDegrees);
+                    }
                     Fire(start, direction, PatternColor(pattern.Kind));
                 }
                 fired = true;
@@ -213,6 +228,10 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             Vector2 side = new Vector2(-pattern.Aim.y, pattern.Aim.x);
             for (int i = -3; i <= 3; i++) AddLane(pattern, pattern.Origin + side * i * 0.9f, pattern.Aim);
         }
+        pattern.PatternLaneCount = pattern.Directions.Count;
+        for (int i = 0; i < PressureShotsPerVolley; i++)
+            AddLane(pattern, pattern.Origin,
+                Rotate(pattern.Aim, (i - (PressureShotsPerVolley - 1) * 0.5f) * PressureSpreadDegrees));
         // Preview the interleaved row too, so all firing paths are signalled.
         for (int i = 0; i < pattern.Directions.Count; i++)
         {
@@ -337,6 +356,9 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         if (Time.time >= scanAt) { scanAt = Time.time + 0.5f; Scan(); }
         bool ended = pawn == null || pawn.IsDown || !enemies.Exists(e => e != null && e.CurrentHP > 0);
         Vector2 target = hurtbox != null ? (Vector2)hurtbox.bounds.center : (Vector2)transform.position;
+        bool playerMoving = (target - previousPlayerPosition).sqrMagnitude > 0.000001f;
+        previousPlayerPosition = target;
+        bool completedGraze = false;
         for (int i = shots.Count - 1; i >= 0; i--)
         {
             var shot = shots[i];
@@ -344,9 +366,26 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             Vector2 segment = next - shot.Position;
             float t = segment.sqrMagnitude > 0 ? Mathf.Clamp01(Vector2.Dot(target - shot.Position, segment) / segment.sqrMagnitude) : 0;
             // Small forgiving core; sweep prevents tunnelling at low frame rates.
-            bool hit = !ended && Vector2.Distance(target, shot.Position + segment * t) < 0.24f;
+            float distance = Vector2.Distance(target, shot.Position + segment * t);
+            bool hit = !ended && distance < 0.30f;
             bool wall = obstacles != 0 && Physics2D.Linecast(shot.Position, next, obstacles).collider != null;
             shot.Life -= Time.deltaTime;
+            if (!ended && !shot.GrazeResolved)
+            {
+                if (pawn.IsInvulnerable) shot.GrazeResolved = true;
+                else if (distance < 0.6f && !hit && playerMoving && !shot.NearPlayer)
+                {
+                    shot.NearPlayer = true;
+                    shot.GrazeMember = PartyManager.Instance != null ? PartyManager.Instance.activeIndex : -1;
+                }
+                // Award only after leaving the near-miss zone; hits and wall removals don't pay.
+                if (shot.NearPlayer && Vector2.Distance(target, next) > 0.6f)
+                {
+                    shot.GrazeResolved = true;
+                    if (!hit && !wall && shot.Life > 0 && PartyManager.Instance != null &&
+                        shot.GrazeMember == PartyManager.Instance.activeIndex) completedGraze = true;
+                }
+            }
             if (hit || ended || wall || shot.Life <= 0)
             {
                 if (hit) pawn.ApplyDamage(BulletDamage);
@@ -356,6 +395,8 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             var line = shot.Visual.GetComponent<LineRenderer>();
             line.SetPosition(0, next); line.SetPosition(1, next + shot.Velocity.normalized * 0.1f);
         }
+        // Process after every collision so a hit elsewhere in this frame suppresses the reward.
+        if (completedGraze) GetComponent<EriTurnCombat>()?.TryAwardGraze();
     }
     private void ClearCues() { foreach (var cue in cues) if (cue != null) Destroy(cue); cues.Clear(); }
     private void OnDisable()

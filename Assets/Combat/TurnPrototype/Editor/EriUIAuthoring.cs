@@ -92,7 +92,7 @@ public static class EriUIAuthoring
 
         var commands=Panel(root.transform,"Command Menu",new Vector2(0.5f,0.5f),Vector2.zero,new Vector2(530,222));
         commands.GetComponent<UnityEngine.UI.Image>().color=new Color(0.045f,0.055f,0.09f,0.33f);view.CommandPanel=commands.gameObject;
-        Text(commands,"Heading",new Vector2(12,-10),new Vector2(506,20),14,"COMMANDS · PAUSED").color=new Color32(188,235,222,255);
+        Text(commands,"Heading",new Vector2(12,-10),new Vector2(506,20),14,"COMMANDS · SLOW MOTION").color=new Color32(188,235,222,255);
         view.Commands=new EriCombatUIView.CommandRow[5];
         string[] titles={"Dread Field","Dread Pulse","Slash","Recover","Call Eri"};
         string[] costs={"1 seg · 6 MP","2 seg · 10 MP","1 seg · 3 MP","Restore 1 segment","1 seg · 5 MP"};

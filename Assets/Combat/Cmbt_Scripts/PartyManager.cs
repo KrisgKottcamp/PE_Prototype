@@ -85,6 +85,7 @@ public class PartyManager : MonoBehaviour
     /// </summary>
     public int AddAPToActive(int amount)
     {
+        if (EriTurnCombat.Active != null && EriTurnCombat.Active.TurnEnding) return 0;
         if (amount <= 0 || party == null || party.Count == 0)
             return 0;
 
@@ -267,6 +268,7 @@ public class PartyManager : MonoBehaviour
 
     public void SwapNext()
     {
+        if (EriTurnCombat.Active != null) { EriTurnCombat.Active.TrySwitchNext(); return; }
         if (EriTurnCombat.Active != null && EriTurnCombat.Active.IsBusy) return;
         activeIndex = (activeIndex + 1) % party.Count;
 
@@ -280,6 +282,7 @@ public class PartyManager : MonoBehaviour
     public bool SwapNextAlive()
     {
         if (party == null || party.Count == 0) return false;
+        if (EriTurnCombat.Active != null) return EriTurnCombat.Active.TrySwitchNext();
         if (EriTurnCombat.Active != null && EriTurnCombat.Active.IsBusy) return true;
 
         int start = activeIndex;

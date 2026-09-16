@@ -30,7 +30,12 @@ public static class EriPrototypeChecks
             int sum=0;for(int used=0;used<4;used++)sum+=EriTurnRules.Cost(150,1,used);
             Check(sum==150,"150 AP allows all four single-segment commands");
             Check(EriTurnRules.Cost(150,1,3)==EriTurnRules.Capacity(150,3),"last partial segment is spendable");
-            Debug.Log("ERI_TURN_CHECKS: PASS (15 deterministic resource checks). Compilation succeeded.");
+            Check(!EriTurnRules.CanTakeTurn(0,0,4),"last actor waits in a full party");
+            Check(EriTurnRules.CanTakeTurn(1,0,4),"another member may act");
+            Check(EriTurnRules.CanTakeTurn(0,1,4),"another action releases previous actor");
+            Check(EriTurnRules.CanTakeTurn(0,0,1),"last survivor cannot be turn-locked");
+            Check(EriTurnRules.CanTakeTurn(0,-1,4),"first turn is open");
+            Debug.Log("ERI_TURN_CHECKS: PASS (20 deterministic resource and turn checks). Compilation succeeded.");
         }
         catch(Exception error){Debug.LogError("ERI_TURN_CHECKS: FAIL " + error);}
     }

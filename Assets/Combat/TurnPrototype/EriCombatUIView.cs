@@ -47,6 +47,9 @@ public sealed class EriCombatUIView : MonoBehaviour
     public string EriDetailsFormat = "Heals {0}/{1}";
     public string SkillCostFormat = "{0} seg · {1} MP";
     public string RecoverCost = "Restore 1 segment";
+    public string TurnEndingFormat = "{0} · Passing turn";
+    public string WaitingMemberFormat = "MP {0} · Waiting";
+    public string FullRecoverCost = "Restore capacity";
 
     [Serializable] public sealed class APSegment
     {
@@ -99,6 +102,7 @@ public sealed class EriCombatUIView : MonoBehaviour
         if(combat==null || combat.Member==null)return;
         var m=combat.Member;
         Status.text=combat.Remaining>0?string.Format(RecoveringFormat,m.def.displayName,combat.Remaining):string.Format(ReadyFormat,m.def.displayName);
+        if(combat.TurnEnding)Status.text=string.Format(TurnEndingFormat,m.def.displayName);
         Fill(Readiness,1-combat.Remaining/EriTurnRules.RecoverySeconds);
         for(int i=0;i<Segments.Length;i++)
         {
@@ -117,6 +121,7 @@ public sealed class EriCombatUIView : MonoBehaviour
             var member=combat.Party.party[i];bool active=member==m;
             row.Name.text=member.def.displayName;row.Name.color=active?ActiveMember:row.NameColor;
             row.Details.text=string.Format(MemberDetailsFormat,member.currentMP,4-member.exhaustedSegments);
+            if(combat.IsWaiting(i))row.Details.text=string.Format(WaitingMemberFormat,member.currentMP);
             row.ActiveIndicator.SetActive(active);
             float hp=member.currentHP/(float)Mathf.Max(1,member.def.maxHP);
             Fill(row.HP,hp);row.HP.color=hp<=LowHPThreshold?LowHP:row.HPColor;

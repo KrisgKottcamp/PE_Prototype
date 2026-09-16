@@ -72,6 +72,11 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         Check(EriTurnCombat.Active!=null,"prototype attached to existing combat pawn");
         yield return new WaitForSecondsRealtime(1);
         var combat=EriTurnCombat.Active;var party=PartyManager.Instance;
+        // This is an isolated rules test: prevent battle AI from damaging the test actors.
+        combat.GetComponent<EriEnemyRhythm>().enabled=false;
+        foreach(var enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
+            foreach(var behaviour in enemy.GetComponents<MonoBehaviour>())
+                if(behaviour!=enemy && !(behaviour is EriFearMark))behaviour.enabled=false;
         float uiDeadline=Time.realtimeSinceStartup+10;
         while(combat.GetComponent<EriTurnHUD>().View==null && Time.realtimeSinceStartup<uiDeadline)yield return null;
         var authoredUI=combat.GetComponent<EriTurnHUD>().View;
@@ -90,7 +95,7 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         var menu=FindFirstObjectByType<CombatSkillMenuController>();
         Check(menu!=null,"existing skill menu found");
         typeof(CombatSkillMenuController).GetMethod("OpenSkillPanel",Private).Invoke(menu,null);
-        Check(Time.timeScale==0,"skill selection fully pauses combat");
+        Check(Time.timeScale>0 && Mathf.Approximately(Time.timeScale,menu.CommandMenuTimeScale),"skill selection uses configured slow motion");
         // Runtime binding must preserve art-direction changes, including nested bar layout.
         var background=authoredUI.CommandPanel.GetComponent<UnityEngine.UI.Image>();
         Color savedBackground=background.color;float savedFont=authoredUI.Commands[0].Cost.fontSize;
@@ -113,53 +118,77 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         Check(m.currentAP==m.def.maxAP,"basic AP award respects cap");
         var targeting=bridge.GetComponent<PlayerSpellTargetingController>();
         Check(bridge.BeginSpell(slash,out _),"timed command begins");
-        Check(combat.Timing && Time.timeScale==0,"minigame runs while world is paused");
+        Check(combat.Timing && Mathf.Approximately(Time.timeScale,menu.CommandMenuTimeScale),"minigame retains configured slow motion");
         yield return new WaitForSecondsRealtime(1.5f);
         Check(bridge.IsTargeting && !combat.Timing,"minigame hands off to aiming");
+        Check(Mathf.Approximately(Time.timeScale,menu.CommandMenuTimeScale),"aiming respects menu speed");
         targeting.UpdateAim((Vector2)bridge.transform.position+Vector2.right*2);
         targeting.CancelTargeting();
         Check(m.currentAP==m.def.maxAP && m.currentMP==100 && m.exhaustedSegments==0,"cancel spends nothing");
         var context=CastContext.ForDirection(bridge.gameObject,bridge.transform.position,Vector2.right);
         Check(runner.TryCast(slash,context,out var failure),"valid cast accepted: "+failure);
         Check(m.currentMP==97 && m.exhaustedSegments==1,"MP spent and segment exhausted exactly once");
-        Check(Mathf.Approximately(combat.Remaining,4),"fixed recovery starts");
+        Check(Mathf.Approximately(combat.Remaining,EriTurnRules.RecoverySeconds),"fixed recovery starts");
+        int outgoingIndex=party.activeIndex;
+        Check(combat.TurnEnding && m.currentAP==0,"accepted skill ends turn and discards AP");
         Check(!runner.TryCast(slash,context,out _),"immediate repeat rejected");
         Check(m.currentMP==97 && m.exhaustedSegments==1,"rejected cast spends nothing");
+        // A genuine external pause must still defer handoff and freeze recovery.
+        float menuSpeed=Time.timeScale;Time.timeScale=0;
         yield return new WaitForSecondsRealtime(0.3f);
-        Check(Mathf.Approximately(combat.Remaining,4),"recovery freezes during menu pause");
+        Check(Mathf.Approximately(combat.Remaining,EriTurnRules.RecoverySeconds),"recovery freezes during external pause");
+        Check(party.activeIndex==outgoingIndex,"handoff waits for external pause to finish");
+        Time.timeScale=menuSpeed;
         typeof(CombatSkillMenuController).GetMethod("CloseSkillPanel",Private).Invoke(menu,null);
         Check(Time.timeScale>0,"closing menu restores time");
-        int oldIndex=party.activeIndex;party.SwapNextAlive();
-        Check(party.activeIndex!=oldIndex && party.Active.currentAP==0,"switch starts empty");
-        Check(combat.Remaining>3.9f,"switch preserves shared recovery");
+        yield return null;yield return null;
+        Check(party.activeIndex!=outgoingIndex && party.Active.currentAP==0 && !combat.TurnEnding,"skill automatically hands off at zero AP");
+        Check(combat.IsWaiting(outgoingIndex),"outgoing member is locked until another action");
+        for(int i=0;i<party.party.Count;i++)
+        {
+            var leaving=party.Active;leaving.currentAP=10;
+            party.SwapNextAlive();
+            Check(party.activeIndex!=outgoingIndex && leaving.currentAP==0 && party.Active.currentAP==0,"early switches discard charge and cannot bypass turn lock");
+        }
+        Check(combat.Remaining>0,"switch preserves shared recovery");
         combat.RefreshSkills();
         // Freeze enemies while testing real-time recovery; this does not affect assets.
         foreach(var enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
             foreach(var behaviour in enemy.GetComponents<MonoBehaviour>())
                 if(behaviour!=enemy && !(behaviour is EriFearMark))behaviour.enabled=false;
-        yield return new WaitForSeconds(4.1f);
+        yield return new WaitForSeconds(EriTurnRules.RecoverySeconds+0.1f);
         Check(combat.Remaining<=0,"recovery completes in game time");
         var incoming=party.Active;party.AddAPToActive(999);
         slash=new List<SpellDefinition>(combat.Skills).Find(s=>(s.Delivery as EriPrototypeDelivery).Kind==EriCommandKind.Slash);
         Check(runner.TryCast(slash,context,out _),"next character can cast");
         Check(m.exhaustedSegments==0 && m.currentMP==97,"reserve capacity restored without restoring MP");
-        yield return new WaitForSeconds(4.1f);
+        Check(!combat.IsWaiting(outgoingIndex),"another skill unlocks previous actor");
+        yield return new WaitForSeconds(EriTurnRules.RecoverySeconds+0.1f);
+        incoming=party.Active;
         incoming.exhaustedSegments=4;incoming.currentAP=0;incoming.currentMP=0;
         foreach(var other in party.party)if(other!=incoming)other.currentHP=0;
         var recover=new List<SpellDefinition>(combat.Skills).Find(s=>(s.Delivery as EriPrototypeDelivery).Kind==EriCommandKind.Recover);
         Check(runner.TryCast(recover,context,out _),"Recover available at zero MP/AP");
-        Check(incoming.exhaustedSegments==3 && incoming.currentAP==0,"Recover restores capacity without charge");
+        Check(incoming.exhaustedSegments==0 && incoming.currentAP==0,"Recover restores all capacity without charge");
+        int soloIndex=party.activeIndex;
+        yield return new WaitForSeconds(EriTurnRules.RecoverySeconds+0.1f);
+        Check(party.activeIndex==soloIndex && !combat.TurnEnding && !combat.IsWaiting(soloIndex),"solo survivor starts a fresh turn");
+        Check(combat.TryAwardGraze()>0,"close dodge awards AP");
+        Check(combat.TryAwardGraze()==0,"graze rewards are rate limited");
         foreach(var other in party.party)other.currentHP=other.def.maxHP;
+        party.SwapNextAlive();incoming=party.Active;incoming.currentMP=0;
         var markHost=new GameObject("Fear reaction check");var mark=markHost.AddComponent<EriFearMark>();
         mark.Remaining=16;mark.NaturalMultiplier=1.25f;
         Check(mark.ResolveFearDamage(40)==88 && mark.Remaining==0,"Fear weakness and consumed mark multiply correctly");
         Check(mark.ResolveFearDamage(40)==50,"unmarked attack has only natural weakness");
         Destroy(markHost);
-        yield return new WaitForSeconds(4.1f);
+        yield return new WaitForSeconds(EriTurnRules.RecoverySeconds+0.1f);
         int potionCount=party.mpPotions;combat.UsePotion();
         Check(incoming.currentMP==30 && party.mpPotions==potionCount-1,"potion restores MP and consumes stock");
-        Check(combat.Remaining>3.9f,"potion uses shared command");
-        yield return new WaitForSeconds(4.1f);
+        Check(combat.TurnEnding && combat.Remaining>0,"potion ends turn with shared recovery");
+        yield return new WaitForSeconds(EriTurnRules.RecoverySeconds+0.1f);
+        Check(party.Active!=incoming,"potion hands control to another member");
+        incoming=party.Active;incoming.currentMP=30;
         incoming.exhaustedSegments=0;party.AddAPToActive(999);
         // Eri can heal herself without the danger refusal for a party-target call.
         var support=EriSupportManager.Instance;

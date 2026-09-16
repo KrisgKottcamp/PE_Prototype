@@ -23,7 +23,8 @@ public class CombatSkillMenuController : MonoBehaviour
     [SerializeField] private KeyCode altDownKey = KeyCode.S;
 
     [Header("Time Slow")]
-    [Range(0.01f, 1f)]
+    [Tooltip("World speed during command selection, timing and aiming. 0.12 = 12% speed; 1 = normal speed. Values below 0.08 are clamped so the menu never feels frozen. Set outside Play Mode and save the scene for permanent tuning.")]
+    [Range(0.08f, 1f)]
     [SerializeField] private float slowTimeScale = 0.12f;
 
     [Header("UI")]
@@ -79,6 +80,8 @@ public class CombatSkillMenuController : MonoBehaviour
     [SerializeField] private SkillDefinition alwaysAvailableCallEriSkill;
 
     public bool IsOpen => isOpen;
+    public float CommandMenuTimeScale => Mathf.Clamp(slowTimeScale, 0.08f, 1f);
+    public void CloseForTurnHandoff() { if (isOpen) CloseAll(); }
 
     private EriCombatUIView prototypeView;
     public void ConfigurePrototypePresentation(EriCombatUIView view)
@@ -253,8 +256,7 @@ public class CombatSkillMenuController : MonoBehaviour
         // Opening a menu must never make an already-slower world run faster.
         appliedMenuTimeScale = Mathf.Min(
             prevTimeScale,
-            Mathf.Clamp(slowTimeScale, 0.01f, 1f));
-        if (EriTurnCombat.Active != null) appliedMenuTimeScale = 0f;
+            CommandMenuTimeScale);
         Time.timeScale = appliedMenuTimeScale;
         Time.fixedDeltaTime = appliedMenuTimeScale == 0f ? prevFixedDelta : prevTimeScale > 0.0001f
             ? prevFixedDelta * (appliedMenuTimeScale / prevTimeScale)
@@ -1133,7 +1135,7 @@ public class CombatSkillMenuController : MonoBehaviour
             var spell=v2Bridge.GetSkill(i);if(spell==null)continue;
             var delivery=spell.Delivery as EriPrototypeDelivery;if(delivery==null)continue;
             bool usable=v2Bridge.CanUse(spell,out _);
-            string cost=delivery.Kind==EriCommandKind.Recover?prototypeView.RecoverCost:
+            string cost=delivery.Kind==EriCommandKind.Recover?prototypeView.FullRecoverCost:
                 string.Format(prototypeView.SkillCostFormat,delivery.Segments,delivery.MPCost);
             prototypeView.ShowCommand(i-first,spell.DisplayName,cost,i==selectedIndex,usable,delivery.Kind);
             if(i==selectedIndex){detail=spell.Description;reason=EriTurnCombat.Active.Reason(spell);}

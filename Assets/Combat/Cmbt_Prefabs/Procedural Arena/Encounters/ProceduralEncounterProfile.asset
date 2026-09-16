@@ -72,11 +72,11 @@ MonoBehaviour:
   - obstacle: {fileID: 11400000, guid: 2eaea58a87633474aa314014cfa38007, type: 2}
     weight: 3
     minimumCount: 1
-    maximumCount: 2
+    maximumCount: 1
   - obstacle: {fileID: 11400000, guid: 7f7c8670005bae94b8673ef30c2d608b, type: 2}
     weight: 3
     minimumCount: 1
-    maximumCount: 2
+    maximumCount: 1
   playerSafeRadius: 3
   enemySpacing: 0.3
   placementAttemptsPerObject: 100

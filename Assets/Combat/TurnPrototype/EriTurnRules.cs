@@ -5,7 +5,9 @@ public static class EriTurnRules
 {
     public const int Segments = 4;
     public const int MaxMP = 100;
-    public const float RecoverySeconds = 4f;
+    public const float RecoverySeconds = 1.5f;
+    public static bool CanTakeTurn(int index, int lastActor, int livingMembers) =>
+        livingMembers <= 1 || index != lastActor;
     public static int Capacity(int maxAP, int exhausted) =>
         Math.Max(0, maxAP) * (Segments - Math.Clamp(exhausted, 0, Segments)) / Segments;
     public static int Cost(int maxAP, int segments, int exhausted = 0) =>
