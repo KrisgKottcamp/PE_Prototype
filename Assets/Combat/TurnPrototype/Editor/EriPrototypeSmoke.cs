@@ -96,6 +96,13 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         Check(menu!=null,"existing skill menu found");
         typeof(CombatSkillMenuController).GetMethod("OpenSkillPanel",Private).Invoke(menu,null);
         Check(Time.timeScale>0 && Mathf.Approximately(Time.timeScale,menu.CommandMenuTimeScale),"skill selection uses configured slow motion");
+        foreach(var row in authoredUI.Commands)
+            Check(row.SegmentOrbs!=null && row.SegmentOrbs.Length==4,"command row has four editable segment-cost orb slots");
+        authoredUI.ShowCommand(0,"Orb Test","9 MP",3,true,true,null);
+        int visibleCostOrbs=0;
+        foreach(var orb in authoredUI.Commands[0].SegmentOrbs)if(orb!=null && orb.gameObject.activeSelf)visibleCostOrbs++;
+        Check(visibleCostOrbs==3,"three-segment command displays exactly three cost orbs");
+        typeof(CombatSkillMenuController).GetMethod("RefreshCompactPrototypeText",Private).Invoke(menu,null);
         // Runtime binding must preserve art-direction changes, including nested bar layout.
         var background=authoredUI.CommandPanel.GetComponent<UnityEngine.UI.Image>();
         Color savedBackground=background.color;float savedFont=authoredUI.Commands[0].Cost.fontSize;

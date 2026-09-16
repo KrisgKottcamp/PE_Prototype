@@ -95,16 +95,18 @@ public static class EriUIAuthoring
         Text(commands,"Heading",new Vector2(12,-10),new Vector2(506,20),14,"COMMANDS · SLOW MOTION").color=new Color32(188,235,222,255);
         view.Commands=new EriCombatUIView.CommandRow[5];
         string[] titles={"Dread Field","Dread Pulse","Slash","Recover","Call Eri"};
-        string[] costs={"1 seg · 6 MP","2 seg · 10 MP","1 seg · 3 MP","Restore 1 segment","1 seg · 5 MP"};
+        string[] costs={"6 MP","10 MP","3 MP","Restore capacity","5 MP"};
+        int[] segmentCosts={1,2,1,0,1};
         for(int i=0;i<5;i++)
         {
             var row=Rect(commands,"Command Row "+(i+1),new Vector2(0,1),new Vector2(0,1),new Vector2(12,-32-i*22),new Vector2(506,22));
             var selected=Text(row,"Selection",Vector2.zero,new Vector2(16,22),18,">");selected.gameObject.SetActive(i==0);
             var name=Text(row,"Skill Name",new Vector2(16,0),new Vector2(172,22),18,titles[i]);
-            var cost=Text(row,"Cost",new Vector2(190,-3),new Vector2(120,20),13,costs[i]);
+            var orbs=SegmentOrbs(row,segmentCosts[i]);
+            var cost=Text(row,"Cost",new Vector2(248,-3),new Vector2(62,20),13,costs[i]);
             var mark=Badge(row,"Mark Badge",true);var damage=Badge(row,"Damage Badge",false);
             mark.SetActive(i==0);damage.SetActive(i==1);
-            view.Commands[i]=new EriCombatUIView.CommandRow{Root=row.gameObject,Name=name,Cost=cost,Selection=selected.gameObject,MarkBadge=mark,DamageBadge=damage};
+            view.Commands[i]=new EriCombatUIView.CommandRow{Root=row.gameObject,Name=name,Cost=cost,Selection=selected.gameObject,MarkBadge=mark,DamageBadge=damage,SegmentOrbs=orbs};
         }
         view.Description=Text(commands,"Description",new Vector2(12,-149),new Vector2(506,42),14,"Mark enemies entering the circle with Fear for 16 seconds.");
         view.Description.textWrappingMode=TextWrappingModes.Normal;view.Description.color=new Color32(224,232,238,255);
@@ -142,6 +144,33 @@ public static class EriUIAuthoring
         var view=UnityEngine.Object.FindFirstObjectByType<EriCombatUIView>();
         if(view!=null){Selection.activeGameObject=view.gameObject;SceneView.lastActiveSceneView?.FrameSelected();}
     }
+    [MenuItem("Tools/Project Eri/UI/Add Segment Cost Orbs %&o")]
+    public static void AddSegmentCostOrbs()
+    {
+        if(EditorApplication.isPlayingOrWillChangePlaymode){Debug.LogWarning("ERI_UI_ORBS: Exit Play Mode before editing the saved UI.");return;}
+        var scene=SceneManager.GetSceneByPath(EriCombatUIView.ScenePath);bool opened=!scene.isLoaded;
+        if(opened)scene=EditorSceneManager.OpenScene(EriCombatUIView.ScenePath,OpenSceneMode.Additive);
+        try
+        {
+            var view=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<EriCombatUIView>(true)).Single();
+            int[] previewCosts={1,2,1,0,1};
+            for(int i=0;i<view.Commands.Length;i++)
+            {
+                var row=view.Commands[i];
+                if(row.Root==null)throw new Exception("Command row "+(i+1)+" is missing its root binding.");
+                row.SegmentOrbs=SegmentOrbs(row.Root.transform,i<previewCosts.Length?previewCosts[i]:1);
+                if(row.Cost!=null)
+                {
+                    var rect=row.Cost.rectTransform;rect.anchoredPosition=new Vector2(248,rect.anchoredPosition.y);rect.sizeDelta=new Vector2(62,rect.sizeDelta.y);
+                    if(i<previewCosts.Length)row.Cost.text=i==3?view.FullRecoverCost:(i==1?"10 MP":i==0?"6 MP":i==2?"3 MP":"5 MP");
+                }
+            }
+            EditorUtility.SetDirty(view);EditorSceneManager.MarkSceneDirty(scene);EditorSceneManager.SaveScene(scene);
+            Debug.Log("ERI_UI_ORBS: PASS added four editable segment-cost orb slots to every command row.");
+        }
+        catch(Exception e){Debug.LogError("ERI_UI_ORBS: FAIL "+e);}
+        finally{if(opened)EditorSceneManager.CloseScene(scene,true);}
+    }
     [MenuItem("Tools/Project Eri/UI/Validate Saved UI %&F6")]
     public static void ValidateSavedUI()
     {
@@ -153,7 +182,7 @@ public static class EriUIAuthoring
             var view=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<EriCombatUIView>(true)).Single();
             if(view.Commands.Length<5 || view.Members.Length<4 || view.Segments.Length!=4)throw new Exception("Required row bindings are missing.");
             foreach(var row in view.Commands)
-                if(row.Root==null || row.Name==null || row.Cost==null || row.Selection==null || row.MarkBadge==null || row.DamageBadge==null)throw new Exception("An editable command binding is missing.");
+                if(row.Root==null || row.Name==null || row.Cost==null || row.Selection==null || row.MarkBadge==null || row.DamageBadge==null || row.SegmentOrbs==null || row.SegmentOrbs.Length!=4 || row.SegmentOrbs.Any(o=>o==null || o.sprite==null))throw new Exception("An editable command binding is missing.");
             foreach(var image in view.Segments.Select(s=>s.Fill).Concat(view.Members.Select(m=>m.HP)).Concat(view.Members.Select(m=>m.MP)))
                 if(image==null || image.sprite==null || image.type!=UnityEngine.UI.Image.Type.Filled)throw new Exception("Bar must use a Filled Image with a sprite.");
             if(view.EnemyMarkTemplate==null || view.Potion==null || view.TimingTrack==null || view.TimingCursor==null)throw new Exception("Status/timing/potion binding is missing.");
@@ -198,6 +227,33 @@ public static class EriUIAuthoring
         var image=Image(parent,name,Vector2.zero,Vector2.zero,color);Stretch(image.rectTransform);
         image.sprite=fillSprite;image.type=UnityEngine.UI.Image.Type.Filled;image.fillMethod=UnityEngine.UI.Image.FillMethod.Horizontal;
         image.fillOrigin=0;image.fillAmount=1;return image;
+    }
+    private static UnityEngine.UI.Image[] SegmentOrbs(Transform row,int visibleCount)
+    {
+        var holder=row.Find("Segment Cost Orbs") as RectTransform;
+        if(holder==null)holder=Rect(row,"Segment Cost Orbs",new Vector2(0,1),new Vector2(0,1),new Vector2(190,-6),new Vector2(50,10));
+        else{holder.anchoredPosition=new Vector2(190,-6);holder.sizeDelta=new Vector2(50,10);}
+        var sprite=AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+        var result=new UnityEngine.UI.Image[4];
+        for(int i=0;i<result.Length;i++)
+        {
+            var child=holder.Find("Segment Orb "+(i+1));
+            UnityEngine.UI.Image orb;
+            if(child==null)
+            {
+                orb=Image(holder,"Segment Orb "+(i+1),new Vector2(i*13,0),new Vector2(10,10),new Color32(86,238,132,255));
+                orb.sprite=sprite;orb.preserveAspect=true;
+            }
+            else
+            {
+                orb=child.GetComponent<UnityEngine.UI.Image>();
+                if(orb==null)orb=child.gameObject.AddComponent<UnityEngine.UI.Image>();
+                var rect=orb.rectTransform;rect.anchoredPosition=new Vector2(i*13,0);rect.sizeDelta=new Vector2(10,10);
+                if(orb.sprite==null)orb.sprite=sprite;orb.preserveAspect=true;orb.raycastTarget=false;
+            }
+            orb.gameObject.SetActive(i<visibleCount);result[i]=orb;
+        }
+        return result;
     }
     private static TextMeshProUGUI Text(Transform parent,string name,Vector2 pos,Vector2 size,int fontSize,string value)
     {

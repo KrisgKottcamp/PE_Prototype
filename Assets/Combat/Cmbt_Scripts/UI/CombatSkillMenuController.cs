@@ -1135,15 +1135,16 @@ public class CombatSkillMenuController : MonoBehaviour
             var spell=v2Bridge.GetSkill(i);if(spell==null)continue;
             var delivery=spell.Delivery as EriPrototypeDelivery;if(delivery==null)continue;
             bool usable=v2Bridge.CanUse(spell,out _);
+            int segmentCost=delivery.Kind==EriCommandKind.Recover?0:delivery.Segments;
             string cost=delivery.Kind==EriCommandKind.Recover?prototypeView.FullRecoverCost:
-                string.Format(prototypeView.SkillCostFormat,delivery.Segments,delivery.MPCost);
-            prototypeView.ShowCommand(i-first,spell.DisplayName,cost,i==selectedIndex,usable,delivery.Kind);
+                string.Format(prototypeView.MPCostFormat,delivery.MPCost);
+            prototypeView.ShowCommand(i-first,spell.DisplayName,cost,segmentCost,i==selectedIndex,usable,delivery.Kind);
             if(i==selectedIndex){detail=spell.Description;reason=EriTurnCombat.Active.Reason(spell);}
         }
         if(eri!=null)
         {
             bool usable=skillSystem!=null && skillSystem.CanUse(eri) && string.IsNullOrEmpty(EriTurnCombat.Active.CallEriReason);
-            prototypeView.ShowCommand(count-first,"Call Eri",string.Format(prototypeView.SkillCostFormat,1,5),selectedIndex==count,usable,null);
+            prototypeView.ShowCommand(count-first,"Call Eri",string.Format(prototypeView.MPCostFormat,5),1,selectedIndex==count,usable,null);
             if(selectedIndex==count){detail="Call Eri to heal an ally using her healing points.";reason=EriTurnCombat.Active.CallEriReason;}
         }
         if(total>visible)detail=$"{selectedIndex+1}/{total} · {detail}";

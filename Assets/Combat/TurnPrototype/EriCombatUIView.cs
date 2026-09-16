@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -36,6 +37,8 @@ public sealed class EriCombatUIView : MonoBehaviour
     [Range(0,1)] public float LowHPThreshold = 0.25f;
     public Color SelectedCommand = new Color(0.48f,0.95f,0.82f);
     public Color UnavailableCommand = new Color(0.76f,0.80f,0.86f);
+    [Tooltip("Runtime tint for segment-cost orbs while their command is unavailable.")]
+    public Color UnavailableSegmentOrb = new Color(0.40f,0.44f,0.48f,0.8f);
     [Header("Enemy status placement")]
     [Tooltip("Offset above the enemy collider in world units. Size/style come from Enemy Mark Template.")]
     public Vector2 EnemyMarkOffset = new Vector2(0,0.25f);
@@ -45,7 +48,7 @@ public sealed class EriCombatUIView : MonoBehaviour
     public string PartyHeaderFormat = "Party · Potions {0}";
     public string MemberDetailsFormat = "MP {0} · {1}/4";
     public string EriDetailsFormat = "Heals {0}/{1}";
-    public string SkillCostFormat = "{0} seg · {1} MP";
+    public string MPCostFormat = "{0} MP";
     public string RecoverCost = "Restore 1 segment";
     public string TurnEndingFormat = "{0} · Passing turn";
     public string WaitingMemberFormat = "MP {0} · Waiting";
@@ -76,7 +79,10 @@ public sealed class EriCombatUIView : MonoBehaviour
         public GameObject Selection;
         public GameObject MarkBadge;
         public GameObject DamageBadge;
+        [Tooltip("One editable circle for each possible AP segment cost.")]
+        public UnityEngine.UI.Image[] SegmentOrbs;
         [NonSerialized] public Color NameColor, CostColor;
+        [NonSerialized] public Color[] SegmentOrbColors;
     }
 
     private EriTurnCombat combat;
@@ -85,7 +91,11 @@ public sealed class EriCombatUIView : MonoBehaviour
     {
         foreach(var segment in Segments){segment.TrackColor=segment.Track.color;segment.ChargingColor=segment.Fill.color;}
         foreach(var row in Members){row.NameColor=row.Name.color;row.HPColor=row.HP.color;}
-        foreach(var row in Commands){row.NameColor=row.Name.color;row.CostColor=row.Cost.color;}
+        foreach(var row in Commands)
+        {
+            row.NameColor=row.Name.color;row.CostColor=row.Cost.color;
+            row.SegmentOrbColors=row.SegmentOrbs==null?Array.Empty<Color>():row.SegmentOrbs.Select(orb=>orb!=null?orb.color:Color.white).ToArray();
+        }
         cursorY=TimingCursor.anchoredPosition.y;
         CommandPanel.SetActive(false);TimingPanel.SetActive(false);EnemyMarkTemplate.gameObject.SetActive(false);
         Potion.onClick.AddListener(UsePotion);
@@ -135,13 +145,21 @@ public sealed class EriCombatUIView : MonoBehaviour
         if(combat.Timing)
             TimingCursor.anchoredPosition=new Vector2(TimingTrack.rect.width*combat.TimingProgress,cursorY);
     }
-    public void ShowCommand(int index,string name,string cost,bool selected,bool usable,EriCommandKind? kind)
+    public void ShowCommand(int index,string name,string cost,int segmentCost,bool selected,bool usable,EriCommandKind? kind)
     {
         if(index<0 || index>=Commands.Length)return;
         var row=Commands[index];row.Root.SetActive(true);row.Name.text=name;row.Cost.text=cost;
         row.Selection.SetActive(selected);
         row.Name.color=!usable?UnavailableCommand:selected?SelectedCommand:row.NameColor;
         row.Cost.color=!usable?UnavailableCommand:selected?SelectedCommand:row.CostColor;
+        if(row.SegmentOrbs!=null)for(int i=0;i<row.SegmentOrbs.Length;i++)
+        {
+            var orb=row.SegmentOrbs[i];if(orb==null)continue;
+            orb.gameObject.SetActive(i<Mathf.Clamp(segmentCost,0,row.SegmentOrbs.Length));
+            if(orb.gameObject.activeSelf)
+                orb.color=!usable?UnavailableSegmentOrb:selected?SelectedCommand:
+                    i<row.SegmentOrbColors.Length?row.SegmentOrbColors[i]:Color.white;
+        }
         row.MarkBadge.SetActive(kind==EriCommandKind.Mark);
         row.DamageBadge.SetActive(kind==EriCommandKind.Pierce || kind==EriCommandKind.Shot || kind==EriCommandKind.Burst);
     }
