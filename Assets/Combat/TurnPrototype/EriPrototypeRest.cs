@@ -16,7 +16,7 @@ public sealed class EriPrototypeRest : MonoBehaviour
         var text=new GameObject("Rest Help",typeof(RectTransform),typeof(TextMeshProUGUI));text.transform.SetParent(root.transform,false);
         var rect=(RectTransform)text.transform;rect.anchorMin=rect.anchorMax=rect.pivot=new Vector2(1,0);rect.anchoredPosition=new Vector2(-24,24);rect.sizeDelta=new Vector2(650,44);
         var label=text.GetComponent<TextMeshProUGUI>();label.fontSize=22;label.alignment=TextAlignmentOptions.Right;label.raycastTarget=false;
-        label.text="PROTOTYPE · F8: Rest — restore HP, MP and 3 potions";
+        label.text="";
     }
     private void Update()
     {

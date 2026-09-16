@@ -240,6 +240,44 @@ public class CombatManager : MonoBehaviour
 
     private void SpawnPlayerPawn()
     {
+        // Some arena entry paths keep a combat pawn alive while another
+        // manager finishes initializing. Reuse the first pawn instead of
+        // instantiating a second visible player, and clean up only duplicate
+        // runtime instances that are already in this loaded combat scene.
+        GameObject[] existingPawns =
+            GameObject.FindGameObjectsWithTag("PlayerCombatPawn");
+
+        if (existingPawns.Length > 0)
+        {
+            pawnInstance = EriTurnCombat.Active != null
+                ? EriTurnCombat.Active.gameObject
+                : existingPawns[0];
+
+            for (int i = 0; i < existingPawns.Length; i++)
+                if (existingPawns[i] != pawnInstance)
+                    Destroy(existingPawns[i]);
+
+            if (existingPawns.Length > 1)
+            {
+                Debug.LogWarning(
+                    $"CombatManager: Found {existingPawns.Length} combat " +
+                    "player pawns; kept the first and removed duplicates.",
+                    this
+                );
+            }
+
+            return;
+        }
+
+        if (combatPlayerPawnPrefab == null)
+        {
+            Debug.LogError(
+                "CombatManager: Combat player pawn prefab is not assigned.",
+                this
+            );
+            return;
+        }
+
         Vector3 position =
             playerSpawn != null
                 ? playerSpawn.position

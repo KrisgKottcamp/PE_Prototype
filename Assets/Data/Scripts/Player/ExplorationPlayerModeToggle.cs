@@ -14,7 +14,7 @@ public class ExplorationPlayerModeToggle : MonoBehaviour
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
-        ApplyForScene(SceneManager.GetActiveScene().name);
+        ApplyForCombatState(IsCombatSceneLoaded());
     }
 
     private void OnDisable()
@@ -24,13 +24,26 @@ public class ExplorationPlayerModeToggle : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        ApplyForScene(scene.name);
+        // The combat HUD is loaded additively after the arena. Looking only at
+        // the callback scene would treat that HUD as overworld content and
+        // re-enable the persistent overworld player.
+        ApplyForCombatState(IsCombatSceneLoaded());
     }
 
-    private void ApplyForScene(string sceneName)
+    private bool IsCombatSceneLoaded()
     {
-        bool inCombat = sceneName.StartsWith(combatScenePrefix);
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            Scene scene = SceneManager.GetSceneAt(i);
+            if (scene.IsValid() && scene.name.StartsWith(combatScenePrefix))
+                return true;
+        }
 
+        return false;
+    }
+
+    private void ApplyForCombatState(bool inCombat)
+    {
         // Disable exploration control scripts (TopDownMover, SortByY if needed, etc.)
         foreach (var s in scriptsToDisable)
             if (s) s.enabled = !inCombat;

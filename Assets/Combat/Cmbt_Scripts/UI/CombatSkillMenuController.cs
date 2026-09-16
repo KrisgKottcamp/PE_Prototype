@@ -80,25 +80,14 @@ public class CombatSkillMenuController : MonoBehaviour
 
     public bool IsOpen => isOpen;
 
-    public void ConfigurePrototypePresentation(Transform canvas)
+    private EriCombatUIView prototypeView;
+    public void ConfigurePrototypePresentation(EriCombatUIView view)
     {
-        if (skillPanelRoot != null) skillPanelRoot.SetActive(false);
-        skillPanelRoot = new GameObject("Prototype Command Menu", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-        skillPanelRoot.transform.SetParent(canvas, false);
-        var rect = (RectTransform)skillPanelRoot.transform;
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f,0.5f);
-        rect.anchoredPosition = new Vector2(-120,-65); rect.sizeDelta = new Vector2(880,560);
-        skillPanelRoot.GetComponent<UnityEngine.UI.Image>().color = new Color(0.045f,0.055f,0.09f,0.98f);
-        var text = new GameObject("Command List", typeof(RectTransform), typeof(TextMeshProUGUI));
-        text.transform.SetParent(rect,false);
-        var tr = (RectTransform)text.transform; tr.anchorMin=Vector2.zero;tr.anchorMax=Vector2.one;
-        tr.offsetMin=new Vector2(26,20);tr.offsetMax=new Vector2(-26,-20);
-        listText=text.GetComponent<TextMeshProUGUI>();listText.fontSize=23;listText.richText=true;
-        listText.color=Color.white;listText.raycastTarget=false;listText.fontStyle=FontStyles.Normal;
-        selectedAffordableSkillColor=new Color(0.48f,0.95f,0.82f);
-        unselectedAffordableSkillColor=new Color(0.85f,0.89f,0.95f);
-        unavailableSkillColor=new Color(0.64f,0.69f,0.77f);
-        boldSelectedSkill=true;
+        if(skillPanelRoot!=null)skillPanelRoot.SetActive(false);
+        prototypeView=view;
+        skillPanelRoot=view.CommandPanel;
+        // Legacy paths still need a non-null text reference; the prototype uses separate row objects.
+        listText=view.Description;
         skillPanelRoot.SetActive(false);
     }
 
@@ -1059,6 +1048,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void RefreshV2SkillText()
     {
+        if (EriTurnCombat.Active != null) { RefreshCompactPrototypeText(); return; }
         int v2Count = v2Bridge != null ? v2Bridge.SkillCount : 0;
         SkillDefinition callEri = ResolveAlwaysAvailableCallEriSkill();
         bool appendCallEri = ShouldAppendCallEri(
@@ -1126,6 +1116,36 @@ public class CombatSkillMenuController : MonoBehaviour
             AppendLegacySkillRow(sb, callEri, v2Count);
 
         listText.text = sb.ToString();
+    }
+
+    private void RefreshCompactPrototypeText()
+    {
+        if(prototypeView==null || v2Bridge==null)return;
+        int count=v2Bridge.SkillCount;
+        var eri=ResolveAlwaysAvailableCallEriSkill();
+        selectedIndex=Mathf.Clamp(selectedIndex,0,Mathf.Max(0,count+(eri!=null?1:0)-1));
+        int total=count+(eri!=null?1:0);
+        int visible=prototypeView.Commands.Length;
+        int first=Mathf.Clamp(selectedIndex-visible+1,0,Mathf.Max(0,total-visible));
+        string detail="",reason="";
+        for(int i=0;i<count;i++)
+        {
+            var spell=v2Bridge.GetSkill(i);if(spell==null)continue;
+            var delivery=spell.Delivery as EriPrototypeDelivery;if(delivery==null)continue;
+            bool usable=v2Bridge.CanUse(spell,out _);
+            string cost=delivery.Kind==EriCommandKind.Recover?prototypeView.RecoverCost:
+                string.Format(prototypeView.SkillCostFormat,delivery.Segments,delivery.MPCost);
+            prototypeView.ShowCommand(i-first,spell.DisplayName,cost,i==selectedIndex,usable,delivery.Kind);
+            if(i==selectedIndex){detail=spell.Description;reason=EriTurnCombat.Active.Reason(spell);}
+        }
+        if(eri!=null)
+        {
+            bool usable=skillSystem!=null && skillSystem.CanUse(eri) && string.IsNullOrEmpty(EriTurnCombat.Active.CallEriReason);
+            prototypeView.ShowCommand(count-first,"Call Eri",string.Format(prototypeView.SkillCostFormat,1,5),selectedIndex==count,usable,null);
+            if(selectedIndex==count){detail="Call Eri to heal an ally using her healing points.";reason=EriTurnCombat.Active.CallEriReason;}
+        }
+        if(total>visible)detail=$"{selectedIndex+1}/{total} · {detail}";
+        prototypeView.FinishCommands(Mathf.Min(visible,total-first),detail,reason);
     }
 
     public static bool ShouldAppendCallEri(

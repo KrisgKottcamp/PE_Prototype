@@ -1509,6 +1509,7 @@ MonoBehaviour:
   attackMomentum: {fileID: 0}
   closePanelAfterCast: 1
   preferV2LoadoutWhenAvailable: 1
+  alwaysAvailableCallEriSkill: {fileID: 11400000, guid: c5611a1fcd86438eb28a4dd3d3b47bb4, type: 2}
 --- !u!114 &206606213
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5316,7 +5317,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1208084824
 Transform:
   m_ObjectHideFlags: 0

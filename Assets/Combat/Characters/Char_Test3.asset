@@ -20,7 +20,7 @@ MonoBehaviour:
   apGainOnBasicHit: 20
   apMagnetizationRange: 1.6
   basicAttackType: 2
-  lockMovementDuringBasicAttack: 1
+  lockMovementDuringBasicAttack: 0
   basicAttackMovementLockDuration: 0.35
   basicAttackProjectilePrefab: {fileID: 0}
   startingSkills: []

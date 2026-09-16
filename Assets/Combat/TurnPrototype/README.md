@@ -49,7 +49,7 @@ final checkpoint or expedition-economy design.
 
 Slash costs 1 segment/3 MP. Dread Field marks entrants once each; the field lasts
 10 seconds and marks last 16 seconds. Gather/Black Hole pull enemies together.
-Fear damage consumes a mark for a 1.75x multiplier, combined with the labeled test
+Fear damage consumes a mark for a 1.75x multiplier, combined with the test
 enemy's natural Fear modifier (weak 1.25x, resistant 0.75x, neutral 1x). Character
 affinities remain neutral pending authored decisions. Test enemy affinities are
 assigned by runtime instance order, not saved enemy identity.
@@ -58,9 +58,46 @@ assigned by runtime instance order, not saved enemy identity.
 
 `EriTurnRules` owns numeric economy constants and integer segment boundaries.
 `EriTurnCombat` owns shared readiness and runtime kits; `EriPrototypeDelivery`
-contains the small Fear test effects. `EriTurnHUD` creates the resource display and
-hides legacy combat resource graphics during play. The existing menu receives a
-new runtime panel. No files or saved hierarchy objects are deleted for cleanup.
+contains the small Fear test effects. `EriTurnHUD` loads the saved `UI/EriCombatUI.unity`
+scene and binds it to combat. `EriCombatUIView` updates values and state visibility;
+it does not recreate panels or overwrite authored transforms, fonts, or materials.
+Legacy combat resource graphics are hidden during play.
+
+## Editing the interface permanently
+
+Outside Play Mode, choose **Tools > Project Eri > UI > Open Editable UI Scene**.
+Expand **Eri Combat UI** in the Hierarchy. Select a panel to edit its Image color/alpha
+or RectTransform, a text child for fonts and sizes, or an icon for its color/artwork.
+Save the scene with **Ctrl+S**. Every combat encounter loads that saved scene, including
+scene overrides on its prefab instance; applying overrides to the prefab is optional.
+
+Command Readiness contains the AP segments. Party Resources contains four separate
+member rows. Command Menu contains five independently editable rows, descriptions,
+and mark/damage badges. Timed Command contains the timing track and cursor. Enemy
+Status Markers contains the Enemy Mark Template copied for each marked enemy.
+
+Select the root for special state colors (green charged AP, exhausted AP, selected
+commands, active member, low HP), dynamic label formats, and enemy badge offset.
+Normal colors are taken from the individual text/Image components. Bars use Filled
+Images: resize their parent track, keep Image Type = Filled, and change its sprite
+or tint normally. Runtime only changes fillAmount. Timing zone positions visualize
+the existing timing windows; changing their art does not change the scoring rules.
+
+The panels are visible for editing and automatically hidden/shown as needed in play.
+Runtime counters and skill names are live data; sample text is only an editing preview.
+The shared outline material lives beside the scene as `Eri Readable Text.mat`.
+Existing ally-target and combat-results panels are still authored in the arena scene.
+Play the game from Bootstrap, as before. Changes made during Play Mode are temporary.
+Use **Validate Saved UI** to check bindings. **Create Editable UI** only creates missing
+assets once; it opens existing work instead of replacing your design.
+
+The compact HUD uses translucent panels, proportional left-to-right AP fills,
+party HP/MP bars, and a centered command menu without button instructions.
+Active Fear marks display small eye-plus-down-arrow icons on a foreground overlay layer.
+The menu pairs that cue with `Mark · Fear`; Fear-damage commands use an eye-plus-burst
+and `Fear damage`. Physical and control commands are not mislabeled as elemental.
+Spell graphics and targeting previews use the existing VFX sorting layer above the arena.
+Fully charged usable AP segments are green; partial charge remains cyan.
 
 This is a combat-flow experiment, not production content: one emotional affinity,
 one timing minigame, instantaneous test attacks, and simple local pulls. The test

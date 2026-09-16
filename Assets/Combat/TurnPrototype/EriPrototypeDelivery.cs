@@ -47,24 +47,36 @@ public sealed class EriFearMark : MonoBehaviour
     public float Remaining;
     public string AffinityLabel = "Fear: neutral (test)";
     public float NaturalMultiplier = 1f;
-    private TMPro.TextMeshPro label;
-    private void Awake()
-    {
-        var go = new GameObject("Prototype Affinity Label");
-        go.transform.SetParent(transform, false);
-        go.transform.localPosition = new Vector3(0, 1.1f, -0.1f);
-        label = go.AddComponent<TMPro.TextMeshPro>();
-        label.alignment = TMPro.TextAlignmentOptions.Center;
-        label.rectTransform.sizeDelta = new Vector2(4, 1);
-        label.fontSize = 2.3f;
-        label.GetComponent<MeshRenderer>().sortingOrder = 100;
-    }
+    private EriCombatUIView ui;
+    private RectTransform icon;
+    private Camera viewCamera;
+    private Collider2D body;
     private void Update()
     {
         Remaining = Mathf.Max(0, Remaining - Time.deltaTime);
-        label.text = Remaining > 0 ? $"FEAR MARK {Remaining:0}s\n{AffinityLabel}" : AffinityLabel;
-        label.color = Remaining > 0 ? new Color(0.9f, 0.6f, 1f) : Color.white;
     }
+    private void LateUpdate()
+    {
+        if(Remaining<=0){if(icon!=null)icon.gameObject.SetActive(false);return;}
+        if(viewCamera==null)viewCamera=Camera.main;
+        if(viewCamera==null)return;
+        if(ui==null)ui=FindFirstObjectByType<EriCombatUIView>();
+        if(ui==null)return;
+        if(icon==null)
+        {
+            icon=ui.CreateEnemyMark();
+            body=GetComponent<Collider2D>();
+        }
+        Vector3 above=body!=null?new Vector3(body.bounds.center.x,body.bounds.max.y,transform.position.z):transform.position+Vector3.up*0.9f;
+        above+=(Vector3)ui.EnemyMarkOffset;
+        Vector3 screen=viewCamera.WorldToScreenPoint(above);
+        icon.gameObject.SetActive(screen.z>0);
+        var canvas=icon.GetComponentInParent<Canvas>();
+        if(RectTransformUtility.ScreenPointToWorldPointInRectangle((RectTransform)icon.parent,screen,
+            canvas.renderMode==RenderMode.ScreenSpaceOverlay?null:canvas.worldCamera,out var position))icon.position=position;
+    }
+    private void OnDisable(){if(icon!=null)icon.gameObject.SetActive(false);}
+    private void OnDestroy(){if(icon!=null)Destroy(icon.gameObject);}
     public int ResolveFearDamage(int baseDamage)
     {
         bool marked = Remaining > 0;
@@ -75,6 +87,9 @@ public sealed class EriFearMark : MonoBehaviour
 
 public sealed class EriFearField : MonoBehaviour
 {
+    public bool ControlsMotionAt(Vector2 position) => remaining > 0 &&
+        (kind == EriCommandKind.Pull || kind == EriCommandKind.BlackHole) &&
+        Vector2.Distance(position, point) <= radius;
     private EriCommandKind kind;
     private Vector2 origin, point, direction;
     private float remaining;
@@ -92,7 +107,8 @@ public sealed class EriFearField : MonoBehaviour
         line = gameObject.AddComponent<LineRenderer>();
         var shader = Shader.Find("Sprites/Default");
         if (shader != null) { material = new Material(shader); line.sharedMaterial = material; }
-        line.startWidth = line.endWidth = 0.06f; line.sortingOrder = 80;
+        line.startWidth = line.endWidth = 0.06f;
+        line.sortingLayerID = SortingLayer.NameToID("VFX"); line.sortingOrder = 80;
         line.startColor = line.endColor = kind == EriCommandKind.Mark ? new Color(0.9f, 0.5f, 1f) : new Color(0.35f, 0.85f, 1f);
         bool ray = kind == EriCommandKind.Pierce || kind == EriCommandKind.Shot || kind == EriCommandKind.Slash;
         if (ray)
@@ -126,7 +142,7 @@ public sealed class EriFearField : MonoBehaviour
                 : along >= 0 && along <= (kind == EriCommandKind.Slash ? 2.5f : 10f) &&
                   across <= (kind == EriCommandKind.Slash ? 1.2f : kind == EriCommandKind.Shot ? 0.3f : 0.65f);
             if (!hit) continue;
-            int damage = kind == EriCommandKind.Slash ? 16 : kind == EriCommandKind.Shot ? 18 : 30;
+            int damage = kind == EriCommandKind.Slash ? 32 : kind == EriCommandKind.Shot ? 40 : 65;
             var mark = enemy.GetComponent<EriFearMark>();
             if (kind != EriCommandKind.Slash && mark != null) damage = mark.ResolveFearDamage(damage);
             enemy.TakeDamage(damage);
@@ -143,7 +159,7 @@ public sealed class EriFearField : MonoBehaviour
             if (kind == EriCommandKind.Mark && marked.Add(enemy.GetInstanceID()))
             {
                 var mark = enemy.GetComponent<EriFearMark>() ?? enemy.gameObject.AddComponent<EriFearMark>();
-                mark.Remaining = 16f;
+                mark.Remaining = 28f;
             }
             else if (kind == EriCommandKind.Pull || kind == EriCommandKind.BlackHole)
             {

@@ -38,6 +38,7 @@ public sealed class EriTurnCombat : MonoBehaviour
         if (Party != null)
             foreach (var member in Party.party) { member.exhaustedSegments = 0; member.currentAP = 0; }
         hud = gameObject.AddComponent<EriTurnHUD>();
+        if (GetComponent<EriEnemyRhythm>() == null) gameObject.AddComponent<EriEnemyRhythm>();
         RefreshSkills();
     }
 
@@ -134,7 +135,7 @@ public sealed class EriTurnCombat : MonoBehaviour
         string who = Member.def.displayName.ToLowerInvariant();
         if (who.Contains("dominic"))
         {
-            Add("Dread Field", "Mark enemies entering the circle with Fear for 16 seconds.", EriCommandKind.Mark, 1, 6);
+            Add("Dread Field", "Mark enemies entering the circle with Fear for 28 seconds.", EriCommandKind.Mark, 1, 6);
             Add("Dread Pulse", "Fear damage around your chosen point. Exploits Fear marks.", EriCommandKind.Burst, 2, 10);
         }
         else if (who.Contains("imogen"))
@@ -144,6 +145,8 @@ public sealed class EriTurnCombat : MonoBehaviour
         }
         else
         {
+            if (who.Contains("audrey"))
+                Add("Dread Field", "Mark enemies entering the circle with Fear for 28 seconds. Set up your Fear shots.", EriCommandKind.Mark, 1, 6);
             Add("Piercing Dread", "Aim through a group. Fear damage exploits marked targets.", EriCommandKind.Pierce, 2, 10);
             Add("Fear Shot", "A narrower, cheaper Fear shot for single targets.", EriCommandKind.Shot, 1, 5);
         }

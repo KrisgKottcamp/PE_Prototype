@@ -212,6 +212,11 @@ namespace ProjectEri.SkillSystemV2
                     sourceRenderer.sortingOrder + 50);
             }
 
+            if (SortingLayer.NameToID("VFX") != 0)
+            {
+                outline.sortingLayerID = SortingLayer.NameToID("VFX");
+                outline.sortingOrder = 90;
+            }
             Shader shader = Shader.Find("Sprites/Default");
             if (shader == null)
                 shader = Shader.Find("Universal Render Pipeline/Unlit");
