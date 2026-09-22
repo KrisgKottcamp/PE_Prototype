@@ -273,6 +273,7 @@ public class WhipAttack : MonoBehaviour
 
     private bool CanStartAttack()
     {
+        if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.BlocksBasicInput) return false;
         if (attackCommitment == null)
             ResolveAttackCommitment();
 
@@ -701,9 +702,11 @@ public class WhipAttack : MonoBehaviour
                 enemy.gameObject,
                 SpellActorStat.DamageReceived,
                 1f);
-            enemy.TakeDamage(Mathf.Max(
+            int resolvedDamage = Mathf.Max(
                 0,
-                Mathf.RoundToInt(damage * dealt * received)));
+                Mathf.RoundToInt(damage * dealt * received));
+            if (EriCombatMechanics.Active != null) EriCombatMechanics.Active.ApplyBasicHit(enemy, resolvedDamage);
+            else enemy.TakeDamage(resolvedDamage);
 
             if (!hitstopRequestedThisSwing)
             {

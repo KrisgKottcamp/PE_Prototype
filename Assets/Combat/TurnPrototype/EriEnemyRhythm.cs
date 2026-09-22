@@ -21,6 +21,8 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     [Header("Repositioning between volleys")]
     public float MoveSpeed = 3.6f;
     public float PreferredDistance = 3.5f;
+    [Min(0.5f)] public float SeparationDistance = 1f;
+    [Min(0f)] public float SeparationSpeed = 2.8f;
     [Header("Warning visibility")]
     public float TelegraphWidth = 0.025f;
     public float TelegraphOutlineWidth = 0.045f;
@@ -30,6 +32,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     private sealed class Movement
     {
         public Rigidbody2D Body;
+        public Collider2D Collider;
         public readonly List<Vector2> Path = new List<Vector2>();
         public float RefreshAt;
         public int Waypoint;
@@ -94,7 +97,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         {
             if (!registered.Add(enemy.GetInstanceID())) continue;
             enemies.Add(enemy);
-            movement[enemy] = new Movement { Body = enemy.GetComponent<Rigidbody2D>() };
+            movement[enemy] = new Movement { Body = enemy.GetComponent<Rigidbody2D>(), Collider = enemy.GetComponent<Collider2D>() };
             foreach (var component in enemy.GetComponentsInChildren<MonoBehaviour>(true)) Suspend(component);
             var body = enemy.GetComponent<Rigidbody2D>();
             if (body != null) body.linearVelocity = Vector2.zero;
@@ -120,6 +123,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             for (int i = 0; i < enemies.Count; i++)
             {
                 var candidate = enemies[(cycle + i) % enemies.Count];
+                if (!CanAct(candidate)) continue;
                 if (camera != null)
                 {
                     var screen = camera.WorldToViewportPoint(candidate.transform.position);
@@ -130,12 +134,13 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             // Never stall the encounter because a source is near the player or just
             // outside the viewport; choose the next living enemy and keep the rhythm moving.
             if (source == null)
-                source = enemies.Find(e => e != null && e.CurrentHP > 0);
+                source = enemies.Find(CanAct);
             if (source == null) { yield return null; continue; }
+            source.GetComponent<EriEnemyDefenses>()?.TryRaiseFearWard();
             holdingFormation = true;
             var pattern = Prepare(source, cycle % 3);
             float time = 0;
-            while (time < TelegraphSeconds)
+            while (time < TelegraphSeconds && CanAct(source))
             {
                 time += Time.deltaTime;
                 foreach (var line in pattern.Lines)
@@ -154,7 +159,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             bool fired = false;
             for (int burst = 0; burst < VolleyCount; burst++)
             {
-                if (pattern.Enemy == null || pattern.Enemy.CurrentHP <= 0) break;
+                if (!CanAct(pattern.Enemy)) break;
                 // Locked aim and origin match the preview. Displacement cancels the remaining volley.
                 if (Vector2.Distance(pattern.Enemy.transform.position, pattern.Origin) > 0.75f) break;
                 // Alternate half a cell every row: yesterday's gap becomes the next
@@ -211,6 +216,9 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     }
     private static Color PatternColor(int kind) => kind == 0 ? new Color(1f,0.65f,0.15f) :
         kind == 1 ? new Color(1f,0.35f,0.75f) : new Color(0.25f,0.9f,1f);
+    private static bool CanAct(EnemyHealth enemy) => enemy != null && enemy.CurrentHP > 0 &&
+        !(enemy.TryGetComponent<EriEnemyDefenses>(out var defense) && defense.IsKnockedDown) &&
+        !(EriCombatMechanics.Active != null && EriCombatMechanics.Active.AllOutExecuting);
     private Pattern Prepare(EnemyHealth enemy, int kind)
     {
         var pattern = new Pattern { Enemy = enemy, Kind = kind, Origin = enemy.transform.position };
@@ -303,9 +311,16 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         for (int i = 0; i < enemies.Count; i++)
         {
             var enemy = enemies[i];
-            if (enemy == null || enemy.CurrentHP <= 0) continue;
+            bool canAct = CanAct(enemy);
+            bool downed = enemy != null && enemy.TryGetComponent<EriEnemyDefenses>(out var defense) && defense.IsKnockedDown;
+            if (!canAct && !downed)
+            {
+                if (enemy != null && movement.TryGetValue(enemy, out var stopped) && stopped.Body != null)
+                    stopped.Body.linearVelocity = Vector2.zero;
+                continue;
+            }
             var motion = movement[enemy];
-            Vector2 position = enemy.transform.position;
+            Vector2 position = motion.Body != null ? motion.Body.position : (Vector2)enemy.transform.position;
             bool pulled = false;
             foreach (var field in fields) if (field.ControlsMotionAt(position)) { pulled = true; break; }
             var knockback = enemy.GetComponent<KnockbackReceiver2D>();
@@ -313,13 +328,13 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             if (pulled || (knockback != null && knockback.IsKnockbackActive) ||
                 (forced != null && forced.IsControllingMotion))
             { motion.RefreshAt = 0; continue; }
-            if (Time.time >= motion.RefreshAt)
+            if (canAct && Time.time >= motion.RefreshAt)
             {
                 motion.RefreshAt = Time.time + 0.65f;
                 Vector2 away = position - (Vector2)transform.position;
                 if (away.sqrMagnitude < 0.01f) away = Rotate(Vector2.right, i * 137f);
-                // Close distant gaps, create space when crowded, otherwise flank slowly.
-                float angle = (i % 2 == 0 ? 1 : -1) * 22f;
+                // Give each enemy a distinct flank, not one shared destination per side.
+                float angle = (i % 2 == 0 ? 1 : -1) * (22f + (i / 2) * 18f);
                 Vector2 goal = (Vector2)transform.position + Rotate(away.normalized, angle) * PreferredDistance;
                 motion.Path.Clear(); motion.Waypoint = 0;
                 if (navigation != null && navigation.IsBuilt)
@@ -329,14 +344,17 @@ public sealed class EriEnemyRhythm : MonoBehaviour
                 }
                 else motion.Path.Add(goal);
             }
-            while (motion.Waypoint < motion.Path.Count && Vector2.Distance(position, motion.Path[motion.Waypoint]) < 0.15f)
+            while (canAct && motion.Waypoint < motion.Path.Count && Vector2.Distance(position, motion.Path[motion.Waypoint]) < 0.15f)
                 motion.Waypoint++;
-            if (motion.Waypoint >= motion.Path.Count) continue;
-            Vector2 delta = Vector2.ClampMagnitude(motion.Path[motion.Waypoint] - position, MoveSpeed * Time.fixedDeltaTime);
+            Vector2 velocity = canAct && motion.Waypoint < motion.Path.Count
+                ? (motion.Path[motion.Waypoint] - position).normalized * MoveSpeed : Vector2.zero;
+            velocity = SeparateFromNeighbours(i, position, velocity);
+            Vector2 delta = Vector2.ClampMagnitude(velocity, downed ? SeparationSpeed : MoveSpeed) * Time.fixedDeltaTime;
             var slow = enemy.GetComponent<ProjectEri.EnemyAI.V2.EnemySlowReceiverV2>();
             if (slow != null) delta *= Mathf.Clamp01(slow.MovementSpeedMultiplier);
             // Keep movement collision-aware even with legacy/kinematic enemy bodies.
-            if (obstacles != 0 && Physics2D.CircleCast(position, 0.25f, delta.normalized, delta.magnitude + 0.05f, obstacles).collider != null)
+            if (delta.sqrMagnitude < 0.000001f ||
+                obstacles != 0 && Physics2D.CircleCast(position, 0.25f, delta.normalized, delta.magnitude + 0.05f, obstacles).collider != null)
                 continue;
             if (motion.Body != null) motion.Body.MovePosition(position + delta);
             else enemy.transform.position = position + delta;
@@ -367,8 +385,9 @@ public sealed class EriEnemyRhythm : MonoBehaviour
             float t = segment.sqrMagnitude > 0 ? Mathf.Clamp01(Vector2.Dot(target - shot.Position, segment) / segment.sqrMagnitude) : 0;
             // Small forgiving core; sweep prevents tunnelling at low frame rates.
             float distance = Vector2.Distance(target, shot.Position + segment * t);
-            bool hit = !ended && distance < 0.30f;
-            bool wall = obstacles != 0 && Physics2D.Linecast(shot.Position, next, obstacles).collider != null;
+            bool covered = EriKitEffects.BlocksProjectile(shot.Position, next);
+            bool hit = !covered && !ended && distance < 0.30f;
+            bool wall = covered || (obstacles != 0 && Physics2D.Linecast(shot.Position, next, obstacles).collider != null);
             shot.Life -= Time.deltaTime;
             if (!ended && !shot.GrazeResolved)
             {
@@ -397,6 +416,44 @@ public sealed class EriEnemyRhythm : MonoBehaviour
         }
         // Process after every collision so a hit elsewhere in this frame suppresses the reward.
         if (completedGraze) GetComponent<EriTurnCombat>()?.TryAwardGraze();
+    }
+    public void ClearProjectiles(Vector2 center, float radius, bool reflect, int actor, int attackId = 0)
+    {
+        var mechanics = EriCombatMechanics.Active;
+        if (reflect && attackId == 0 && mechanics != null) attackId = mechanics.NextAttackId();
+        float timing = mechanics != null ? mechanics.DefenseDamageMultiplier : 1f;
+        int reflectedDamage = EriTurnCombat.Active != null ? EriTurnCombat.Active.KitSettings.Get(EriCommandKind.Reflect).Damage : 35;
+        for (int i = shots.Count - 1; i >= 0; i--)
+        {
+            if (Vector2.Distance(shots[i].Position, center) > radius) continue;
+            if (reflect) EriKitEffects.ReflectProjectile(shots[i].Position, actor, reflectedDamage, attackId, timing);
+            Destroy(shots[i].Visual); shots.RemoveAt(i);
+        }
+    }
+    private Vector2 SeparateFromNeighbours(int index, Vector2 position, Vector2 velocity)
+    {
+        Vector2 correction = Vector2.zero;
+        var self = enemies[index];
+        var selfCollider = movement[self].Collider;
+        for (int j = 0; j < enemies.Count; j++)
+        {
+            if (j == index || enemies[j] == null || enemies[j].CurrentHP <= 0 || !movement.TryGetValue(enemies[j], out var otherMotion)) continue;
+            Vector2 other = otherMotion.Body != null ? otherMotion.Body.position : (Vector2)enemies[j].transform.position;
+            Vector2 offset = position - other;
+            float distance = offset.magnitude;
+            float bodySpacing = (selfCollider != null ? selfCollider.bounds.extents.x : .35f) +
+                (otherMotion.Collider != null ? otherMotion.Collider.bounds.extents.x : .35f) + .16f;
+            float minimum = Mathf.Max(SeparationDistance, bodySpacing);
+            if (distance >= minimum) continue;
+            // Identical spawn positions need an opposite, deterministic direction for each pair.
+            float angle = (Mathf.Min(index, j) * 73 + Mathf.Max(index, j) * 137) % 360;
+            Vector2 away = distance > .001f ? offset / distance :
+                Rotate(Vector2.right, angle) * (index < j ? 1 : -1);
+            float inward = Vector2.Dot(velocity, away);
+            if (inward < 0) velocity -= away * inward;
+            correction += away * ((minimum - distance) / minimum);
+        }
+        return velocity + Vector2.ClampMagnitude(correction, 1f) * SeparationSpeed;
     }
     private void ClearCues() { foreach (var cue in cues) if (cue != null) Destroy(cue); cues.Clear(); }
     private void OnDisable()

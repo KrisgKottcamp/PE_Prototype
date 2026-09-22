@@ -1,7 +1,9 @@
 using ProjectEri.SkillSystemV2;
 using UnityEngine;
 
-public enum EriCommandKind { Slash, Mark, Pull, BlackHole, Pierce, Shot, Burst, Recover }
+public enum EriCommandKind { Slash, Mark, Pull, BlackHole, Pierce, Shot, Burst, Recover,
+    DashSlash, Snipe, Fan, Grenade, Motivate, HealSelf, Reflect, Cover, Inspire, Silence,
+    WhipSlash, MarkShot, Dispel, OilSpill }
 
 /// <summary>Small, runtime-only test kit. Existing spell assets are never edited.</summary>
 public sealed class EriPrototypeDelivery : DeliveryDefinition
@@ -9,11 +11,16 @@ public sealed class EriPrototypeDelivery : DeliveryDefinition
     public EriCommandKind Kind;
     public int Segments;
     public int MPCost;
+    public int Damage;
+    public float Range = 10f, Radius = 2f, Duration;
     public PlayerTargetingDefinition Targeting;
     public override PlayerTargetingDefinition ResolvePlayerTargeting(SpellDeliverySettings settings) => Targeting;
     public override CastTargetingRequirement TargetingRequirement =>
-        Kind == EriCommandKind.Recover ? CastTargetingRequirement.None :
-        Kind == EriCommandKind.Slash || Kind == EriCommandKind.Pierce || Kind == EriCommandKind.Shot
+        Kind == EriCommandKind.Recover || Kind == EriCommandKind.Motivate || Kind == EriCommandKind.HealSelf ||
+        Kind == EriCommandKind.Reflect || Kind == EriCommandKind.Inspire || Kind == EriCommandKind.Silence ? CastTargetingRequirement.None :
+        Kind == EriCommandKind.Slash || Kind == EriCommandKind.Pierce || Kind == EriCommandKind.Shot ||
+        Kind == EriCommandKind.DashSlash || Kind == EriCommandKind.Snipe || Kind == EriCommandKind.Fan ||
+        Kind == EriCommandKind.WhipSlash || Kind == EriCommandKind.MarkShot
             ? CastTargetingRequirement.Direction : CastTargetingRequirement.TargetPoint;
     public override ISpellDeliveryExecution CreateExecution(in SpellExecutionContext context) =>
         new Execution(this, context);
@@ -22,6 +29,7 @@ public sealed class EriPrototypeDelivery : DeliveryDefinition
     {
         private readonly EriPrototypeDelivery definition;
         private readonly SpellExecutionContext context;
+        private float wait;
         public bool IsComplete { get; private set; }
         public Execution(EriPrototypeDelivery definition, SpellExecutionContext context)
         { this.definition = definition; this.context = context; }
@@ -29,14 +37,15 @@ public sealed class EriPrototypeDelivery : DeliveryDefinition
         {
             if (!context.SuppressGameplayEffects && definition.Kind != EriCommandKind.Recover)
             {
-                var effect = new GameObject("Eri Prototype " + definition.Kind).AddComponent<EriFearField>();
-                effect.Initialize(definition.Kind, context.Cast.Origin,
+                EriKitEffects.Execute(definition, context.Cast.Origin,
                     context.Cast.HasTargetPoint ? context.Cast.TargetPoint : context.Cast.Origin,
                     context.Cast.AimDirection);
             }
-            IsComplete = true;
+            wait = definition.Kind == EriCommandKind.DashSlash && !context.SuppressGameplayEffects
+                ? (EriTurnCombat.Active != null && EriTurnCombat.Active.KitSettings != null ? EriTurnCombat.Active.KitSettings.DashSeconds : .18f) : 0;
+            IsComplete = wait <= 0;
         }
-        public void Tick(float deltaTime) { }
+        public void Tick(float deltaTime) { wait -= deltaTime; if (wait <= 0) IsComplete = true; }
         public void End() { }
         public void Cancel() { }
     }
@@ -69,6 +78,7 @@ public sealed class EriFearMark : MonoBehaviour
         }
         Vector3 above=body!=null?new Vector3(body.bounds.center.x,body.bounds.max.y,transform.position.z):transform.position+Vector3.up*0.9f;
         above+=(Vector3)ui.EnemyMarkOffset;
+        if (GetComponent<EriEnemyDefenses>() != null) above += Vector3.right * 0.65f;
         Vector3 screen=viewCamera.WorldToScreenPoint(above);
         icon.gameObject.SetActive(screen.z>0);
         var canvas=icon.GetComponentInParent<Canvas>();

@@ -783,7 +783,11 @@ public class CombatSkillSystem : MonoBehaviour
 
             uniqueMeleeEnemies[applied] = enemy;
 
-            enemy.TakeDamage(skill.damage);
+            if (EriCombatMechanics.Active != null)
+                EriCombatMechanics.Active.ApplySkillHit(enemy, skill.damage,
+                    PartyManager.Instance != null ? PartyManager.Instance.activeIndex : -1,
+                    false, false, 1f, EriCombatMechanics.Active.NextAttackId());
+            else enemy.TakeDamage(skill.damage);
 
             if (skill.appliesMeleeKnockback)
                 ApplyMeleeSkillKnockback(skill, enemy, dir);

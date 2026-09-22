@@ -105,6 +105,7 @@ public class CombatPawnMover : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (EriKitEffects.IsDashing) return;
         if (forcedMotion == null)
             forcedMotion = GetComponent<SpellActorMotionController2D>();
 
@@ -180,6 +181,7 @@ public class CombatPawnMover : MonoBehaviour
             1f);
         float finalSpeed = moveSpeed * combinedMultiplier * focusMultiplier *
                            statMultiplier;
+        if (EriCombatMechanics.Active != null) finalSpeed *= EriCombatMechanics.Active.MovementMultiplier;
 
         debugBaseSpeed = moveSpeed;
         debugLegacySpeedModifier = legacySpeedModifierMultiplier;

@@ -228,6 +228,7 @@ public class HeavyComboAttack : MonoBehaviour
 
     private bool CanStartAttack()
     {
+        if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.BlocksBasicInput) return false;
         if (attackCommitment == null)
             ResolveAttackCommitment();
 
@@ -330,6 +331,9 @@ public class HeavyComboAttack : MonoBehaviour
 
         SpawnVfx(vfxPrefab, center, dir);
 
+        EriCombatMechanics.Active?.ClearProjectiles(center, hitRadius, false,
+            PartyManager.Instance != null ? PartyManager.Instance.activeIndex : -1);
+
         SpellDeflectionUtility.DeflectInCircle(
             gameObject,
             center,
@@ -384,9 +388,11 @@ public class HeavyComboAttack : MonoBehaviour
                 enemy.gameObject,
                 SpellActorStat.DamageReceived,
                 1f);
-            enemy.TakeDamage(Mathf.Max(
+            int resolvedDamage = Mathf.Max(
                 0,
-                Mathf.RoundToInt(damage * dealt * received)));
+                Mathf.RoundToInt(damage * dealt * received));
+            if (EriCombatMechanics.Active != null) EriCombatMechanics.Active.ApplyBasicHit(enemy, resolvedDamage);
+            else enemy.TakeDamage(resolvedDamage);
 
             EnemyStunnable stunnable =
                 enemy.GetComponentInParent<EnemyStunnable>();

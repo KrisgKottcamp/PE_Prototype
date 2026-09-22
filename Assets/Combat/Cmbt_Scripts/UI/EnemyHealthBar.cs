@@ -76,6 +76,13 @@ public class EnemyHealthBar : MonoBehaviour
     {
         if (barRoot == null || health == null) return;
 
+        // The defense prototype uses screen-space bars so arena sprites cannot obscure them.
+        if (GetComponent<EriEnemyDefenses>() != null && EriDefenseHUD.Active != null)
+        {
+            barRoot.gameObject.SetActive(false);
+            return;
+        }
+
         barRoot.localPosition = localOffset;
         Redraw();
     }

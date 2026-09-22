@@ -74,6 +74,7 @@ public class CombatBasicAttackRouter : MonoBehaviour
     /// </summary>
     public void RequestReleaseShake(Vector2 aimDirection)
     {
+        EriCombatMechanics.Active?.BeginBasicAttack(aimDirection);
         PartyManager pm = PartyManager.Instance;
 
         if (pm == null || pm.Active == null || pm.Active.def == null)

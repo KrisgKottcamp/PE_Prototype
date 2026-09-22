@@ -199,6 +199,7 @@ public class BasicAttack : MonoBehaviour
 
     private bool CanStartAttack()
     {
+        if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.BlocksBasicInput) return false;
         if (attackCommitment == null)
             ResolveAttackCommitment();
 
@@ -258,7 +259,7 @@ public class BasicAttack : MonoBehaviour
 
         SpawnVfx(center, dir);
 
-        bool deflectedDelivery = SpellDeflectionUtility.DeflectInCircle(
+        bool deflectedDelivery = EriCombatMechanics.Active == null && SpellDeflectionUtility.DeflectInCircle(
             gameObject,
             center,
             radius,
@@ -295,12 +296,14 @@ public class BasicAttack : MonoBehaviour
                 enemy.gameObject,
                 SpellActorStat.DamageReceived,
                 1f);
-            enemy.TakeDamage(Mathf.Max(
+            int resolvedDamage = Mathf.Max(
                 0,
-                Mathf.RoundToInt(damage * dealt * received)));
+                Mathf.RoundToInt(damage * dealt * received));
+            if (EriCombatMechanics.Active != null) EriCombatMechanics.Active.ApplyBasicHit(enemy, resolvedDamage);
+            else enemy.TakeDamage(resolvedDamage);
 
             var stunnable = enemy.GetComponentInParent<EnemyStunnable>();
-            if (stunnable != null)
+            if (stunnable != null && EriCombatMechanics.Active == null)
             {
                 BasicAttackReactionSettings reaction = isThirdHit
                     ? thirdHitReaction
@@ -309,7 +312,7 @@ public class BasicAttack : MonoBehaviour
                 reaction.Apply(stunnable);
             }
 
-            ApplyHitKnockback(enemy, dir, isThirdHit);
+            if (EriCombatMechanics.Active == null) ApplyHitKnockback(enemy, dir, isThirdHit);
 
             if (uniqueCount >= uniqueEnemies.Length) break;
         }

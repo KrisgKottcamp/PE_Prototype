@@ -1,0 +1,135 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a03aa06edecf54449e98c2d6b910e14, type: 3}
+  m_Name: EriCharacterKitSettings
+  m_EditorClassIdentifier: Assembly-CSharp::EriCharacterKitSettings
+  Skills:
+  - Kind: 0
+    Damage: 32
+    Segments: 1
+    MPCost: 2
+    Range: 2.5
+    Radius: 1.1
+    Duration: 0
+  - Kind: 8
+    Damage: 44
+    Segments: 2
+    MPCost: 6
+    Range: 4
+    Radius: 0.8
+    Duration: 0
+  - Kind: 5
+    Damage: 42
+    Segments: 1
+    MPCost: 5
+    Range: 12
+    Radius: 0.24
+    Duration: 0
+  - Kind: 12
+    Damage: 0
+    Segments: 1
+    MPCost: 6
+    Range: 0
+    Radius: 0
+    Duration: 0
+  - Kind: 9
+    Damage: 72
+    Segments: 3
+    MPCost: 10
+    Range: 16
+    Radius: 0.24
+    Duration: 0
+  - Kind: 10
+    Damage: 30
+    Segments: 1
+    MPCost: 6
+    Range: 11
+    Radius: 0.22
+    Duration: 0
+  - Kind: 11
+    Damage: 48
+    Segments: 2
+    MPCost: 7
+    Range: 9
+    Radius: 2.2
+    Duration: 0
+  - Kind: 13
+    Damage: 35
+    Segments: 2
+    MPCost: 8
+    Range: 0
+    Radius: 0
+    Duration: 0
+  - Kind: 14
+    Damage: 35
+    Segments: 2
+    MPCost: 7
+    Range: 0
+    Radius: 4.5
+    Duration: 3.5
+  - Kind: 15
+    Damage: 0
+    Segments: 2
+    MPCost: 6
+    Range: 7
+    Radius: 1.1
+    Duration: 6
+  - Kind: 16
+    Damage: 0
+    Segments: 2
+    MPCost: 10
+    Range: 0
+    Radius: 0
+    Duration: 0
+  - Kind: 17
+    Damage: 0
+    Segments: 1
+    MPCost: 5
+    Range: 0
+    Radius: 5
+    Duration: 0
+  - Kind: 18
+    Damage: 30
+    Segments: 1
+    MPCost: 3
+    Range: 4.5
+    Radius: 0.6
+    Duration: 0
+  - Kind: 19
+    Damage: 0
+    Segments: 1
+    MPCost: 4
+    Range: 13
+    Radius: 0.3
+    Duration: 0
+  - Kind: 20
+    Damage: 0
+    Segments: 1
+    MPCost: 4
+    Range: 9
+    Radius: 2
+    Duration: 0
+  - Kind: 21
+    Damage: 24
+    Segments: 1
+    MPCost: 4
+    Range: 8
+    Radius: 2
+    Duration: 12
+  ProjectileSpeed: 18
+  FanProjectileCount: 5
+  FanAngle: 55
+  GrenadeFlightSeconds: 0.55
+  DashSeconds: 0.18
+  MarkSeconds: 28
+  OffBalanceSeconds: 8
+  OilBurnSeconds: 3

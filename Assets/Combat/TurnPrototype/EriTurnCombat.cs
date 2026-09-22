@@ -10,11 +10,14 @@ public sealed class EriTurnCombat : MonoBehaviour
 {
     public static EriTurnCombat Active { get; private set; }
     public float Remaining { get; private set; }
+    public EriCharacterKitSettings KitSettings;
+    private EriCombatMechanics mechanics;
+    private int commandActor = -1;
     public bool Timing { get; private set; }
     public float TimingProgress { get; private set; }
     public string Message { get; private set; } = "Attack to charge AP. Tab opens commands. C switches character.";
     private bool IsPerformingCommand => Timing || (bridge != null && bridge.IsTargeting) || (runner != null && runner.IsCasting);
-    public bool IsBusy => TurnEnding || IsPerformingCommand;
+    public bool IsBusy => TurnEnding || IsPerformingCommand || (mechanics != null && mechanics.AllOutExecuting);
     public bool TurnEnding { get; private set; }
     private int lastActor = -1;
     private int acceptedFrame;
@@ -37,6 +40,8 @@ public sealed class EriTurnCombat : MonoBehaviour
     private void Awake()
     {
         Active = this;
+        if (KitSettings == null) { KitSettings = EriCharacterKitSettings.Load(); if (string.IsNullOrEmpty(KitSettings.name)) owned.Add(KitSettings); }
+        mechanics = GetComponent<EriCombatMechanics>() ?? gameObject.AddComponent<EriCombatMechanics>();
         bridge = GetComponent<PlayerSpellV2Bridge>();
         runner = GetComponent<SpellRunner>();
         pawn = GetComponent<CombatPawn>();
@@ -64,7 +69,7 @@ public sealed class EriTurnCombat : MonoBehaviour
             {
                 float error = Mathf.Abs(TimingProgress - 0.7f);
                 timingBonus = error <= 0.08f ? 2 : error <= 0.18f ? 1 : 0;
-                Message = timingBonus == 2 ? "Perfect! Save 2 MP" : timingBonus == 1 ? "Good! Save 1 MP" : "Cast ready";
+                Message = timingBonus == 2 ? "Perfect! +50% defense damage · save 2 MP" : timingBonus == 1 ? "Good! +25% defense damage · save 1 MP" : "Cast ready";
                 timingResolved = true;
             }
         }
@@ -77,13 +82,21 @@ public sealed class EriTurnCombat : MonoBehaviour
         if (!TurnEnding || Time.frameCount <= acceptedFrame || Time.timeScale <= 0 || IsPerformingCommand) return;
         FindFirstObjectByType<CombatSkillMenuController>()?.CloseForTurnHandoff();
         TurnEnding = false;
+        mechanics.CommandCompleted(commandActor);
         if (Member == null || Member.currentHP <= 0 || (pawn != null && pawn.IsDown)) return;
+        if (mechanics.ShieldActions > 0)
+        {
+            Remaining = 0;
+            Message = "Shield break · free second action · any target";
+            return;
+        }
         TrySwitchNext();
         Message = Member.def.displayName + "'s turn · one skill";
     }
 
     public bool IsWaiting(int index)
     {
+        if (mechanics != null && mechanics.ShieldActions > 0) return false;
         int living = 0;
         if (Party != null) foreach (var member in Party.party) if (member.currentHP > 0) living++;
         return !EriTurnRules.CanTakeTurn(index, lastActor, living);
@@ -122,6 +135,7 @@ public sealed class EriTurnCombat : MonoBehaviour
 
     private void EndTurn()
     {
+        commandActor = Party.activeIndex;
         lastActor = Party.activeIndex;
         Member.currentAP = 0;
         foreach (var other in Party.party)
@@ -162,9 +176,11 @@ public sealed class EriTurnCombat : MonoBehaviour
         var m = Member;
         if (m == null || m.def == null) return "Party unavailable";
         if (m.currentHP <= 0) return "Character defeated";
+        if (mechanics.AllOutExecuting) return "Eri is attacking";
         if (TurnEnding || IsWaiting(Party.activeIndex)) return "Turn spent — another character must act";
         var d = spell != null ? spell.Delivery as EriPrototypeDelivery : null;
         if (d == null) return "Not a prototype command";
+        if (mechanics.ShieldActions > 0 && d.Kind != EriCommandKind.Recover) return "";
         if (d.Kind == EriCommandKind.Recover)
         {
             if (Remaining > 0.001f) return "Command recovering";
@@ -176,14 +192,15 @@ public sealed class EriTurnCombat : MonoBehaviour
     public string CostDisplay(SpellDefinition spell)
     {
         var d = spell.Delivery as EriPrototypeDelivery;
+        if (d != null && d.Kind != EriCommandKind.Recover && mechanics.ShieldActions > 0) return "Shield break · free action";
         return d == null ? "" : d.Kind == EriCommandKind.Recover ? "0 MP · restores all capacity · ends turn" : $"{d.Segments} segment{(d.Segments == 1 ? "" : "s")} · {d.MPCost} MP";
     }
     private SpellCastFailure CheckCast(SpellDefinition spell, CastContext context)
     {
         if (context.ChainDepth > 0) return SpellCastFailure.None;
-        if (TurnEnding) return SpellCastFailure.RunnerBusy;
+        if (TurnEnding || mechanics.AllOutExecuting) return SpellCastFailure.RunnerBusy;
         if (spell == GetComponent<SpellLoadout>().BasicAttack) return SpellCastFailure.None;
-        if (Remaining > 0.001f) return SpellCastFailure.OnCooldown;
+        if (Remaining > 0.001f && mechanics.ShieldActions <= 0) return SpellCastFailure.OnCooldown;
         return string.IsNullOrEmpty(Reason(spell)) ? SpellCastFailure.None : SpellCastFailure.InsufficientResources;
     }
     private void AcceptCast(SpellDefinition spell, CastContext context)
@@ -191,11 +208,12 @@ public sealed class EriTurnCombat : MonoBehaviour
         if (context.ChainDepth > 0 || spell == GetComponent<SpellLoadout>().BasicAttack) return;
         var m = Member;
         var d = (EriPrototypeDelivery)spell.Delivery;
+        mechanics.CommandStarted(timingBonus);
         if (d.Kind == EriCommandKind.Recover) m.exhaustedSegments = 0;
-        else
+        else if (!mechanics.ConsumeShieldAction())
         {
             m.currentAP -= EriTurnRules.Cost(m.def.maxAP, d.Segments, m.exhaustedSegments);
-            m.currentMP -= Mathf.Max(1, d.MPCost - timingBonus);
+            m.currentMP -= d.MPCost > 0 ? Mathf.Max(1, d.MPCost - timingBonus) : 0;
             m.exhaustedSegments += d.Segments;
         }
         timingBonus = 0;
@@ -211,24 +229,44 @@ public sealed class EriTurnCombat : MonoBehaviour
         string who = Member.def.displayName.ToLowerInvariant();
         if (who.Contains("dominic"))
         {
-            Add("Dread Field", "Mark enemies entering the circle with Fear for 28 seconds.", EriCommandKind.Mark, 1, 6);
-            Add("Dread Pulse", "Fear damage around your chosen point. Exploits Fear marks.", EriCommandKind.Burst, 2, 10);
+            AddKit("Whip Slash", "Physical · single target. Applies Off-balance for heavy Armor damage.", EriCommandKind.WhipSlash);
+            AddKit("Mark Shot", "Mark · piercing shot applies Fear weakness; no direct damage.", EriCommandKind.MarkShot);
+            AddKit("Dispel", "Support · removes temporary elemental resistance in the chosen area.", EriCommandKind.Dispel);
+            AddKit("Oil Spill", "Setup · Fear Shot or Dread Snipe ignites this oil for magical area damage.", EriCommandKind.OilSpill);
         }
         else if (who.Contains("imogen"))
         {
-            Add("Gather", "Pull nearby enemies toward a chosen point.", EriCommandKind.Pull, 2, 8);
-            Add("Black Hole", "A larger, sustained pull for lining up a party combination.", EriCommandKind.BlackHole, 4, 18);
+            AddKit("Projectile Reflect", "Fear magic · briefly catch and return nearby projectiles.", EriCommandKind.Reflect);
+            AddKit("Place Cover", "Support · place a small barrier that blocks enemy bullets.", EriCommandKind.Cover);
+            AddKit("Inspire Party", "Support · speed, attack and defense for each member's next turn.", EriCommandKind.Inspire);
+            AddKit("Silence", "Support · remove all nearby enemy projectiles without dealing damage.", EriCommandKind.Silence);
+        }
+        else if (who.Contains("phil"))
+        {
+            AddKit("Dread Snipe", "Fear magic · heavy single-target projectile. Ignites oil.", EriCommandKind.Snipe);
+            AddKit("Panic Fan", "Fear magic · quick one-segment fan; one damage hit per enemy.", EriCommandKind.Fan);
+            AddKit("Grenade", "Physical · throw a grenade that explodes in an area.", EriCommandKind.Grenade);
+            AddKit("Heal Self", "Support · restore your own Health.", EriCommandKind.HealSelf);
         }
         else
         {
-            if (who.Contains("audrey"))
-                Add("Dread Field", "Mark enemies entering the circle with Fear for 28 seconds. Set up your Fear shots.", EriCommandKind.Mark, 1, 6);
-            Add("Piercing Dread", "Aim through a group. Fear damage exploits marked targets.", EriCommandKind.Pierce, 2, 10);
-            Add("Fear Shot", "A narrower, cheaper Fear shot for single targets.", EriCommandKind.Shot, 1, 5);
+            AddKit("Slash", "Physical · inexpensive swipe in front of you.", EriCommandKind.Slash);
+            AddKit("Dash Slash", "Physical · move forward, striking enemies along your path.", EriCommandKind.DashSlash);
+            AddKit("Fear Shot", "Fear magic · single projectile. Ignites oil.", EriCommandKind.Shot);
+            AddKit("Motivate Self", "Support · speed, attack and defense for your next two turns.", EriCommandKind.Motivate);
         }
-        Add("Slash", "Strike enemies in front of you. Neutral damage, no Fear reaction.", EriCommandKind.Slash, 1, 3);
         Add("Recover", "Restore all exhausted capacity, uncharged, and end your turn. Costs no MP.", EriCommandKind.Recover, 0, 0);
         kits[rosterIndex] = new List<SpellDefinition>(skills);
+    }
+    private void AddKit(string title, string description, EriCommandKind kind)
+    {
+        var tuning = KitSettings.Get(kind);
+        Add(title, description, kind, tuning.Segments, tuning.MPCost);
+        var delivery = (EriPrototypeDelivery)skills[skills.Count - 1].Delivery;
+        delivery.Damage = tuning.Damage; delivery.Range = tuning.Range;
+        delivery.Radius = tuning.Radius; delivery.Duration = tuning.Duration;
+        JsonUtility.FromJsonOverwrite("{\"maximumRange\":" + tuning.Range.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+            ",\"previewRadius\":" + tuning.Radius.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}", delivery.Targeting);
     }
     private void Add(string title, string description, EriCommandKind kind, int segments, int mp)
     {
@@ -240,9 +278,14 @@ public sealed class EriTurnCombat : MonoBehaviour
         var delivery = ScriptableObject.CreateInstance<EriPrototypeDelivery>();
         owned.Add(delivery);
         delivery.Kind = kind; delivery.Segments = segments; delivery.MPCost = mp;
-        delivery.Targeting = kind == EriCommandKind.Recover
+        bool immediate = kind == EriCommandKind.Recover || kind == EriCommandKind.Motivate || kind == EriCommandKind.Inspire ||
+            kind == EriCommandKind.HealSelf || kind == EriCommandKind.Reflect || kind == EriCommandKind.Silence;
+        bool directional = kind == EriCommandKind.Pierce || kind == EriCommandKind.Shot || kind == EriCommandKind.Slash ||
+            kind == EriCommandKind.DashSlash || kind == EriCommandKind.Snipe || kind == EriCommandKind.Fan ||
+            kind == EriCommandKind.WhipSlash || kind == EriCommandKind.MarkShot;
+        delivery.Targeting = immediate
             ? ScriptableObject.CreateInstance<ImmediateTargetingDefinition>()
-            : kind == EriCommandKind.Pierce || kind == EriCommandKind.Shot || kind == EriCommandKind.Slash
+            : directional
                 ? (PlayerTargetingDefinition)ScriptableObject.CreateInstance<DirectionTargetingDefinition>()
                 : ScriptableObject.CreateInstance<PointTargetingDefinition>();
         owned.Add(delivery.Targeting);
@@ -262,8 +305,10 @@ public sealed class EriTurnCombat : MonoBehaviour
     [Serializable] private class SpellInit { public string displayName; public string description; public string category = "Prototype"; }
     public void UsePotion()
     {
+        if (mechanics.AllOutExecuting) return;
         if (Member == null || Member.currentHP <= 0 || IsBusy || IsWaiting(Party.activeIndex) || Time.timeScale <= 0 || Remaining > 0 || Party.mpPotions <= 0 || Member.currentMP >= EriTurnRules.MaxMP) return;
         Party.mpPotions--; Member.currentMP = Mathf.Min(EriTurnRules.MaxMP, Member.currentMP + 30);
+        mechanics.CommandStarted(0);
         EndTurn();
         Message = "MP potion: +30 MP. One command used.";
     }
@@ -273,9 +318,11 @@ public sealed class EriTurnCombat : MonoBehaviour
             Member.exhaustedSegments, Member.def.maxAP, 1, 5, Remaining);
     public bool TryCallEri(int targetIndex)
     {
+        if (mechanics.AllOutExecuting) return false;
         if (!string.IsNullOrEmpty(CallEriReason) || EriCombatCompanion.ActiveInstance == null) return false;
         if (!EriCombatCompanion.ActiveInstance.TryRequestHealing(transform, targetIndex)) return false;
         var m = Member;
+        mechanics.CommandStarted(0);
         m.currentAP -= EriTurnRules.Cost(m.def.maxAP,1,m.exhaustedSegments); m.currentMP -= 5; m.exhaustedSegments++;
         EndTurn();
         Message="Called Eri · 1 segment + 5 MP · existing healing rules apply";

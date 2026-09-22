@@ -181,6 +181,7 @@ public class ProjectileBasicAttack : MonoBehaviour
 
     private bool CanStartAttack()
     {
+        if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.BlocksBasicInput) return false;
         if (attackCommitment == null)
             ResolveAttackCommitment();
 

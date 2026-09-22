@@ -89,6 +89,8 @@ public sealed class EriCombatUIView : MonoBehaviour
     private float cursorY;
     private void Awake()
     {
+        if(GetComponent<EriDefenseHUD>()==null)gameObject.AddComponent<EriDefenseHUD>();
+        if(GetComponent<EriAllOutView>()==null)gameObject.AddComponent<EriAllOutView>();
         foreach(var segment in Segments){segment.TrackColor=segment.Track.color;segment.ChargingColor=segment.Fill.color;}
         foreach(var row in Members){row.NameColor=row.Name.color;row.HPColor=row.HP.color;}
         foreach(var row in Commands)
@@ -132,6 +134,8 @@ public sealed class EriCombatUIView : MonoBehaviour
             row.Name.text=member.def.displayName;row.Name.color=active?ActiveMember:row.NameColor;
             row.Details.text=string.Format(MemberDetailsFormat,member.currentMP,4-member.exhaustedSegments);
             if(combat.IsWaiting(i))row.Details.text=string.Format(WaitingMemberFormat,member.currentMP);
+            if(EriCombatMechanics.Active!=null && EriCombatMechanics.Active.BuffTurns(i)>0)
+                row.Details.text+=" · Buff "+EriCombatMechanics.Active.BuffTurns(i);
             row.ActiveIndicator.SetActive(active);
             float hp=member.currentHP/(float)Mathf.Max(1,member.def.maxHP);
             Fill(row.HP,hp);row.HP.color=hp<=LowHPThreshold?LowHP:row.HPColor;
@@ -160,8 +164,18 @@ public sealed class EriCombatUIView : MonoBehaviour
                 orb.color=!usable?UnavailableSegmentOrb:selected?SelectedCommand:
                     i<row.SegmentOrbColors.Length?row.SegmentOrbColors[i]:Color.white;
         }
-        row.MarkBadge.SetActive(kind==EriCommandKind.Mark);
-        row.DamageBadge.SetActive(kind==EriCommandKind.Pierce || kind==EriCommandKind.Shot || kind==EriCommandKind.Burst);
+        bool mark=kind==EriCommandKind.Mark || kind==EriCommandKind.MarkShot;
+        bool physical=kind==EriCommandKind.Slash || kind==EriCommandKind.DashSlash || kind==EriCommandKind.Grenade || kind==EriCommandKind.WhipSlash;
+        bool fear=kind==EriCommandKind.Pierce || kind==EriCommandKind.Shot || kind==EriCommandKind.Burst || kind==EriCommandKind.Snipe || kind==EriCommandKind.Fan || kind==EriCommandKind.Reflect;
+        row.MarkBadge.SetActive(mark);
+        row.DamageBadge.SetActive(physical || fear || kind==EriCommandKind.OilSpill);
+        if(row.DamageBadge.activeSelf)
+        {
+            var label=row.DamageBadge.GetComponentInChildren<TextMeshProUGUI>(true);
+            if(label!=null)label.text=physical?(kind==EriCommandKind.WhipSlash?"Physical · Off-balance":"Physical damage"):fear?"Magic · Fear":"Magic · Oil";
+            var icon=row.DamageBadge.GetComponentInChildren<EriFearIcon>(true);
+            if(icon!=null)icon.gameObject.SetActive(fear);
+        }
     }
     public void FinishCommands(int count,string detail,string reason)
     {

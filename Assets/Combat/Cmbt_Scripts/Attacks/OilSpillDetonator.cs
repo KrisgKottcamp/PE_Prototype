@@ -291,7 +291,11 @@ public class OilSpillDetonator : MonoBehaviour
             {
                 int hpBefore = enemy.CurrentHP;
 
-                enemy.TakeDamage(damagePerTick);
+                if (EriCombatMechanics.Active != null)
+                    EriCombatMechanics.Active.ApplySkillHit(enemy, damagePerTick,
+                        PartyManager.Instance != null ? PartyManager.Instance.activeIndex : -1,
+                        true, false, 1f, EriCombatMechanics.Active.NextAttackId());
+                else enemy.TakeDamage(damagePerTick);
 
                 int hpAfter =
                     enemy != null

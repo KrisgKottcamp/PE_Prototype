@@ -37,9 +37,12 @@ public class APParticleCollector : MonoBehaviour
             gameObject,
             SpellActorStat.ActionPointCollectionRadius,
             1f);
+        float prototypeMultiplier = EriTurnCombat.Active != null &&
+            manager.Active.def.displayName.ToLowerInvariant().Contains("phil")
+                ? EriDefenseRules.Default.PhilMagnetMultiplier : 1f;
         return Mathf.Max(
             0f,
-            manager.Active.def.apMagnetizationRange * statMultiplier
+            manager.Active.def.apMagnetizationRange * statMultiplier * prototypeMultiplier
         );
     }
 

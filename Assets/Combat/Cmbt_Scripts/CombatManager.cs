@@ -915,7 +915,7 @@ public class CombatManager : MonoBehaviour
         for (int i = livingEnemies.Count - 1; i >= 0; i--)
         {
             if (livingEnemies[i] != null)
-                livingEnemies[i].TakeDamage(999999);
+                livingEnemies[i].ApplyHealthDamage(999999);
         }
     }
 

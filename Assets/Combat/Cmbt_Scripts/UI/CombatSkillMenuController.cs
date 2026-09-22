@@ -221,6 +221,7 @@ public class CombatSkillMenuController : MonoBehaviour
 
     private void OpenSkillPanel()
     {
+        if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.AllOutExecuting) return;
         if (isOpen)
             return;
 
@@ -1138,6 +1139,8 @@ public class CombatSkillMenuController : MonoBehaviour
             int segmentCost=delivery.Kind==EriCommandKind.Recover?0:delivery.Segments;
             string cost=delivery.Kind==EriCommandKind.Recover?prototypeView.FullRecoverCost:
                 string.Format(prototypeView.MPCostFormat,delivery.MPCost);
+            if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.ShieldActions > 0 && delivery.Kind != EriCommandKind.Recover)
+            { segmentCost=0; cost="FREE"; }
             prototypeView.ShowCommand(i-first,spell.DisplayName,cost,segmentCost,i==selectedIndex,usable,delivery.Kind);
             if(i==selectedIndex){detail=spell.Description;reason=EriTurnCombat.Active.Reason(spell);}
         }

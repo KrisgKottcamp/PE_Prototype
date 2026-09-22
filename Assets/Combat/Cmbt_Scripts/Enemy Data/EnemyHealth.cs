@@ -59,7 +59,24 @@ public class EnemyHealth : MonoBehaviour,
 
     public void TakeDamage(int amount)
     {
-        if (amount <= 0)
+        // Unattributed damage (scripted effects, allies, debugging) must never wake a downed enemy.
+        // Player attacks explicitly enter through EriCombatMechanics.ApplyBasicHit/ApplySkillHit.
+        if (EriTurnCombat.Active != null)
+        {
+            var defense = EriEnemyDefenses.Ensure(this);
+            if (defense.Armor > 0 || defense.Shield > 0)
+            {
+                PlayHitFlash();
+                return;
+            }
+        }
+        ApplyHealthDamage(amount);
+    }
+
+    /// <summary>Health-only application used by the defense resolver; never routes back into defenses.</summary>
+    public void ApplyHealthDamage(int amount)
+    {
+        if (amount <= 0 || CurrentHP <= 0)
             return;
 
         hitMorph?.Play();

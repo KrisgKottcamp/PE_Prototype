@@ -100,7 +100,8 @@ public class PartyManager : MonoBehaviour
         int maximum = EriTurnRules.Capacity(active.def.maxAP, active.exhaustedSegments);
         int before = Mathf.Clamp(active.currentAP, 0, maximum);
 
-        active.currentAP = Mathf.Clamp(before + amount, 0, maximum);
+        float gain = EriTurnCombat.Active != null ? EriDefenseRules.Default.APGainMultiplier : 1f;
+        active.currentAP = Mathf.Clamp(before + Mathf.Max(1, Mathf.RoundToInt(amount * gain)), 0, maximum);
         return active.currentAP - before;
     }
 
@@ -144,6 +145,8 @@ public class PartyManager : MonoBehaviour
     /// </summary>
     public int DamagePartyMember(int partyIndex, int amount)
     {
+        if (amount > 0 && EriCombatMechanics.Active != null)
+            amount = EriCombatMechanics.Active.ResolveIncomingDamage(amount, partyIndex);
         if (amount <= 0 || party == null ||
             partyIndex < 0 || partyIndex >= party.Count)
         {

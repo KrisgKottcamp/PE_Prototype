@@ -78,6 +78,7 @@ public class PlayerProjectile : MonoBehaviour, ISpellSpatialForceTarget
     private SpeedModifier speedModifier;
 
     private int ownerCharacterIndex = -1;
+    private int prototypeAttackId;
     private bool awardApOnHit = true;
 
     private float momentumGainOnHit;
@@ -176,6 +177,7 @@ public class PlayerProjectile : MonoBehaviour, ISpellSpatialForceTarget
             : Vector2.up;
 
         ownerCharacterIndex = ownerIndex;
+        if (EriCombatMechanics.Active != null) prototypeAttackId = EriCombatMechanics.Active.CurrentBasicAttackId;
         damage = Mathf.Max(0, dmg);
         stunSeconds = Mathf.Max(0f, stun);
         speed = Mathf.Max(0.01f, projectileSpeed);
@@ -562,9 +564,10 @@ public class PlayerProjectile : MonoBehaviour, ISpellSpatialForceTarget
             enemyHealth.gameObject,
             SpellActorStat.DamageReceived,
             1f);
-        enemyHealth.TakeDamage(Mathf.Max(
-            0,
-            Mathf.RoundToInt(damage * receivedMultiplier)));
+        int resolvedDamage = Mathf.Max(0, Mathf.RoundToInt(damage * receivedMultiplier));
+        if (EriCombatMechanics.Active != null)
+            EriCombatMechanics.Active.ApplyBasicHit(enemyHealth, resolvedDamage, ownerCharacterIndex, prototypeAttackId);
+        else enemyHealth.TakeDamage(resolvedDamage);
         HitstopManager.Request(hitstopOnEnemyHit);
 
         CombatCameraShake.Request(
