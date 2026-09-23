@@ -127,10 +127,10 @@ public sealed class EriEnemyDefenses : MonoBehaviour
         }
         int before = health.CurrentHP;
         int elementalDamage = damage;
-        bool bypassesDefenses = magical ? Shield <= 0 : Armor <= 0;
+        bool hasDefense = Armor > 0 || Shield > 0;
         var mark = GetComponent<EriFearMark>();
         // Armor never benefits from emotional affinity or consumes its mark on its own.
-        if (fear && mark != null && (Shield > 0 || IsKnockedDown || bypassesDefenses))
+        if (fear && mark != null && (Shield > 0 || IsKnockedDown || !hasDefense))
             elementalDamage = mark.ResolveFearDamage(damage);
         if (fear) elementalDamage = Mathf.RoundToInt(elementalDamage * TemporaryFearResistance);
 
@@ -154,7 +154,7 @@ public sealed class EriEnemyDefenses : MonoBehaviour
             }
             else GetComponent<EriKnockdownVFX>()?.SetDownProgress(DownHitsLanded, Rules.PlayerHitsToWake);
         }
-        else if (!bypassesDefenses)
+        else if (hasDefense)
         {
             int oldArmor = Armor, oldShield = Shield;
             float armorFactor = magical ? Rules.OffTypeMultiplier : 1f;
@@ -166,8 +166,7 @@ public sealed class EriEnemyDefenses : MonoBehaviour
         }
         else
         {
-            // Each damage type needs its own defense to block Health.
-            // A bypass leaves the unrelated bar intact and grants no break reward.
+            // Health is exposed only when no defense remains.
             health.ApplyHealthDamage(Mathf.RoundToInt(elementalDamage * attackMultiplier));
             CheckHealthThreshold(before);
         }
@@ -183,8 +182,8 @@ public sealed class EriEnemyDefenses : MonoBehaviour
         return crossed;
     }
 
-    /// <summary>Does not recover: coordinator decides recovery only after every enemy has resolved.
-    /// Returns a fresh knockdown qualification for an immediate chained all-out attack.</summary>
+    /// <summary>Damages every layer, awards any fresh breaks, then stands surviving enemies up.
+    /// Returns whether the sweep broke a defense or crossed the health-only threshold.</summary>
     public bool ApplyAllOut(int healthDamage, int defenseDamage)
     {
         if (health.CurrentHP <= 0) return false;
@@ -204,7 +203,7 @@ public sealed class EriEnemyDefenses : MonoBehaviour
         bool shieldBroken = oldShield > 0 && Shield == 0;
         NotifyBreaks(armorBroken, shieldBroken);
         bool threshold = CheckHealthThreshold(before);
-        Changed?.Invoke();
+        Recover();
         return armorBroken || shieldBroken || threshold;
     }
 }

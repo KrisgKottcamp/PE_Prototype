@@ -49,7 +49,7 @@ public sealed class EriDefenseRules : ScriptableObject
 /// <summary>Deterministic formulas, kept free of Unity objects for cheap regression tests.</summary>
 public static class EriDefenseMath
 {
-    public static bool BasicCanDamage(int armor, int shield, bool knockedDown) => knockedDown || armor <= 0;
+    public static bool BasicCanDamage(int armor, int shield, bool knockedDown) => knockedDown || (armor <= 0 && shield <= 0);
     public static int Remaining(int current, int incoming, float multiplier)
         => System.Math.Max(0, current - (int)System.Math.Round(System.Math.Max(0, incoming) * System.Math.Max(0, multiplier)));
     public static int KnockdownDamage(int attackDamage, int maxHealth, float fraction, float multiplier)

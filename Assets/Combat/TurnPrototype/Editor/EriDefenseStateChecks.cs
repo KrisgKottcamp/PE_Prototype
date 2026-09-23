@@ -12,9 +12,9 @@ public static class EriDefenseStateChecks
     static EriDefenseStateChecks() { EditorApplication.delayCall += AutoRun; }
     private static void AutoRun()
     {
-        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || SessionState.GetBool("Eri.DefenseChecks.TypeBypass.v3", false)) return;
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || SessionState.GetBool("Eri.DefenseChecks.AllOutWake.v5", false)) return;
         Run();
-        SessionState.SetBool("Eri.DefenseChecks.TypeBypass.v3", true);
+        SessionState.SetBool("Eri.DefenseChecks.AllOutWake.v5", true);
     }
     [MenuItem("Tools/Project Eri/Check Defense State Transitions")]
     public static void Run()
@@ -54,17 +54,18 @@ public static class EriDefenseStateChecks
             defense.Configure(20, 20);
             defense.ApplyHit(100, true, false, 1f, 5);
             check(defense.IsKnockedDown && armorBreaks == 2 && shieldBreaks == 1 && hp.CurrentHP == 160, "simultaneous breaks reward both, no overflow");
-            check(!defense.ApplyAllOut(10, 10), "already broken bars do not qualify chain");
+            check(!defense.ApplyAllOut(10, 10) && hp.CurrentHP == 150 && !defense.IsKnockedDown &&
+                defense.Armor == 60 && defense.Shield == 60,
+                "all-out stands a survivor up and restores both defenses");
             defense.Configure(60, 60);
             defense.ApplyHit(60, false, false, 1f, 6);
             check(defense.Shield == 39 && defense.IsKnockedDown, "intact second layer survives initial knockdown");
-            check(defense.ApplyAllOut(10, 40) && defense.Shield == 0 && defense.Armor == 0, "fresh remaining layer permits chain");
-            check(!defense.ApplyAllOut(10, 40), "exhausted layers cannot infinite-chain");
-            check(defense.IsKnockedDown && defense.DownHitsLanded == 0 && defense.Shield == 0 && defense.Armor == 0,
-                "all-out neither wakes nor advances player-hit count");
+            check(defense.ApplyAllOut(10, 40) && hp.CurrentHP == 140 && !defense.IsKnockedDown &&
+                defense.Shield == 60 && defense.Armor == 60 && defense.DownHitsLanded == 0,
+                "all-out stands survivor up even when the other bar breaks");
             defense.ApplyHit(1, false, false, 1f, 14);
-            check(defense.IsKnockedDown && defense.DownHitsLanded == 1,
-                "a later player hit still needs the second wake hit");
+            check(hp.CurrentHP == 140 && !defense.IsKnockedDown,
+                "next player hit faces restored defenses");
             hp.Init(200); defense.Configure(0, 0);
             defense.ApplyHit(160, false, false, 1f, 7);
             check(hp.CurrentHP == 40 && !defense.IsKnockedDown, "exactly20percent does not knock down");
@@ -84,15 +85,15 @@ public static class EriDefenseStateChecks
             hp.Init(200); defense.Configure(0, 60);
             int rewardsBefore = armorBreaks + shieldBreaks;
             defense.ApplyHit(40, false, false, 1.5f, 21);
-            check(hp.CurrentHP == 160 && defense.Shield == 60 && !defense.IsKnockedDown,
-                "physical bypasses Shield without defense-grade scaling or bar chip");
+            check(hp.CurrentHP == 200 && defense.Shield == 39 && !defense.IsKnockedDown,
+                "physical hits remaining Shield off-type without bypassing to Health");
             hp.Init(200); defense.Configure(60, 0);
             var mark = obj.AddComponent<EriFearMark>(); mark.Remaining = 28;
             defense.ApplyHit(40, true, true, 1.5f, 22);
-            check(hp.CurrentHP == 130 && defense.Armor == 60 && mark.Remaining == 0,
-                "magic bypasses Armor and applies Fear weakness to Health");
+            check(hp.CurrentHP == 200 && defense.Armor == 39 && mark.Remaining == 28,
+                "magic hits remaining Armor off-type without bypassing or consuming Fear");
             check(armorBreaks + shieldBreaks == rewardsBefore && !defense.IsKnockedDown,
-                "bypassing a missing layer does not grant a break reward or knockdown");
+                "off-type chip does not grant a break reward before the bar breaks");
             hp.Init(200); defense.Configure(60, 0);
             defense.ApplyHit(100, false, false, 1f, 23);
             check(hp.CurrentHP == 200 && defense.IsKnockedDown && defense.DownHitsLanded == 0,

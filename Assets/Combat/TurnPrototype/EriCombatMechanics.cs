@@ -55,7 +55,6 @@ public sealed class EriCombatMechanics : MonoBehaviour
     private float allOutPreviousScale = 1f;
     private SpriteRenderer hiddenEriRenderer;
     private bool hiddenEriWasEnabled;
-    private bool allOutSpent;
     private readonly List<EriEnemyDefenses> enemies = new List<EriEnemyDefenses>();
     private readonly Dictionary<int, Attack> attacks = new Dictionary<int, Attack>();
     private readonly Dictionary<int, Buff> buffs = new Dictionary<int, Buff>();
@@ -67,7 +66,7 @@ public sealed class EriCombatMechanics : MonoBehaviour
     {
         get
         {
-            if (AllOutExecuting || allOutSpent || enemies.Count == 0) return false;
+            if (AllOutExecuting || enemies.Count == 0) return false;
             bool living = false;
             foreach (var enemy in enemies)
             {
@@ -188,10 +187,7 @@ public sealed class EriCombatMechanics : MonoBehaviour
         }
         var defense = enemy.GetComponent<EriEnemyDefenses>();
         if (defense == null) { ScanEnemies(); defense = EriEnemyDefenses.Ensure(enemy); }
-        bool wasDown = defense.IsKnockedDown;
         int dealt = defense.ApplyHit(Mathf.RoundToInt(baseDamage * attack.Power), magical, fear, defenseMultiplier, attackId, attack.Bonus);
-        // A new all-out setup starts only when a player attack deliberately wakes a survivor.
-        if (wasDown && !defense.IsKnockedDown && enemy.CurrentHP > 0) allOutSpent = false;
         return dealt;
     }
     public int ApplyBasicHit(EnemyHealth enemy, int damage) => ApplyBasicHit(enemy, damage,
@@ -284,16 +280,12 @@ public sealed class EriCombatMechanics : MonoBehaviour
             }
             yield return null;
         }
-        bool chain = true;
         foreach (var enemy in targets)
         {
             if (enemy == null || enemy.Health.CurrentHP <= 0) continue;
-            bool freshBreak = enemy.ApplyAllOut(AllOutHealthDamage, AllOutDefenseDamage);
-            if (enemy != null && enemy.Health.CurrentHP > 0 && !freshBreak) chain = false;
+            enemy.ApplyAllOut(AllOutHealthDamage, AllOutDefenseDamage);
         }
-        // A successful fresh break on every survivor permits one immediate repeat.
-        // Otherwise everyone stays down until a player attack wakes one; no timer or cinematic may do it.
-        allOutSpent = !chain;
+        // Survivors recover in ApplyAllOut, so another sweep requires new knockdowns.
         cinematic?.EndCinematic();
         RestoreEriSprite();
         Destroy(visual); if (material != null) Destroy(material);

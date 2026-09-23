@@ -29,7 +29,7 @@ public static class EriDefenseChecks
         check(!EriDefenseMath.CrossedThreshold(30, 0, 100, .2f), "dead enemy does not knock down");
         check(EriDefenseMath.Remaining(100, -40, 1f) == 100, "negative damage cannot heal defenses");
         check(!EriDefenseMath.BasicCanDamage(20, 0, false), "basic cannot damage standing Armor");
-        check(EriDefenseMath.BasicCanDamage(0, 20, false), "physical basic bypasses Shield when Armor is absent");
+        check(!EriDefenseMath.BasicCanDamage(0, 20, false), "basic cannot damage standing Shield");
         check(EriDefenseMath.BasicCanDamage(0, 0, false), "basic can damage Health-only target");
         check(EriDefenseMath.BasicCanDamage(0, 20, true), "basic cashes knockdown through remaining defense");
         Debug.Log("ERI_DEFENSE_CHECKS: " + assertions + " formula checks passed. No Play Mode encounter tested.");
