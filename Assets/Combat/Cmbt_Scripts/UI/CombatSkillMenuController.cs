@@ -1089,6 +1089,8 @@ public class CombatSkillMenuController : MonoBehaviour
 
             sb.Append(isSelected ? "> " : "  ");
             sb.Append(spell.DisplayName);
+            int cooldownTurns=EriTurnCombat.Active!=null?EriTurnCombat.Active.CooldownTurnsRemaining(spell):0;
+            if(cooldownTurns>0)sb.Append("  [COOLDOWN ").Append(cooldownTurns).Append("]");
             sb.Append("  (");
             sb.Append(v2Bridge.GetCostDisplay(spell));
             sb.Append(")");
@@ -1141,7 +1143,8 @@ public class CombatSkillMenuController : MonoBehaviour
                 string.Format(prototypeView.MPCostFormat,delivery.MPCost);
             if (EriCombatMechanics.Active != null && EriCombatMechanics.Active.ShieldActions > 0 && delivery.Kind != EriCommandKind.Recover)
             { segmentCost=0; cost="FREE"; }
-            prototypeView.ShowCommand(i-first,spell.DisplayName,cost,segmentCost,i==selectedIndex,usable,delivery.Kind);
+            int cooldownTurns=EriTurnCombat.Active!=null?EriTurnCombat.Active.CooldownTurnsRemaining(spell):0;
+            prototypeView.ShowCommand(i-first,spell.DisplayName,cost,segmentCost,i==selectedIndex,usable,delivery.Kind,cooldownTurns);
             if(i==selectedIndex){detail=spell.Description;reason=EriTurnCombat.Active.Reason(spell);}
         }
         if(eri!=null)

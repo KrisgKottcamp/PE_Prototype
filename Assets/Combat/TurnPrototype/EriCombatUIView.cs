@@ -79,6 +79,8 @@ public sealed class EriCombatUIView : MonoBehaviour
         public GameObject Selection;
         public GameObject MarkBadge;
         public GameObject DamageBadge;
+        [Tooltip("Editable clock shown while this skill is cooling down.")]
+        public GameObject CooldownIcon;
         [Tooltip("One editable circle for each possible AP segment cost.")]
         public UnityEngine.UI.Image[] SegmentOrbs;
         [NonSerialized] public Color NameColor, CostColor;
@@ -97,6 +99,25 @@ public sealed class EriCombatUIView : MonoBehaviour
         {
             row.NameColor=row.Name.color;row.CostColor=row.Cost.color;
             row.SegmentOrbColors=row.SegmentOrbs==null?Array.Empty<Color>():row.SegmentOrbs.Select(orb=>orb!=null?orb.color:Color.white).ToArray();
+            if(row.CooldownIcon==null)
+            {
+                var existing=row.Root.transform.Find("Cooldown Icon");
+                if(existing!=null)row.CooldownIcon=existing.gameObject;
+                else
+                {
+                    var icon=new GameObject("Cooldown Icon",typeof(RectTransform),typeof(CanvasRenderer),typeof(EriCooldownIcon));
+                    icon.transform.SetParent(row.Root.transform,false);
+                    var rect=(RectTransform)icon.transform;
+                    rect.anchorMin=rect.anchorMax=rect.pivot=new Vector2(0,1);
+                    rect.anchoredPosition=new Vector2(294,-3);rect.sizeDelta=new Vector2(15,15);
+                    var graphic=icon.GetComponent<EriCooldownIcon>();
+                    graphic.color=new Color32(255,226,165,255);graphic.raycastTarget=false;
+                    row.CooldownIcon=icon;
+                }
+            }
+            if(row.CooldownIcon.GetComponent<CanvasRenderer>()==null)
+                row.CooldownIcon.AddComponent<CanvasRenderer>();
+            row.CooldownIcon.SetActive(false);
         }
         cursorY=TimingCursor.anchoredPosition.y;
         CommandPanel.SetActive(false);TimingPanel.SetActive(false);EnemyMarkTemplate.gameObject.SetActive(false);
@@ -149,11 +170,12 @@ public sealed class EriCombatUIView : MonoBehaviour
         if(combat.Timing)
             TimingCursor.anchoredPosition=new Vector2(TimingTrack.rect.width*combat.TimingProgress,cursorY);
     }
-    public void ShowCommand(int index,string name,string cost,int segmentCost,bool selected,bool usable,EriCommandKind? kind)
+    public void ShowCommand(int index,string name,string cost,int segmentCost,bool selected,bool usable,EriCommandKind? kind,int cooldownTurns=0)
     {
         if(index<0 || index>=Commands.Length)return;
         var row=Commands[index];row.Root.SetActive(true);row.Name.text=name;row.Cost.text=cost;
         row.Selection.SetActive(selected);
+        if(row.CooldownIcon!=null)row.CooldownIcon.SetActive(cooldownTurns>0);
         row.Name.color=!usable?UnavailableCommand:selected?SelectedCommand:row.NameColor;
         row.Cost.color=!usable?UnavailableCommand:selected?SelectedCommand:row.CostColor;
         if(row.SegmentOrbs!=null)for(int i=0;i<row.SegmentOrbs.Length;i++)

@@ -194,7 +194,8 @@ public sealed class PlayerSpellV2Bridge : MonoBehaviour
         {
             string reason = turnCombat.Reason(spell);
             failure = string.IsNullOrEmpty(reason) ? SpellCastFailure.None :
-                turnCombat.Remaining > 0 ? SpellCastFailure.OnCooldown : SpellCastFailure.InsufficientResources;
+                turnCombat.CooldownTurnsRemaining(spell) > 0 || turnCombat.Remaining > 0
+                    ? SpellCastFailure.OnCooldown : SpellCastFailure.InsufficientResources;
             return failure == SpellCastFailure.None;
         }
         if (!spell.ResourceCost.IsFree &&

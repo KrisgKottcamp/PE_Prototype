@@ -27,6 +27,7 @@ public sealed class EriTurnCombat : MonoBehaviour
     private readonly List<SpellDefinition> skills = new List<SpellDefinition>();
     private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
     private readonly Dictionary<int, List<SpellDefinition>> kits = new Dictionary<int, List<SpellDefinition>>();
+    private readonly EriSkillCooldowns skillCooldowns = new EriSkillCooldowns();
     private PlayerSpellV2Bridge bridge;
     private SpellRunner runner;
     private int rosterIndex = -1;
@@ -133,10 +134,12 @@ public sealed class EriTurnCombat : MonoBehaviour
         return true;
     }
 
-    private void EndTurn()
+    private void EndTurn(EriPrototypeDelivery usedSkill = null)
     {
         commandActor = Party.activeIndex;
         lastActor = Party.activeIndex;
+        skillCooldowns.CompleteTurn(commandActor, usedSkill != null ? usedSkill.Kind : (EriCommandKind?)null,
+            usedSkill != null ? usedSkill.CooldownTurns : 0);
         Member.currentAP = 0;
         foreach (var other in Party.party)
             if (other != Member && other.currentHP > 0)
@@ -180,6 +183,8 @@ public sealed class EriTurnCombat : MonoBehaviour
         if (TurnEnding || IsWaiting(Party.activeIndex)) return "Turn spent — another character must act";
         var d = spell != null ? spell.Delivery as EriPrototypeDelivery : null;
         if (d == null) return "Not a prototype command";
+        int cooldown = CooldownTurnsRemaining(spell);
+        if (cooldown > 0) return cooldown == 1 ? "Skill cooling down · use another turn" : $"Skill cooling down · {cooldown} turns";
         if (mechanics.ShieldActions > 0 && d.Kind != EriCommandKind.Recover) return "";
         if (d.Kind == EriCommandKind.Recover)
         {
@@ -188,6 +193,12 @@ public sealed class EriTurnCombat : MonoBehaviour
         }
         return EriTurnRules.Unavailable(m.currentHP, m.currentAP, m.currentMP,
             m.exhaustedSegments, m.def.maxAP, d.Segments, d.MPCost, Remaining);
+    }
+    public int CooldownTurnsRemaining(SpellDefinition spell)
+    {
+        var delivery = spell != null ? spell.Delivery as EriPrototypeDelivery : null;
+        if (delivery == null || delivery.Kind == EriCommandKind.Recover || Party == null) return 0;
+        return skillCooldowns.Remaining(Party.activeIndex, delivery.Kind);
     }
     public string CostDisplay(SpellDefinition spell)
     {
@@ -200,6 +211,7 @@ public sealed class EriTurnCombat : MonoBehaviour
         if (context.ChainDepth > 0) return SpellCastFailure.None;
         if (TurnEnding || mechanics.AllOutExecuting) return SpellCastFailure.RunnerBusy;
         if (spell == GetComponent<SpellLoadout>().BasicAttack) return SpellCastFailure.None;
+        if (CooldownTurnsRemaining(spell) > 0) return SpellCastFailure.OnCooldown;
         if (Remaining > 0.001f && mechanics.ShieldActions <= 0) return SpellCastFailure.OnCooldown;
         return string.IsNullOrEmpty(Reason(spell)) ? SpellCastFailure.None : SpellCastFailure.InsufficientResources;
     }
@@ -217,7 +229,7 @@ public sealed class EriTurnCombat : MonoBehaviour
             m.exhaustedSegments += d.Segments;
         }
         timingBonus = 0;
-        EndTurn();
+        EndTurn(d);
     }
 
     public void RefreshSkills()
@@ -263,6 +275,7 @@ public sealed class EriTurnCombat : MonoBehaviour
         var tuning = KitSettings.Get(kind);
         Add(title, description, kind, tuning.Segments, tuning.MPCost);
         var delivery = (EriPrototypeDelivery)skills[skills.Count - 1].Delivery;
+        delivery.CooldownTurns = Mathf.Max(1, tuning.CooldownTurns);
         delivery.Damage = tuning.Damage; delivery.Range = tuning.Range;
         delivery.Radius = tuning.Radius; delivery.Duration = tuning.Duration;
         JsonUtility.FromJsonOverwrite("{\"maximumRange\":" + tuning.Range.ToString(System.Globalization.CultureInfo.InvariantCulture) +

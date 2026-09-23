@@ -11,6 +11,7 @@ public sealed class EriPrototypeDelivery : DeliveryDefinition
     public EriCommandKind Kind;
     public int Segments;
     public int MPCost;
+    public int CooldownTurns = 1;
     public int Damage;
     public float Range = 10f, Radius = 2f, Duration;
     public PlayerTargetingDefinition Targeting;

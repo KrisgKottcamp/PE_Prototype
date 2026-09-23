@@ -16,9 +16,10 @@ This note describes the current, opt-in prototype contract. Values marked provis
 ## Turn controls and rewards
 
 - A normal command spends its authored segments and MP, ends the active character's turn, and follows the existing recovery/character rotation. Timing can save 1–2 MP and grades defense damage (normal/1.25x/1.5x).
+- Each used skill cools down for one subsequent turn on its character. Completing a turn with another skill, Recover, a potion, or Call Eri advances that character's cooldowns; turns taken by other characters do not. Shield-break free actions still respect skill cooldowns. Tune individual durations with `Cooldown Turns` in Character Kit Settings.
 - After a Shield break, the next regular skill is a free second action: it waives AP, MP, and recovery/cooldown consumption. It may target any valid target and still ends the active character's turn. Recover, an MP potion, and Call Eri are not free-shield skill commands and do not consume this bonus.
 - One-turn party/self buffs decrement after a completed skill command, excluding the cast that granted the buff. `Motivate` grants two turns to the actor; `Inspire` grants one turn to living party members.
-- All-Out becomes available only when every living enemy is knocked down. It applies the current rules asset's `100` Health and `40` defense damage (provisional tuning). Every survivor stands up with full defenses afterward, even if the sweep breaks its remaining bar. Fresh breaks still award their normal rewards. A repeat requires knocking every survivor down again. It never consumes Armor's attack reward.
+- All-Out becomes available only when every living enemy is knocked down. It applies the current rules asset's `150` Health and `60` defense damage (provisional tuning). Every survivor stands up with full defenses afterward, even if the sweep breaks its remaining bar. Fresh breaks still award their normal rewards. A repeat requires knocking every survivor down again. It never consumes Armor's attack reward.
 
 ## Editable setup
 

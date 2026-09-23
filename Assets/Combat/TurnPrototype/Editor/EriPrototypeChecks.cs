@@ -35,7 +35,25 @@ public static class EriPrototypeChecks
             Check(EriTurnRules.CanTakeTurn(0,1,4),"another action releases previous actor");
             Check(EriTurnRules.CanTakeTurn(0,0,1),"last survivor cannot be turn-locked");
             Check(EriTurnRules.CanTakeTurn(0,-1,4),"first turn is open");
-            Debug.Log("ERI_TURN_CHECKS: PASS (20 deterministic resource and turn checks). Compilation succeeded.");
+            var cooldowns=new EriSkillCooldowns();
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==0,"skills start ready");
+            cooldowns.CompleteTurn(0,EriCommandKind.Slash,1);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==1 && cooldowns.Remaining(1,EriCommandKind.Slash)==0,
+                "a used skill locks for its owner only");
+            cooldowns.CompleteTurn(1,EriCommandKind.Slash,1);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==1,"another character's turn does not clear cooldown");
+            cooldowns.CompleteTurn(0,EriCommandKind.Shot,1);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==0 && cooldowns.Remaining(0,EriCommandKind.Shot)==1,
+                "an alternate skill completes the blocked turn");
+            cooldowns.CompleteTurn(0,EriCommandKind.Slash,3);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==3,"longer skill cooldown starts at authored duration");
+            cooldowns.CompleteTurn(0,EriCommandKind.Recover,0);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==2 && cooldowns.Remaining(0,EriCommandKind.Recover)==0,
+                "Recover advances cooldown without cooling down itself");
+            cooldowns.CompleteTurn(0,null,0);
+            cooldowns.CompleteTurn(0,null,0);
+            Check(cooldowns.Remaining(0,EriCommandKind.Slash)==0,"two more completed turns clear long cooldown");
+            Debug.Log("ERI_TURN_CHECKS: PASS deterministic resource, cooldown and turn checks.");
         }
         catch(Exception error){Debug.LogError("ERI_TURN_CHECKS: FAIL " + error);}
     }

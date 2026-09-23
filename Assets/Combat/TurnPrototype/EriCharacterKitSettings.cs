@@ -9,6 +9,7 @@ public sealed class EriCharacterKitSettings : ScriptableObject
     {
         public EriCommandKind Kind;
         public int Damage, Segments, MPCost;
+        [Min(1)] public int CooldownTurns = 1;
         public float Range, Radius, Duration;
         public SkillTuning(EriCommandKind kind, int damage, int segments, int mp, float range, float radius, float duration = 0)
         { Kind = kind; Damage = damage; Segments = segments; MPCost = mp; Range = range; Radius = radius; Duration = duration; }

@@ -97,11 +97,20 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         typeof(CombatSkillMenuController).GetMethod("OpenSkillPanel",Private).Invoke(menu,null);
         Check(Time.timeScale>0 && Mathf.Approximately(Time.timeScale,menu.CommandMenuTimeScale),"skill selection uses configured slow motion");
         foreach(var row in authoredUI.Commands)
+        {
             Check(row.SegmentOrbs!=null && row.SegmentOrbs.Length==4,"command row has four editable segment-cost orb slots");
+            Check(row.CooldownIcon!=null && row.CooldownIcon.GetComponent<EriCooldownIcon>()!=null &&
+                row.CooldownIcon.GetComponent<CanvasRenderer>()!=null,
+                "command row has an editable cooldown clock");
+        }
         authoredUI.ShowCommand(0,"Orb Test","9 MP",3,true,true,null);
         int visibleCostOrbs=0;
         foreach(var orb in authoredUI.Commands[0].SegmentOrbs)if(orb!=null && orb.gameObject.activeSelf)visibleCostOrbs++;
         Check(visibleCostOrbs==3,"three-segment command displays exactly three cost orbs");
+        authoredUI.ShowCommand(0,"Cooldown Test","9 MP",3,true,false,EriCommandKind.Slash,1);
+        Check(authoredUI.Commands[0].CooldownIcon.activeSelf,"cooling skill shows clock icon");
+        authoredUI.ShowCommand(0,"Ready Test","9 MP",3,true,true,EriCommandKind.Slash);
+        Check(!authoredUI.Commands[0].CooldownIcon.activeSelf,"ready skill hides clock icon");
         typeof(CombatSkillMenuController).GetMethod("RefreshCompactPrototypeText",Private).Invoke(menu,null);
         // Runtime binding must preserve art-direction changes, including nested bar layout.
         var background=authoredUI.CommandPanel.GetComponent<UnityEngine.UI.Image>();
@@ -138,6 +147,7 @@ public sealed class EriPrototypePlayChecks:MonoBehaviour
         Check(Mathf.Approximately(combat.Remaining,EriTurnRules.RecoverySeconds),"fixed recovery starts");
         int outgoingIndex=party.activeIndex;
         Check(combat.TurnEnding && m.currentAP==0,"accepted skill ends turn and discards AP");
+        Check(combat.CooldownTurnsRemaining(slash)==1,"accepted skill cools down for one owner turn");
         Check(!runner.TryCast(slash,context,out _),"immediate repeat rejected");
         Check(m.currentMP==97 && m.exhaustedSegments==1,"rejected cast spends nothing");
         // A genuine external pause must still defer handoff and freeze recovery.

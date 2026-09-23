@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>One-time migration and navigation. Existing authored UI is never regenerated.</summary>
+[InitializeOnLoad]
 public static class EriUIAuthoring
 {
     private const string Folder="Assets/Combat/TurnPrototype/UI";
@@ -14,6 +15,82 @@ public static class EriUIAuthoring
     private static TMP_FontAsset font;
     private static Material textMaterial;
     private static Sprite fillSprite;
+
+    static EriUIAuthoring()
+    {
+        // Upgrade the existing editable UI scene after scripts reload, without
+        // changing any other open scene or an unsaved UI edit.
+        EditorApplication.delayCall += () =>
+        {
+            if (!SessionState.GetBool("Eri.UI.CooldownIcons.v2",false) &&
+                AssetDatabase.LoadAssetAtPath<SceneAsset>(EriCombatUIView.ScenePath)!=null &&
+                EnsureCooldownIcons())
+                SessionState.SetBool("Eri.UI.CooldownIcons.v2",true);
+        };
+    }
+
+    private static GameObject CooldownIcon(Transform row)
+    {
+        var existing=row.Find("Cooldown Icon");
+        if(existing!=null)
+        {
+            if(existing.GetComponent<CanvasRenderer>()==null)existing.gameObject.AddComponent<CanvasRenderer>();
+            return existing.gameObject;
+        }
+        var go=new GameObject("Cooldown Icon",typeof(RectTransform),typeof(CanvasRenderer),typeof(EriCooldownIcon));
+        go.transform.SetParent(row,false);
+        var rect=(RectTransform)go.transform;
+        rect.anchorMin=rect.anchorMax=rect.pivot=new Vector2(0,1);
+        rect.anchoredPosition=new Vector2(294,-3);rect.sizeDelta=new Vector2(15,15);
+        var graphic=go.GetComponent<EriCooldownIcon>();
+        graphic.color=new Color32(255,226,165,255);graphic.raycastTarget=false;
+        go.SetActive(false);
+        return go;
+    }
+
+    [MenuItem("Tools/Project Eri/UI/Add Skill Cooldown Icons")]
+    public static void AddCooldownIcons() { EnsureCooldownIcons(); }
+
+    private static bool EnsureCooldownIcons()
+    {
+        if(EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)return false;
+        var scene=SceneManager.GetSceneByPath(EriCombatUIView.ScenePath);
+        bool opened=!scene.isLoaded;
+        if(!opened && scene.isDirty)
+        {
+            Debug.LogWarning("ERI_UI_COOLDOWN: Save the open UI scene before adding cooldown icons.");
+            return false;
+        }
+        var previous=SceneManager.GetActiveScene();
+        try
+        {
+            if(opened)scene=EditorSceneManager.OpenScene(EriCombatUIView.ScenePath,OpenSceneMode.Additive);
+            var view=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<EriCombatUIView>(true)).Single();
+            bool changed=false;
+            foreach(var row in view.Commands)
+            {
+                if(row.Root==null)throw new Exception("Command row root is missing.");
+                var existing=row.Root.transform.Find("Cooldown Icon");
+                bool hadRenderer=existing!=null && existing.GetComponent<CanvasRenderer>()!=null;
+                var icon=CooldownIcon(row.Root.transform);
+                if(existing==null || !hadRenderer || row.CooldownIcon!=icon){row.CooldownIcon=icon;changed=true;}
+            }
+            if(changed)
+            {
+                EditorUtility.SetDirty(view);
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log("ERI_UI_COOLDOWN: Saved editable cooldown clocks in the UI scene.");
+            }
+            return true;
+        }
+        catch(Exception e){Debug.LogError("ERI_UI_COOLDOWN: "+e);return false;}
+        finally
+        {
+            if(opened && scene.isLoaded)EditorSceneManager.CloseScene(scene,true);
+            if(previous.isLoaded)SceneManager.SetActiveScene(previous);
+        }
+    }
 
     [MenuItem("Tools/Project Eri/UI/Create Editable UI %&F8")]
     public static void Create()
@@ -106,7 +183,7 @@ public static class EriUIAuthoring
             var cost=Text(row,"Cost",new Vector2(248,-3),new Vector2(62,20),13,costs[i]);
             var mark=Badge(row,"Mark Badge",true);var damage=Badge(row,"Damage Badge",false);
             mark.SetActive(i==0);damage.SetActive(i==1);
-            view.Commands[i]=new EriCombatUIView.CommandRow{Root=row.gameObject,Name=name,Cost=cost,Selection=selected.gameObject,MarkBadge=mark,DamageBadge=damage,SegmentOrbs=orbs};
+            view.Commands[i]=new EriCombatUIView.CommandRow{Root=row.gameObject,Name=name,Cost=cost,Selection=selected.gameObject,MarkBadge=mark,DamageBadge=damage,CooldownIcon=CooldownIcon(row),SegmentOrbs=orbs};
         }
         view.Description=Text(commands,"Description",new Vector2(12,-149),new Vector2(506,42),14,"Mark enemies entering the circle with Fear for 16 seconds.");
         view.Description.textWrappingMode=TextWrappingModes.Normal;view.Description.color=new Color32(224,232,238,255);
@@ -182,7 +259,7 @@ public static class EriUIAuthoring
             var view=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<EriCombatUIView>(true)).Single();
             if(view.Commands.Length<5 || view.Members.Length<4 || view.Segments.Length!=4)throw new Exception("Required row bindings are missing.");
             foreach(var row in view.Commands)
-                if(row.Root==null || row.Name==null || row.Cost==null || row.Selection==null || row.MarkBadge==null || row.DamageBadge==null || row.SegmentOrbs==null || row.SegmentOrbs.Length!=4 || row.SegmentOrbs.Any(o=>o==null || o.sprite==null))throw new Exception("An editable command binding is missing.");
+                if(row.Root==null || row.Name==null || row.Cost==null || row.Selection==null || row.MarkBadge==null || row.DamageBadge==null || row.CooldownIcon==null || row.CooldownIcon.GetComponent<CanvasRenderer>()==null || row.SegmentOrbs==null || row.SegmentOrbs.Length!=4 || row.SegmentOrbs.Any(o=>o==null || o.sprite==null))throw new Exception("An editable command binding is missing.");
             foreach(var image in view.Segments.Select(s=>s.Fill).Concat(view.Members.Select(m=>m.HP)).Concat(view.Members.Select(m=>m.MP)))
                 if(image==null || image.sprite==null || image.type!=UnityEngine.UI.Image.Type.Filled)throw new Exception("Bar must use a Filled Image with a sprite.");
             if(view.EnemyMarkTemplate==null || view.Potion==null || view.TimingTrack==null || view.TimingCursor==null)throw new Exception("Status/timing/potion binding is missing.");

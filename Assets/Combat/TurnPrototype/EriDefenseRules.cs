@@ -15,9 +15,11 @@ public sealed class EriDefenseRules : ScriptableObject
     [Header("Test roster (only enemies without an authored defense component)")]
     public bool AssignTestProfiles = true;
     [Header("All-out sweep")]
-    [Min(1)] public int AllOutHealthDamage = 100;
-    [Min(1)] public int AllOutDefenseDamage = 40;
+    [Min(1)] public int AllOutHealthDamage = 150;
+    [Min(1)] public int AllOutDefenseDamage = 60;
     [Min(0.1f)] public float SweepSeconds = 0.65f;
+    [Header("Enemy pressure")]
+    [Min(1)] public int EnemyProjectileDamage = 12;
     [Header("Combat feel")]
     [Min(1f)] public float APGainMultiplier = 1.5f;
     [Min(1f)] public float PhilMagnetMultiplier = 1.8f;

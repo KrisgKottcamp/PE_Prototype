@@ -12,7 +12,7 @@ public sealed class EriEnemyRhythm : MonoBehaviour
     public float VolleyInterval = 0.38f;
     public float BulletSpeed = 5f;
     public float BulletLifetime = 2.2f;
-    public int BulletDamage = 8;
+    public int BulletDamage => EriDefenseRules.Default.EnemyProjectileDamage;
     public int CleanWaveAP = 15;
     public int MaxBullets = 120;
     [Range(1, 6)] public int VolleyCount = 5;
