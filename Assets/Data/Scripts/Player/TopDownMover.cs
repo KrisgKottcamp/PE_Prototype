@@ -136,6 +136,12 @@ public class TopDownMover : MonoBehaviour
         if (forcedMotion != null && forcedMotion.IsControllingMotion)
             return;
 
+        if (SpellBuildUpControl2D.IsMovementBlocked(gameObject))
+        {
+            rb.MovePosition(ClampToWalkArea(rb.position));
+            return;
+        }
+
         if (attackCommitment == null)
             attackCommitment = GetComponent<PlayerAttackCommitment>();
 

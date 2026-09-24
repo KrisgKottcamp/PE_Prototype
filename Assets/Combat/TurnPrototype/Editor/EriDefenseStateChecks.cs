@@ -12,9 +12,9 @@ public static class EriDefenseStateChecks
     static EriDefenseStateChecks() { EditorApplication.delayCall += AutoRun; }
     private static void AutoRun()
     {
-        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || SessionState.GetBool("Eri.DefenseChecks.AllOutWake.v5", false)) return;
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || SessionState.GetBool("Eri.DefenseChecks.FearMarkGate.v6", false)) return;
         Run();
-        SessionState.SetBool("Eri.DefenseChecks.AllOutWake.v5", true);
+        SessionState.SetBool("Eri.DefenseChecks.FearMarkGate.v6", true);
     }
     [MenuItem("Tools/Project Eri/Check Defense State Transitions")]
     public static void Run()
@@ -55,7 +55,7 @@ public static class EriDefenseStateChecks
             defense.ApplyHit(100, true, false, 1f, 5);
             check(defense.IsKnockedDown && armorBreaks == 2 && shieldBreaks == 1 && hp.CurrentHP == 160, "simultaneous breaks reward both, no overflow");
             check(!defense.ApplyAllOut(10, 10) && hp.CurrentHP == 150 && !defense.IsKnockedDown &&
-                defense.Armor == 60 && defense.Shield == 60,
+                defense.Armor == 20 && defense.Shield == 20,
                 "all-out stands a survivor up and restores both defenses");
             defense.Configure(60, 60);
             defense.ApplyHit(60, false, false, 1f, 6);
@@ -98,6 +98,30 @@ public static class EriDefenseStateChecks
             defense.ApplyHit(100, false, false, 1f, 23);
             check(hp.CurrentHP == 200 && defense.IsKnockedDown && defense.DownHitsLanded == 0,
                 "matching defense still absorbs breaking hit without Health overflow");
+            hp.Init(200); defense.Configure(0, 60); mark.Remaining = 0;
+            defense.ApplyHit(30, true, true, 1.5f, 24);
+            check(defense.Shield == 15 && !defense.IsKnockedDown,
+                "perfect unmarked Fear Shot cannot break a standard Shield");
+            hp.Init(200); defense.Configure(0, 60); mark.Remaining = 0;
+            defense.ApplyHit(38, true, true, 1.5f, 25);
+            check(defense.Shield == 3 && !defense.IsKnockedDown,
+                "perfect unmarked Dread Snipe cannot break a standard Shield");
+            hp.Init(200); defense.Configure(0, 60); mark.Remaining = 28;
+            defense.ApplyHit(30, true, true, 1.25f, 26);
+            check(defense.Shield == 0 && defense.IsKnockedDown && mark.Remaining == 0,
+                "marked Fear Shot breaks a standard Shield with good timing");
+            defense.Recover(); mark.Remaining = 28;
+            defense.ApplyHit(38, true, true, 1f, 27);
+            check(defense.Shield == 0 && defense.IsKnockedDown && mark.Remaining == 0,
+                "marked Dread Snipe breaks a standard Shield without a timing bonus");
+            hp.Init(200); defense.Configure(60, 0);
+            defense.ApplyHit(38, false, false, 1.5f, 28);
+            check(defense.Armor == 3 && !defense.IsKnockedDown,
+                "perfect unmarked Grenade cannot break a standard Armor bar");
+            hp.Init(200); defense.Configure(60, 0); defense.ApplyOffBalance(8);
+            defense.ApplyHit(30, false, false, 1f, 29);
+            check(defense.Armor == 0 && defense.IsKnockedDown,
+                "Off-balance lets Whip Slash break a standard Armor bar");
             Debug.Log("ERI_DEFENSE_STATE: " + count + " isolated component checks passed. Not a gameplay playtest.");
         }
         finally { EditorSceneManager.ClosePreviewScene(scene); UnityEngine.Object.DestroyImmediate(rules); }

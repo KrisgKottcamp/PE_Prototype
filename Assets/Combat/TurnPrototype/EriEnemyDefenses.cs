@@ -188,7 +188,8 @@ public sealed class EriEnemyDefenses : MonoBehaviour
     {
         if (health.CurrentHP <= 0) return false;
         int before = health.CurrentHP, oldArmor = Armor, oldShield = Shield;
-        health.ApplyHealthDamage(Mathf.Max(0, healthDamage));
+        health.ApplyHealthDamage(EriDefenseMath.AllOutDamage(healthDamage, health.MaxHP,
+            Rules.AllOutMaxHealthFraction));
         Armor = Mathf.Max(0, Armor - Mathf.Max(0, defenseDamage));
         Shield = Mathf.Max(0, Shield - Mathf.Max(0, defenseDamage));
         if (health.CurrentHP <= 0)

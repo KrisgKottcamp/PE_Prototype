@@ -21,14 +21,14 @@ MonoBehaviour:
     Radius: 1.1
     Duration: 0
   - Kind: 8
-    Damage: 44
+    Damage: 36
     Segments: 2
     MPCost: 6
     Range: 4
     Radius: 0.8
     Duration: 0
   - Kind: 5
-    Damage: 42
+    Damage: 30
     Segments: 1
     MPCost: 5
     Range: 12
@@ -38,11 +38,12 @@ MonoBehaviour:
     Damage: 0
     Segments: 1
     MPCost: 6
+    WindUpSeconds: 0.7
     Range: 0
     Radius: 0
     Duration: 0
   - Kind: 9
-    Damage: 72
+    Damage: 38
     Segments: 3
     MPCost: 10
     Range: 16
@@ -56,7 +57,7 @@ MonoBehaviour:
     Radius: 0.22
     Duration: 0
   - Kind: 11
-    Damage: 48
+    Damage: 38
     Segments: 2
     MPCost: 7
     Range: 9
@@ -87,6 +88,7 @@ MonoBehaviour:
     Damage: 0
     Segments: 2
     MPCost: 10
+    WindUpSeconds: 1
     Range: 0
     Radius: 0
     Duration: 0
@@ -108,6 +110,7 @@ MonoBehaviour:
     Damage: 0
     Segments: 1
     MPCost: 4
+    WindUpSeconds: 0.65
     Range: 13
     Radius: 0.3
     Duration: 0
@@ -115,6 +118,7 @@ MonoBehaviour:
     Damage: 0
     Segments: 1
     MPCost: 4
+    WindUpSeconds: 0.75
     Range: 9
     Radius: 2
     Duration: 0

@@ -69,8 +69,10 @@ public sealed class EriKitEffects : MonoBehaviour
             }
             if (closest != null)
             {
-                closest.GetComponent<EriEnemyDefenses>()?.ApplyOffBalance(Settings != null ? Settings.OffBalanceSeconds : 8);
+                // The setup hit cannot exploit the mark it creates. This keeps
+                // Off-balance as a handoff to a later physical action.
                 effect.Hit(closest);
+                closest.GetComponent<EriEnemyDefenses>()?.ApplyOffBalance(Settings != null ? Settings.OffBalanceSeconds : 8);
             }
             effect.DrawLine(origin, origin + effect.direction * effect.range, new Color(1,.85f,.5f));
             effect.remaining = .18f; return;

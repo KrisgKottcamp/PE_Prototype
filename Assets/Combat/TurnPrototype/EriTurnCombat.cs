@@ -45,6 +45,8 @@ public sealed class EriTurnCombat : MonoBehaviour
         mechanics = GetComponent<EriCombatMechanics>() ?? gameObject.AddComponent<EriCombatMechanics>();
         bridge = GetComponent<PlayerSpellV2Bridge>();
         runner = GetComponent<SpellRunner>();
+        if (runner != null && GetComponent<SpellBuildUpControl2D>() == null)
+            gameObject.AddComponent<SpellBuildUpControl2D>();
         pawn = GetComponent<CombatPawn>();
         runner.CommandCheck = CheckCast;
         runner.CommandAccepted = AcceptCast;
@@ -204,7 +206,10 @@ public sealed class EriTurnCombat : MonoBehaviour
     {
         var d = spell.Delivery as EriPrototypeDelivery;
         if (d != null && d.Kind != EriCommandKind.Recover && mechanics.ShieldActions > 0) return "Shield break · free action";
-        return d == null ? "" : d.Kind == EriCommandKind.Recover ? "0 MP · restores all capacity · ends turn" : $"{d.Segments} segment{(d.Segments == 1 ? "" : "s")} · {d.MPCost} MP";
+        if (d == null) return "";
+        if (d.Kind == EriCommandKind.Recover) return "0 MP · restores all capacity · ends turn";
+        string windUp = d.WindUpSeconds > 0 ? $" · {d.WindUpSeconds:0.##}s vulnerable wind-up" : "";
+        return $"{d.Segments} segment{(d.Segments == 1 ? "" : "s")} · {d.MPCost} MP{windUp}";
     }
     private SpellCastFailure CheckCast(SpellDefinition spell, CastContext context)
     {
@@ -221,6 +226,8 @@ public sealed class EriTurnCombat : MonoBehaviour
         var m = Member;
         var d = (EriPrototypeDelivery)spell.Delivery;
         mechanics.CommandStarted(timingBonus);
+        if (d.WindUpSeconds > 0)
+            Message = spell.DisplayName + " charging · movement locked · vulnerable";
         if (d.Kind == EriCommandKind.Recover) m.exhaustedSegments = 0;
         else if (!mechanics.ConsumeShieldAction())
         {
@@ -274,10 +281,20 @@ public sealed class EriTurnCombat : MonoBehaviour
     {
         var tuning = KitSettings.Get(kind);
         Add(title, description, kind, tuning.Segments, tuning.MPCost);
-        var delivery = (EriPrototypeDelivery)skills[skills.Count - 1].Delivery;
+        var spell = skills[skills.Count - 1];
+        var delivery = (EriPrototypeDelivery)spell.Delivery;
         delivery.CooldownTurns = Mathf.Max(1, tuning.CooldownTurns);
         delivery.Damage = tuning.Damage; delivery.Range = tuning.Range;
         delivery.Radius = tuning.Radius; delivery.Duration = tuning.Duration;
+        delivery.WindUpSeconds = Mathf.Max(0, tuning.WindUpSeconds);
+        if (delivery.WindUpSeconds > 0)
+        {
+            string seconds = delivery.WindUpSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            JsonUtility.FromJsonOverwrite("{\"timing\":{\"buildUpDuration\":" + seconds +
+                ",\"timeMode\":0,\"buildUpControl\":{\"blockPlayerMovement\":true,\"blockPlayerBasicAttacks\":true," +
+                "\"blockPlayerSkillUsage\":true,\"showPowerUpParticles\":true,\"particleColor\":{\"r\":1,\"g\":0.62,\"b\":0.22,\"a\":0.95}," +
+                "\"particlesPerSecond\":22,\"particleSpawnRadius\":1,\"particleInwardSpeed\":2.8,\"particleSize\":0.065}}}", spell);
+        }
         JsonUtility.FromJsonOverwrite("{\"maximumRange\":" + tuning.Range.ToString(System.Globalization.CultureInfo.InvariantCulture) +
             ",\"previewRadius\":" + tuning.Radius.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}", delivery.Targeting);
     }

@@ -13,7 +13,7 @@ public sealed class EriPrototypeDelivery : DeliveryDefinition
     public int MPCost;
     public int CooldownTurns = 1;
     public int Damage;
-    public float Range = 10f, Radius = 2f, Duration;
+    public float Range = 10f, Radius = 2f, Duration, WindUpSeconds;
     public PlayerTargetingDefinition Targeting;
     public override PlayerTargetingDefinition ResolvePlayerTargeting(SpellDeliverySettings settings) => Targeting;
     public override CastTargetingRequirement TargetingRequirement =>

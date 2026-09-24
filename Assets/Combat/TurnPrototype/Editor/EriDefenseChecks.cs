@@ -20,9 +20,17 @@ public static class EriDefenseChecks
         check(EriDefenseMath.Remaining(0, 100, 1f) == 0, "already broken defense stays broken during all-out");
         check(EriDefenseMath.Remaining(100, 40, 2f) == 20, "off-balance doubles physical armor pressure");
         check(EriDefenseMath.Remaining(100, 40, 1.5f) == 40, "mini-game modifier increases defense damage");
+        check(EriDefenseMath.Remaining(60, 32, 1.5f) == 12, "perfect unmarked Slash cannot break standard Armor");
+        check(EriDefenseMath.Remaining(60, 36, 1.5f) == 6, "perfect unmarked Dash Slash cannot break standard Armor");
+        check(EriDefenseMath.Remaining(60, 38, 1.5f) == 3, "perfect unmarked Grenade cannot break standard Armor");
+        check(EriDefenseMath.Remaining(60, 30, 1.5f) == 15, "perfect unmarked Whip Slash cannot break standard Armor");
+        check(EriDefenseMath.Remaining(60, 30, 2f) == 0, "Off-balance lets Whip Slash break standard Armor");
         check(EriDefenseMath.KnockdownDamage(20, 100, .1f, 1f) == 30, "basic knockdown finisher");
         check(EriDefenseMath.KnockdownDamage(60, 100, .1f, 1f) == 70, "skill knockdown finisher preserves skill damage");
         check(EriDefenseMath.KnockdownDamage(20, 200, .1f, 1.25f) == 50, "armor bonus includes max-health component");
+        check(EriDefenseMath.AllOutDamage(120, 150, .8f) == 120, "all-out leaves a full standard enemy alive");
+        check(EriDefenseMath.AllOutDamage(150, 100, .8f) == 80, "all-out percentage ceiling protects smaller full Health bars");
+        check(EriDefenseMath.AllOutDamage(120, 250, .8f) == 120, "all-out configured damage still limits larger enemies");
         check(!EriDefenseMath.CrossedThreshold(25, 20, 100, .2f), "exactly 20 percent not below");
         check(EriDefenseMath.CrossedThreshold(20, 19, 100, .2f), "crossing threshold qualifies");
         check(!EriDefenseMath.CrossedThreshold(19, 18, 100, .2f), "remaining below threshold does not reknock");

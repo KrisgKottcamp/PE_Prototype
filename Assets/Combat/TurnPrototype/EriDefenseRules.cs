@@ -15,7 +15,9 @@ public sealed class EriDefenseRules : ScriptableObject
     [Header("Test roster (only enemies without an authored defense component)")]
     public bool AssignTestProfiles = true;
     [Header("All-out sweep")]
-    [Min(1)] public int AllOutHealthDamage = 150;
+    [Min(1)] public int AllOutHealthDamage = 120;
+    [Range(0.1f, 0.99f), Tooltip("Maximum fraction of an enemy's max Health one All-Out can remove.")]
+    public float AllOutMaxHealthFraction = 0.8f;
     [Min(1)] public int AllOutDefenseDamage = 60;
     [Min(0.1f)] public float SweepSeconds = 0.65f;
     [Header("Enemy pressure")]
@@ -56,6 +58,10 @@ public static class EriDefenseMath
         => System.Math.Max(0, current - (int)System.Math.Round(System.Math.Max(0, incoming) * System.Math.Max(0, multiplier)));
     public static int KnockdownDamage(int attackDamage, int maxHealth, float fraction, float multiplier)
         => (int)System.Math.Round((System.Math.Max(0, attackDamage) + System.Math.Max(0, maxHealth) * fraction) * multiplier);
+    public static int AllOutDamage(int configuredDamage, int maxHealth, float maxHealthFraction)
+        => System.Math.Min(System.Math.Max(0, configuredDamage),
+            (int)System.Math.Floor(System.Math.Max(1, maxHealth) *
+                System.Math.Clamp(maxHealthFraction, 0.1f, 0.99f)));
     public static bool CrossedThreshold(int before, int after, int maxHealth, float threshold)
     {
         // Decimal preserves designer-entered thresholds such as .2 across Mono/CoreCLR.

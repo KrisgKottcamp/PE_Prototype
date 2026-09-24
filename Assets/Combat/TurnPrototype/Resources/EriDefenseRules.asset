@@ -22,7 +22,8 @@ MonoBehaviour:
   DefaultShield: 60
   ArmorRewardMultiplier: 1.25
   AssignTestProfiles: 1
-  AllOutHealthDamage: 150
+  AllOutHealthDamage: 120
+  AllOutMaxHealthFraction: 0.8
   AllOutDefenseDamage: 60
   SweepSeconds: 0.65
   EnemyProjectileDamage: 12
